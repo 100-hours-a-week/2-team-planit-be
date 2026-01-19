@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/planit?serverTimezone=Asia/Seoul
+    username: planit
+    password: planit
+
+jwt:
+  secret: planit-local-secret-key
+
