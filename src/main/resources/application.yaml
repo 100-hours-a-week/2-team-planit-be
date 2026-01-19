@@ -8,6 +8,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     show-sql: true
     properties:
       hibernate:
@@ -15,8 +17,4 @@ spring:
 
   sql:
     init:
-      mode: never          # ERD SQL 재실행 방지
-
-    hibernate:
-      naming:
-        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+      mode: never   # ERD SQL 재실행 방지
