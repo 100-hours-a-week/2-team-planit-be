@@ -15,3 +15,14 @@
 - 2026-01-21: `ValidationExceptionHandler`를 제거하고 `GlobalExceptionHandler`에 중심을 모아 단일 예외 흐름을 유지한 뒤 MockMvc 테스트를 `GlobalExceptionHandler` 기준으로 확장하여 errors 배열을 포함한 응답을 검증하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 통과시킴.
 - 2026-01-21: `global/config` 디렉터리를 제거하고 `SecurityConfig`를 `com.planit.config`로 옮겨 config 폴더 상위에 더 이상 global 네임스페이스가 남지 않도록 정리함.
 - 2026-01-21: 사용자 프로필 이미지 삭제 API(`/users/{userId}/profile-image`)와 `UserService.deleteProfileImage`를 추가, `user_image` 테이블에서 association을 제거하고 API/서비스/통합 테스트를 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
+- 2026-01-21: Springdoc OpenAPI (`OpenApiConfig`)를 등록하여 Swagger UI를 생성하고, `UserSignupSpecTest`로 정상/중복/패턴/정책 시나리오를 통합 확인한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 통합 테스트를 실행함.
+- 2026-01-21: Swagger UI (`/swagger-ui/**`, `/v3/api-docs/**`)를 `SecurityConfig`에서 permitAll 처리해 인증 없이 접근 가능하게 하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
+- 2026-01-21: springdoc 버전을 Spring Boot 3.5.9와 호환되는 2.5.0으로 올리고(2.5.x 이상으로 권장) 테스트를 다시 실행해 문서/Swagger가 정상 작동하는지 확인함.
+- 2026-01-21: Spring Boot을 3.3.5로 다시 다운그레이드하고 springdoc-openapi 2.5.0을 유지한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew clean build`로 전체 컴파일/테스트를 성공시킴.
+- 2026-01-21: `server.servlet.context-path`를 `/api`로 지정해 전체 REST API가 `/api` 베이스 하위로 이동하도록 설정한 뒤 Health/controller 테스트를 `/api/` prefix를 포함해 재검증함.
+- 2026-01-21: 소스/테스트 패키지를 도메인형 구조(예: `com.planit.global.config`, `com.planit.domain.user.*`)로 재배치하고 관련 package/import를 모두 조정한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 통합 검증함.
+- 2026-01-21: OpenAPI 정의의 server URL을 `/api`로 맞춰 Swagger 문서가 실제 context-path와 일치하도록 조정하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 재검증함.
+- 2026-01-21: `User` 엔티티에서 모든 validation 어노테이션을 제거하고 DTO 수준에서만 유효성을 처리하도록 정리한 후 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 통합 테스트를 재실행함.
+- 2026-01-21: Security matcher를 `/api` 없이 순수 엔드포인트(`/users/...`, `/swagger-ui/**`, `/v3/api-docs/**`)만 허용하도록 조정하고 다시 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
+- 2026-01-21: `SecurityConfig`를 `com.planit.global.security`로 옮기고 테스트/설정에서 새 패키지를 참조하도록 조정한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`를 재실행함.
+- 2026-01-21: 아이디 `@Pattern` 메시지를 “영문 대소문자, 숫자, _” 설명으로 정리해 반복되는 유효성 에러 결과를 피하고, 해당 메시지가 `/api/users/signup` 시나리오 테스트에서도 반영되도록 변경한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`를 통과시킴.
