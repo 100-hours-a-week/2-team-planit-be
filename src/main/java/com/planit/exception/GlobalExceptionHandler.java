@@ -1,4 +1,4 @@
-package com.planit.global.exception;
+package com.planit.exception;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;

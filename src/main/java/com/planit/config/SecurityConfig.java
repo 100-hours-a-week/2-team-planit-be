@@ -1,4 +1,4 @@
-package com.planit.global.config;
+package com.planit.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

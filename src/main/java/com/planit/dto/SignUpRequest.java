@@ -16,11 +16,11 @@ public class SignUpRequest {
     @NotBlank(message = "*아이디를 입력해주세요.")
     @Size.List({
         @Size(min = 4, message = "*아이디가 너무 짧습니다"),
-        @Size(max = 20, message = "*올바른 아이디 형식을 입력해주세요. 아이디는 4자 이상, 20자 이하이며, 대문자, 소문자, 숫자, _ 만 포함해야 합니다")
+        @Size(max = 20, message = "*올바른 아이디 형식을 입력해주세요. 아이디는 4자 이상, 20자 이하이며, 영문 대소문자와 숫자, _ 만 포함해야 합니다")
     })
     @Pattern(
         regexp = "^[A-Za-z0-9_]+$",
-        message = "*올바른 아이디 형식을 입력해주세요. 아이디는 4자 이상, 20자 이하이며, 대문자, 소문자, 숫자, _ 만 포함해야 합니다"
+        message = "*올바른 아이디 형식을 입력해주세요. 아이디는 4자 이상, 20자 이하이며, 영문 대소문자와 숫자, _ 만 포함해야 합니다"
     )
     private String loginId;
 

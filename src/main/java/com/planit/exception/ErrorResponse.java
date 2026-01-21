@@ -1,4 +1,4 @@
-package com.planit.global.exception;
+package com.planit.exception;
 
 import java.util.Collections;
 import java.util.List;
