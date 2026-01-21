@@ -25,6 +25,28 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}  # 버전 관리용 ID
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # GitHub Actions IP를 AWS SG에 일시적으로 등록하기
+      - name: Get GitHub Actions IP
+        id: get-ip
+        uses: haythem/public-ip@v1.3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Add IP to SG
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
+            || echo "IP may already be in security group"
+          sleep 10
+
       # JAR 파일을 EC2 서버로 전송
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -76,6 +98,25 @@ jobs:
             done
             echo "Server failed to start."
             exit 1 # 실패 종료
+
+      # AWS SG에서 IP 제거
+      - name: Configure AWS credentials for cleanup
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Remove IP from Security Group
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
+            || echo "Failed to remove IP or rule not found"
 
       - name: Send Discord Notification
         if: always()
