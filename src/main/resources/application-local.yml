@@ -4,6 +4,15 @@ spring:
     username: planit
     password: planit
 
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
 jwt:
   secret: planit-local-secret-key
-

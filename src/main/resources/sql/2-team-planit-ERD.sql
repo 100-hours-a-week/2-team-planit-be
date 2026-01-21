@@ -159,7 +159,7 @@ CREATE TABLE `notifications` (
 );
 
 CREATE TABLE `user_image` (
-	`id`	BIGINT	NOT NULL	COMMENT '유저 이미지 관계를 식별하는 기본 키',
+	`id`	BIGINT	NOT NULL AUTO_INCREMENT	COMMENT '유저 이미지 관계를 식별하는 기본 키',
 	`user_id`	BIGINT	NOT NULL	COMMENT '이미지를 소유한 사용자 ID',
 	`image_id`	BIGINT	NOT NULL	COMMENT '사용자와 연결된 이미지 ID'
 );
@@ -193,15 +193,20 @@ CREATE TABLE `likes` (
 	`created_at`	DATETIME	NOT NULL	COMMENT '좋아요가 생성된 시각'
 );
 
-CREATE TABLE `users` (
-	`user_id`	BIGINT	NOT NULL	COMMENT '사용자를 식별하는 기본 키',
-	`login_id`	VARCHAR(50)	NOT NULL	COMMENT '로그인에 사용되는 사용자 아이디',
-	`password`	VARCHAR(255)	NOT NULL	COMMENT '암호화된 사용자 비밀번호',
-	`nickname`	VARCHAR(20)	NOT NULL	COMMENT '서비스 내에 노출되는 닉네임',
-	`is_deleted`	TINYINT(1)	NOT NULL	DEFAULT 0	COMMENT '탈퇴 여부 (Soft Delete 용도)',
-	`preferences`	JSON	NULL	COMMENT '사용자 개인 설정 (추천, 필터 등)',
-	`created_at`	DATETIME	NOT NULL	COMMENT '사용자 계정 생성 시각',
-	`updated_at`	DATETIME	NOT NULL	COMMENT '사용자 정보 마지막 수정 시각'
+CREATE TABLE users (
+    user_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '사용자를 식별하는 기본 키',
+
+    login_id VARCHAR(50) NOT NULL UNIQUE COMMENT '로그인에 사용되는 사용자 아이디',
+    password VARCHAR(255) NOT NULL COMMENT '암호화된 사용자 비밀번호',
+    nickname VARCHAR(20) NOT NULL UNIQUE COMMENT '서비스 내에 노출되는 닉네임',
+
+    preferences JSON NULL COMMENT '사용자 개인 설정 (추천, 필터 등)',
+
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '탈퇴 여부 (Soft Delete 용도)',
+    deleted_at DATETIME NULL COMMENT '탈퇴 시각 (Soft Delete)',
+
+    created_at DATETIME NOT NULL COMMENT '사용자 계정 생성 시각',
+    updated_at DATETIME NOT NULL COMMENT '사용자 정보 마지막 수정 시각'
 );
 
 ALTER TABLE `ai_chat_messages` ADD CONSTRAINT `PK_AI_CHAT_MESSAGES` PRIMARY KEY (
@@ -299,4 +304,3 @@ ALTER TABLE `likes` ADD CONSTRAINT `PK_LIKES` PRIMARY KEY (
 ALTER TABLE `users` ADD CONSTRAINT `PK_USERS` PRIMARY KEY (
 	`user_id`
 );
-
