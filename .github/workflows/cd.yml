@@ -1,0 +1,134 @@
+name: CD - Backend
+
+on:
+  workflow_run:
+    workflows: ["CI - Backend"]
+    types:
+      - completed
+    branches: [main]
+
+jobs:
+  backend-cd:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} # CI가 성공했을 때만 실행
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # CI에서 빌드한 JAR 파일 다운로드
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: build/libs
+          run-id: ${{ github.event.workflow_run.id }}  # 버전 관리용 ID
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # GitHub Actions IP를 AWS SG에 일시적으로 등록하기
+      - name: Get GitHub Actions IP
+        id: get-ip
+        uses: haythem/public-ip@v1.3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Add IP to SG
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
+            || echo "IP may already be in security group"
+          sleep 10
+
+      # JAR 파일을 EC2 서버로 전송
+      - name: Copy JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "build/libs/*.jar"  # 다운로드 받은 경로
+          target: "/home/ubuntu/temp_backend"
+          strip_components: 2
+
+      # 서버 접속 후 기존 프로세스 종료 및 새 JAR 실행
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 폴더 이동 및 정리
+            sudo mkdir -p /var/www/planit/backend
+            sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit/backend/planit-backend.jar
+            sudo chown ubuntu:ubuntu /var/www/planit/backend/planit-backend.jar
+            rm -rf /home/ubuntu/temp_backend/*
+
+            # 기존 8080 포트 프로세스 종료
+            sudo fuser -k 8080/tcp || true
+
+            # 새 프로세스 실행 (환경 변수 주입)
+            nohup java -jar -Dspring.profiles.active=prod \
+              -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
+              -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
+              -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
+              -DJWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              /var/www/planit/backend/planit-backend.jar > /var/www/planit/backend/app.log 2>&1 &
+
+            echo "Health Check 시작"
+            for retry_count in {1..15}
+            do
+              # localhost:8080/actuator/health 또는 메인 페이지("/")로 요청
+              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || true)
+              if [ "$response" -eq 200 ] || [ "$response" -eq 401 ]; then
+                echo "Server is up (HTTP $response)"
+                exit 0 # 성공 종료
+              fi
+              
+              echo "Waiting for server... (Attempt $retry_count/15)"
+              sleep 10
+            done
+            echo "Server failed to start."
+            exit 1 # 실패 종료
+
+      # AWS SG에서 IP 제거
+      - name: Configure AWS credentials for cleanup
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Remove IP from Security Group
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
+            || echo "Failed to remove IP or rule not found"
+
+      - name: Send Discord Notification
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            MSG="CD - Backend 성공"
+          else
+            MSG="CD - Backend 실패"
+          fi
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"${MSG}\n🔗 [배포 로그 확인](${RUN_URL})\"}" \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}

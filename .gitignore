@@ -1,11 +1,14 @@
+### HELP ###
 HELP.md
 
-.gradle
+### Gradle ###
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### Application config ###
 application-*.yml
 application-*.yaml
 .env
@@ -16,22 +19,21 @@ application-*.yaml
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
-.sts4-cache
+.sts4-cache/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
-git push origin main
 
 ### NetBeans ###
 /nbproject/private/
@@ -42,4 +44,3 @@ git push origin main
 
 ### VS Code ###
 .vscode/
-
