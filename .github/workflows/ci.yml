@@ -32,7 +32,8 @@ jobs:
         with:
           name: backend-jar
           path: |
-            **/build/libs/*.jar
+            build/libs/*.jar
+            !build/libs/*-plain.jar
           retention-days: 7          
           
       - name: Send Discord Notification
