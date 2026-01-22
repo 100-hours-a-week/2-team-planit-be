@@ -1,58 +1,68 @@
+// build.gradle: Gradle configuration for Planit backend
 plugins {
+    // Apply the Java plugin for compiling Java sources
     id 'java'
+    // Spring Boot plugin for auto-configuration and executable jars
     id 'org.springframework.boot' version '3.3.5'
+    // Manage dependency versions via Spring dependency management plugin
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
+// Maven groupId for generated artifacts
 group = 'com.planit'
+// Snapshot version used during development
 version = '0.0.1-SNAPSHOT'
+// Project description
 description = 'Planit Backend'
 
 java {
+    // Configure the Java toolchain to use Java 21
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
 configurations {
+    // Ensure compileOnly scope also receives annotation processors
     compileOnly {
         extendsFrom annotationProcessor
     }
 }
 
 repositories {
+    // Use Maven Central as the main dependency repository
     mavenCentral()
 }
 
 dependencies {
-    // Web / JPA
+    // Web and JPA support
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    // Security
+    // Spring Security stack
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // Validation
+    // Bean validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // Flyway
+    // Flyway database migrations
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-mysql'
 
-    // MySQL
+    // MySQL JDBC driver for runtime
     runtimeOnly 'com.mysql:mysql-connector-j'
 
-    // OpenAPI / Swagger
+    // OpenAPI / Swagger documentation + JWT libs
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
-    // Lombok
+    // Lombok only used at compile time + annotation processing
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
-    // Test
+    // Testing dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'com.h2database:h2'
@@ -60,5 +70,6 @@ dependencies {
 }
 
 tasks.named('test') {
+    // Keep the standard test task enabled
     enabled = true
 }
