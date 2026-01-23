@@ -4,6 +4,7 @@ import com.planit.domain.user.dto.SignUpRequest; // 회원가입 요청 payload 
 import com.planit.domain.user.dto.UserAvailabilityResponse; // 중복 확인 응답 DTO
 import com.planit.domain.user.dto.UserProfileResponse; // 인증된 사용자 정보 DTO
 import com.planit.domain.user.dto.UserSignupResponse; // 회원가입 결과 DTO
+import com.planit.domain.user.dto.UserUpdateRequest; // 회원 정보 수정 요청 DTO
 import com.planit.domain.user.service.UserService; // 사용자 도메인 로직을 담당하는 서비스
 import jakarta.validation.Valid; // DTO 검증을 위한 표준 애노테이션
 import jakarta.validation.constraints.NotBlank; // 빈 문자열 검사
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 바인딩
 import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
+import org.springframework.web.bind.annotation.PutMapping; // PUT 매핑
 import org.springframework.web.bind.annotation.RequestBody; // 본문 바인딩
 import org.springframework.web.bind.annotation.RequestMapping; // 클래스 단위 경로
 import org.springframework.web.bind.annotation.RequestParam; // 쿼리 파라미터 바인딩
@@ -24,10 +26,10 @@ import org.springframework.web.bind.annotation.RestController; // REST 컨트롤
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증 정보 주입
 import org.springframework.security.core.userdetails.UserDetails; // 인증 주체 표현 인터페이스
 
-@RestController // REST 요청 처리를 위한 컨트롤러
-@RequestMapping("/users") // 실제 경로는 `/api/users` (context-path `/api` 포함)
-@Validated // DTO 유효성 검사를 활성화
-@RequiredArgsConstructor // final 필드 생성자 자동 생성
+@RestController // JSON REST 컨트롤러로 마이페이지 연동 전용 API 노출
+@RequestMapping("/users") // `/api/users` 기반 경로 선행 처리
+@Validated // DTO 레벨 유효성 검사를 클래스 단계에서 적용
+@RequiredArgsConstructor // 서비스 자동 주입 생성자 제공
 public class UserController {
 
     private final UserService userService; // 사용자 도메인 서비스를 주입
@@ -35,7 +37,7 @@ public class UserController {
     @PostMapping("/signup") // POST /api/users/signup
     @ResponseStatus(HttpStatus.CREATED) // 생성 성공 시 201 응답
     public UserSignupResponse signup(@Valid @RequestBody SignUpRequest request) {
-        // DTO 검증 후 서비스로 위임하여 저장
+        // DTO를 통해 받은 가입 필드로 회원가입 처리
         return userService.signup(request);
     }
 
@@ -53,12 +55,12 @@ public class UserController {
         )
         String loginId
     ) {
-        // ID 중복 여부를 응답
+        // helper text 기준으로 중복된 ID 여부를 단순 메시지로 응답
         return userService.checkLoginId(loginId);
     }
 
     @DeleteMapping("/{userId}/profile-image") // DELETE /api/users/{userId}/profile-image
-    @ResponseStatus(HttpStatus.NO_CONTENT) // 리소스 없을 때 204 반환
+    @ResponseStatus(HttpStatus.NO_CONTENT) // 프로필 이미지 삭제 후 204 반환
     public void deleteProfileImage(@PathVariable Long userId) {
         userService.deleteProfileImage(userId);
     }
@@ -76,7 +78,24 @@ public class UserController {
 
     @GetMapping("/me") // GET /api/users/me
     public UserProfileResponse me(@AuthenticationPrincipal UserDetails principal) {
-        // 인증된 loginId를 기준으로 사용자 정보를 반환
+        // 마이페이지 진입 시 필요한 최소 프로필 정보를 조회
         return userService.getProfile(principal.getUsername());
     }
+
+    @PutMapping("/me") // 회원 정보 수정 엔드포인트
+    public UserProfileResponse updateProfile(
+        @AuthenticationPrincipal UserDetails principal,
+        @Valid @RequestBody UserUpdateRequest request
+    ) {
+        // 닉네임/비밀번호/이미지 유효성 통과 시 service에서 저장 후 최신 프로필 반환
+        return userService.updateProfile(principal.getUsername(), request);
+    }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@AuthenticationPrincipal UserDetails principal) {
+        // 팀 정책에 따라 soft-delete 처리 및 이미지 제거
+        userService.deleteAccount(principal.getUsername());
+    }
+
 }

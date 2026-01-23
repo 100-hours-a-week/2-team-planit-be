@@ -43,3 +43,11 @@
 - 2026-01-25: JwtAuthenticationFilter에서 principal을 UserDetails로 설정하고 `UserService` 로그와 함께 인증 컨텍스트가 정상 작동하도록 변경한 뒤 `./gradlew test`를 통과함.
 - 2026-01-25: JwtAuthenticationFilter의 `shouldNotFilter` 조건을 `/auth/login`만 제외하도록 미세조정해서 `/auth/verify`가 필터를 통과하고 인증 흐름에서 정상 작동하도록 정리한 뒤 `./gradlew test`를 성공시킴.
 - 2026-01-25: `application-local.yml`에 32자 이상 JWT secret을 명시하고 `JwtProvider`에서 기본값을 없애며 키 생성/검증 흐름을 정리하여 토큰 발급이 WeakKeyException 없이 동작하도록 한 뒤 `./gradlew test`를 통과함.
+- 2026-01-23: 2026-01-20~01-23 트러블슈팅 로그 정리를 위한 정보 제공 요청을 수신하고 AGENTS.md 요약 및 1/23 기록 필요 점검을 수행함.
+- 2026-01-23: `.idea`/`.gradle` 캐시가 트래킹된 상태를 감지하고 `git rm --cached`로 인덱스에서 제거하여 `.gitignore` 규칙을 실제 상태에 맞춤.
+- 2026-01-23: `build/` 결과물이 트래킹돼 있는 점을 확인하고 `git rm -r --cached build`로 제거하여 `.gitignore`과 일치하도록 정리함.
+- 2026-01-23: `UserService.getProfile`을 확장하여 프로필 이미지 존재 여부와 사용자 일정 히스토리를 포함한 `UserProfileResponse`를 반환하도록 하고, 관련 DTO/TripRepository를 구현하여 마이페이지 정보 요구사항을 반영함(단, `./gradlew test`는 권한 오류로 미실행).
+- 2026-01-23: `UserController`에 내 정보 수정/탈퇴 엔드포인트를 추가하고, DTO/유효성 조건을 enforce해서 마이페이지 흐름에 맞게 사용자 편집/삭제 흐름을 API 수준에서 제공하도록 정리함.
+- 2026-01-23: `SecurityConfig`에 인증/권한 예외 핸들러와 permitAll 경로 정리, JWT 필터 제외 대상으로 목표 마이페이지 흐름(회원수정/탈퇴/로그인/헬스/Swagger)만 인증되도록 구성해 `UserController`의 새 엔드포인트를 보호함.
+- 2026-01-23: Swagger 문서를 검증하는 OpenApiDocTest를 추가해 `/api/users/me` 계정/수정/탈퇴/일정삭제 엔드포인트와 관련 DTO/보안 요구가 `/api/v3/api-docs`에 반영되는지 확인하고, 마이페이지 UX 요구에 맞춘 스펙이 유지되도록 함.
+- 2026-01-23: build 클래스에 남아 있던 `com.planit.global.health.HealthCheckController`를 삭제하여 `com.planit.global.controller.HealthCheckController`와의 bean 이름 충돌을 해소하고 clean build에서 충돌 없이 컨트롤러가 로드되도록 정리함.
