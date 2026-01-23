@@ -1,27 +1,27 @@
-version: "3.8"
+version: "3.8" # Compose file format version
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: planit-mysql
+  mysql: # MySQL 데이터베이스 서비스 정의
+    image: mysql:8.0 # MySQL 8.0 공식 이미지 사용
+    container_name: planit-mysql # 생성 컨테이너 명
     ports:
-      - "3306:3306"
+      - "3306:3306" # 호스트 <-> 컨테이너 포트 매핑
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: planit
-      MYSQL_USER: planit
-      MYSQL_PASSWORD: planit
-      TZ: Asia/Seoul
+      MYSQL_ROOT_PASSWORD: root # 루트 비밀번호
+      MYSQL_DATABASE: planit # 초기 생성할 DB
+      MYSQL_USER: planit # 애플리케이션 연결용 유저
+      MYSQL_PASSWORD: planit # 해당 유저 비밀번호
+      TZ: Asia/Seoul # 컨테이너 timezone 설정
     command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
+      - --character-set-server=utf8mb4 # 문자셋 UTF-8 확장
+      - --collation-server=utf8mb4_unicode_ci # 정렬 규칙
     volumes:
-      - planit-mysql-data:/var/lib/mysql
+      - planit-mysql-data:/var/lib/mysql # 데이터를 호스트 볼륨에 유지
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"] # 헬스 체크 명령
+      interval: 10s # 헬스 체크 주기
+      timeout: 5s # 명령 타임아웃
+      retries: 5 # 실패 시 재시도 횟수
 
 volumes:
-  planit-mysql-data:
+  planit-mysql-data: # MySQL 데이터퍼시스턴스 볼륨

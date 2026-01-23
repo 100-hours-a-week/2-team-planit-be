@@ -26,3 +26,28 @@
 - 2026-01-21: Security matcher를 `/api` 없이 순수 엔드포인트(`/users/...`, `/swagger-ui/**`, `/v3/api-docs/**`)만 허용하도록 조정하고 다시 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
 - 2026-01-21: `SecurityConfig`를 `com.planit.global.security`로 옮기고 테스트/설정에서 새 패키지를 참조하도록 조정한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`를 재실행함.
 - 2026-01-21: 아이디 `@Pattern` 메시지를 “영문 대소문자, 숫자, _” 설명으로 정리해 반복되는 유효성 에러 결과를 피하고, 해당 메시지가 `/api/users/signup` 시나리오 테스트에서도 반영되도록 변경한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`를 통과시킴.
+- 2026-01-22: 로그인 기능정의서에 맞춰 로그인 ID 입력값을 영문 소문자·숫자·`_`만 허용하도록 DTO 및 `/users/check-login-id` 검증과 메시지를 조정하고, 관련 통합 테스트도 동일 helper text로 업데이트한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 통과시킴.
+- 2026-01-22: SecurityConfig에 stateless 세션/AuthenticationEntryPoint와 jwt 필터 흐름을 정리하고 AuthController 경로를 `/auth`로 맞춘 뒤 PasswordEncoder 빈을 UserService에 주입하여 `./gradlew test`를 성공적으로 실행함.
+- 2026-01-22: JWT 검증 확인용 `/api/auth/verify` 엔드포인트와 토큰 유효성/401 메시지를 점검하는 MockMvc 테스트를 추가하고 `./gradlew test`로 통합 확인을 마침.
+- 2026-01-25: `SecurityConfig`에 `@EnableWebSecurity`를 추가해 보안 설정이 스프링 기본 웹 보안과 명시적으로 연동되도록 한 뒤 `./gradlew test`에서 성공을 확인함.
+- 2026-01-25: `JwtProvider`를 `com.planit.domain.user.security`로 이동하고 테스트/필터/서비스의 import 경로를 조정한 뒤 `./gradlew test`를 다시 성공시킴.
+- 2026-01-25: `UserController`의 `@RequestMapping`을 `/api/users`로 정리해 context-path `/api`와 일치시킨 뒤 `./gradlew test`로 전체 검증을 완료함.
+- 2026-01-25: 인증이 필요한 `/api/users/{userId}/profile-image` 접근을 별도 MockMvc 테스트로 확인하여 401 메시지를 검증하고 `./gradlew test`를 다시 실행함.
+- 2026-01-25: Swagger OpenAPI 설명에 “로그인 후 Bearer 토큰 입력” 안내를 추가하고 `bearerAuth` 스킴을 등록하여 Authorization 버튼이 JWT 인증 흐름을 문서화하도록 정리한 뒤 `./gradlew test` 통과함.
+- 2026-01-25: `JwtAuthenticationFilter.shouldNotFilter`를 구현해 로그인/회원가입/헬스/Swagger 경로를 건너뛰고 허용된 경로에서만 JWT 검사를 하도록 정리한 뒤 `./gradlew test`로 재검증함.
+- 2026-01-25: `JwtAuthenticationFilter.shouldNotFilter`를 `startsWith` 기반으로 넓혀 로그인/가입/검증/헬스/Swagger 경로를 명확히 제외하고 로그를 찍도록 정리한 뒤 `./gradlew test`로 확인함.
+- 2026-01-25: SecurityConfig 및 JwtAuthenticationFilter에서 컨텍스트 패스(`/api`)를 제외한 실제 엔드포인트만 비교하도록 다듬어 permitAll/필터 제외 흐름이 일치하게 정리한 뒤 `./gradlew test`로 확인함.
+- 2026-01-25: OpenAPI 정의에 `bearerAuth` global security requirement를 추가하고 helper 설명을 유지하여 Swagger에서 Authorize 버튼을 명확히 안내함.
+- 2026-01-25: `/api/users/me` 호출 로그를 `UserService`에 기록하게 하고 `@Operation` 보안 문서를 붙여 인증된 내 정보 조회를 명시적으로 설명한 뒤 `./gradlew test`로 검증함.
+- 2026-01-25: 주요 DTO/컨트롤러/서비스/보안/설정/테스트 파일에 line-by-line 주석을 추가하고 `build.gradle`/환경 파일들도 같은 수준으로 설명을 달아 코드와 설정 문서를 직관적으로 남긴 뒤 `./gradlew test`가 통과됨.
+- 2026-01-25: JwtAuthenticationFilter에서 principal을 UserDetails로 설정하고 `UserService` 로그와 함께 인증 컨텍스트가 정상 작동하도록 변경한 뒤 `./gradlew test`를 통과함.
+- 2026-01-25: JwtAuthenticationFilter의 `shouldNotFilter` 조건을 `/auth/login`만 제외하도록 미세조정해서 `/auth/verify`가 필터를 통과하고 인증 흐름에서 정상 작동하도록 정리한 뒤 `./gradlew test`를 성공시킴.
+- 2026-01-25: `application-local.yml`에 32자 이상 JWT secret을 명시하고 `JwtProvider`에서 기본값을 없애며 키 생성/검증 흐름을 정리하여 토큰 발급이 WeakKeyException 없이 동작하도록 한 뒤 `./gradlew test`를 통과함.
+- 2026-01-23: 2026-01-20~01-23 트러블슈팅 로그 정리를 위한 정보 제공 요청을 수신하고 AGENTS.md 요약 및 1/23 기록 필요 점검을 수행함.
+- 2026-01-23: `.idea`/`.gradle` 캐시가 트래킹된 상태를 감지하고 `git rm --cached`로 인덱스에서 제거하여 `.gitignore` 규칙을 실제 상태에 맞춤.
+- 2026-01-23: `build/` 결과물이 트래킹돼 있는 점을 확인하고 `git rm -r --cached build`로 제거하여 `.gitignore`과 일치하도록 정리함.
+- 2026-01-23: `UserService.getProfile`을 확장하여 프로필 이미지 존재 여부와 사용자 일정 히스토리를 포함한 `UserProfileResponse`를 반환하도록 하고, 관련 DTO/TripRepository를 구현하여 마이페이지 정보 요구사항을 반영함(단, `./gradlew test`는 권한 오류로 미실행).
+- 2026-01-23: `UserController`에 내 정보 수정/탈퇴 엔드포인트를 추가하고, DTO/유효성 조건을 enforce해서 마이페이지 흐름에 맞게 사용자 편집/삭제 흐름을 API 수준에서 제공하도록 정리함.
+- 2026-01-23: `SecurityConfig`에 인증/권한 예외 핸들러와 permitAll 경로 정리, JWT 필터 제외 대상으로 목표 마이페이지 흐름(회원수정/탈퇴/로그인/헬스/Swagger)만 인증되도록 구성해 `UserController`의 새 엔드포인트를 보호함.
+- 2026-01-23: Swagger 문서를 검증하는 OpenApiDocTest를 추가해 `/api/users/me` 계정/수정/탈퇴/일정삭제 엔드포인트와 관련 DTO/보안 요구가 `/api/v3/api-docs`에 반영되는지 확인하고, 마이페이지 UX 요구에 맞춘 스펙이 유지되도록 함.
+- 2026-01-23: build 클래스에 남아 있던 `com.planit.global.health.HealthCheckController`를 삭제하여 `com.planit.global.controller.HealthCheckController`와의 bean 이름 충돌을 해소하고 clean build에서 충돌 없이 컨트롤러가 로드되도록 정리함.

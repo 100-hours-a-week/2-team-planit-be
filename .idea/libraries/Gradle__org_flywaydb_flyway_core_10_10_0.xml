@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: org.flywaydb:flyway-core:10.10.0" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="org.flywaydb" artifactId="flyway-core" version="10.10.0" baseVersion="10.10.0" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.flywaydb/flyway-core/10.10.0/8761d308b9fc9697a95ae362bcbbb5abe8f6e08f/flyway-core-10.10.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
