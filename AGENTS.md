@@ -43,3 +43,8 @@
 - 2026-01-25: JwtAuthenticationFilter에서 principal을 UserDetails로 설정하고 `UserService` 로그와 함께 인증 컨텍스트가 정상 작동하도록 변경한 뒤 `./gradlew test`를 통과함.
 - 2026-01-25: JwtAuthenticationFilter의 `shouldNotFilter` 조건을 `/auth/login`만 제외하도록 미세조정해서 `/auth/verify`가 필터를 통과하고 인증 흐름에서 정상 작동하도록 정리한 뒤 `./gradlew test`를 성공시킴.
 - 2026-01-25: `application-local.yml`에 32자 이상 JWT secret을 명시하고 `JwtProvider`에서 기본값을 없애며 키 생성/검증 흐름을 정리하여 토큰 발급이 WeakKeyException 없이 동작하도록 한 뒤 `./gradlew test`를 통과함.
+- 2026-01-23: `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 권한 상승 환경에서 다시 실행하여 OpenApiDocTest 포함 전체 테스트가 성공함을 확인하고 `.gradle/` 캐시 현황을 기록함.
+- 2026-01-23: 게시물 목록 조회를 위한 `PostController`/`PostService`/`PostRepository`/DTO를 추가하여 테이블 조합(`posts`, `users`, `comments`, `likes`, `posted_images`)과 검색/정렬/helper text 요건을 반영하고 Swagger 문서를 통해 스펙을 기록함.
+- 2026-01-27: 테스트 환경을 분리하여 기본 프로파일이 `test`로 실행되게 하고 H2 메모리 DB 설정(`src/test/resources/application-test.yml`)을 추가하여 `UserRepository`/`JwtAuthenticationFilter`를 포함한 JPA 빈들이 데이터베이스 의존성 없이 초기화되도록 지원함.
+- 2026-01-27: `BoardType` enum을 도입하고 `@Enumerated(EnumType.STRING)`으로 `Post.boardType`을 매핑한 뒤, Flyway `V2__board_type_string.sql`로 MySQL의 `posts.board_type` 컬럼을 `VARCHAR(255)`으로 변경하여 schema-validation 에러를 해결함.
+- 2026-01-26: 마이페이지/회원 정보 수정을 위한 `UserUpdateRequest`, `UserProfileResponse`, `UserController`/`UserService`, `UserProfileImageRepository`와 line-by-line 주석을 정비하고 SecurityConfig/Swagger/post 목록 DTO에 주석을 더해 도메인 흐름을 명확히 하며 `GRADLE_USER_HOME=./gradle-cache ./gradlew test` 실행 시 Gradle 배포 다운로드가 UnknownHostException으로 실패함을 확인함.
