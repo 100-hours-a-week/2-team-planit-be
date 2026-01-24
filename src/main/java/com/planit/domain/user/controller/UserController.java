@@ -4,6 +4,7 @@ import com.planit.domain.user.dto.SignUpRequest; // 회원가입 요청 payload 
 import com.planit.domain.user.dto.UserAvailabilityResponse; // 중복 확인 응답 DTO
 import com.planit.domain.user.dto.UserProfileResponse; // 인증된 사용자 정보 DTO
 import com.planit.domain.user.dto.UserSignupResponse; // 회원가입 결과 DTO
+import com.planit.domain.user.dto.UserUpdateRequest; // 사용자 정보 수정 요청 DTO
 import com.planit.domain.user.service.UserService; // 사용자 도메인 로직을 담당하는 서비스
 import jakarta.validation.Valid; // DTO 검증을 위한 표준 애노테이션
 import jakarta.validation.constraints.NotBlank; // 빈 문자열 검사
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 바인딩
 import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
+import org.springframework.web.bind.annotation.PutMapping; // PUT 매핑
 import org.springframework.web.bind.annotation.RequestBody; // 본문 바인딩
 import org.springframework.web.bind.annotation.RequestMapping; // 클래스 단위 경로
 import org.springframework.web.bind.annotation.RequestParam; // 쿼리 파라미터 바인딩
@@ -78,5 +80,14 @@ public class UserController {
     public UserProfileResponse me(@AuthenticationPrincipal UserDetails principal) {
         // 인증된 loginId를 기준으로 사용자 정보를 반환
         return userService.getProfile(principal.getUsername());
+    }
+
+    @PutMapping("/me") // PUT /api/users/me -> 프로필 수정 요청
+    public UserProfileResponse updateProfile(
+        @AuthenticationPrincipal UserDetails principal,
+        @Valid @RequestBody UserUpdateRequest request
+    ) {
+        // 인증된 사용자 정보를 기반으로 전달받은 수정 요청을 처리
+        return userService.updateProfile(principal.getUsername(), request);
     }
 }

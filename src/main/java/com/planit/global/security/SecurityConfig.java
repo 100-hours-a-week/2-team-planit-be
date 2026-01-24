@@ -6,6 +6,7 @@ import com.planit.global.common.response.ErrorResponse; // 에러 응답 DTO
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor; // final 필드 생성자
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,39 +33,41 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // CSRF 비활성화 (JWT 사용)
-            .httpBasic(basic -> basic.disable()) // 기본 인증 비활성화
+            .csrf(csrf -> csrf.disable()) // CSRF 토큰 없이 JWT를 사용하므로 비활성화
+            .httpBasic(basic -> basic.disable()) // HTTP 기본 인증 미사용
             .formLogin(form -> form.disable()) // 폼 로그인 비활성화
-            .logout(logout -> logout.disable()) // 라이브러리 로그아웃 사용 안 함
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 없이 stateless
-            .exceptionHandling(handler -> handler.authenticationEntryPoint(this::handleUnauthenticated)) // 인증 실패 시 JSON 에러
-            .anonymous(Customizer.withDefaults())
+            .logout(logout -> logout.disable()) // Spring 기본 로그아웃 비활성
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 상태 저장 없이 stateless
+            .exceptionHandling(handler -> handler.authenticationEntryPoint(this::handleUnauthenticated)) // 인증 실패 시 JSON 메시지
+            .anonymous(Customizer.withDefaults()) // 익명 접근 허용
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/healthcheck").permitAll()
                 .requestMatchers("/users/signup").permitAll()
                 .requestMatchers("/users/check-login-id").permitAll()
                 .requestMatchers("/users/check-nickname").permitAll()
+                .requestMatchers("/posts").permitAll() // 게시물 목록 탭/검색은 로그인 없이 조회 가능해야 함
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
                 .requestMatchers("/auth/login").permitAll()
-                .anyRequest().authenticated() // 위 경로 외에는 인증 필요
+                .anyRequest().authenticated() // 나머지 요청은 인증 필요
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // JWT 필터 전단 앞에 등록
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 둠
         return http.build();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); // 비밀번호 암호화 도구
+        return new BCryptPasswordEncoder(); // BCrypt 비밀번호 암호화기 반환
     }
 
     private void handleUnauthenticated(HttpServletRequest request,
                                        HttpServletResponse response,
                                        AuthenticationException exception) throws IOException {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value()); // 401 상태
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE); // JSON body
-        ErrorResponse errorResponse = ErrorResponse.of("*로그인이 필요한 요청입니다."); // helper 메시지
-        OBJECT_MAPPER.writeValue(response.getWriter(), errorResponse); // 응답 쓰기
+        response.setStatus(HttpStatus.UNAUTHORIZED.value()); // 인증 실패 상태
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE); // JSON 형태로 응답
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name()); // UTF-8로 한글 깨짐 방지
+        ErrorResponse errorResponse = ErrorResponse.of("*로그인이 필요한 요청입니다."); // 메시지 생성
+        OBJECT_MAPPER.writeValue(response.getWriter(), errorResponse); // 응답 스트림에 쓰기
     }
 }

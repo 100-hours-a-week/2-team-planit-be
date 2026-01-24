@@ -1,3 +1,9 @@
+### GLOBAL ###
+.idea/
+.gradle/
+build/
+gradle-cache/
+
 ### HELP ### # documentation references not tracked in repo
 HELP.md # ignore user-facing help notes to avoid committing local guidance
 
@@ -27,7 +33,6 @@ bin/ # binary outputs
 !**/src/test/**/bin/ # keep test-specific bin directories
 
 ### IntelliJ IDEA ### # IntelliJ workspace files
-.idea/ # project config
 *.iws # workspace
 *.iml # module files
 *.ipr # project file

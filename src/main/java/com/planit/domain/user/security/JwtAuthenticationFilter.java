@@ -52,8 +52,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         log.info("JWT FILTER HIT: {}", request.getRequestURI()); // 필터 진입 로그
 
         String token = resolveToken(request);
+        log.info("Resolved JWT token: {} ", token);
         if (StringUtils.hasText(token) && jwtProvider.validateToken(token)) { // 토큰 존재 & 유효성 확인
+            log.info("JWT valid result: true");
             String loginId = jwtProvider.getSubject(token); // 토큰에서 loginId 추출
+            log.info("JWT subject: {}", loginId);
             Optional<com.planit.domain.user.entity.User> optional = userRepository.findByLoginIdAndDeletedFalse(loginId);
             if (optional.isPresent()) {
                 com.planit.domain.user.entity.User user = optional.get();
@@ -67,6 +70,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request)); // 세부 정보 추가
                 SecurityContextHolder.getContext().setAuthentication(authentication); // SecurityContext에 등록
             }
+        } else {
+            boolean hasText = StringUtils.hasText(token);
+            log.info("JWT valid result: false (hasText={} , provided token={})", hasText, token);
         }
         filterChain.doFilter(request, response);
     }

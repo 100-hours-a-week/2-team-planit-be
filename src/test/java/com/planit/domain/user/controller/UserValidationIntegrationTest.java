@@ -128,7 +128,7 @@ class UserValidationIntegrationTest {
     @WithMockUser(username = "planit_user")
     void meReturnsProfileWhenAuthenticated() throws Exception {
         when(userService.getProfile("planit_user"))
-            .thenReturn(new UserProfileResponse(5L, "planit_user", "planitter")); // 인증된 사용자 반환 데이터 모킹
+            .thenReturn(new UserProfileResponse(5L, "planit_user", "planitter", null)); // 인증된 사용자 반환 데이터 모킹
 
         mockMvc.perform(get("/api/users/me"))
             .andExpect(status().isOk())
