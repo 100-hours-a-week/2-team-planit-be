@@ -36,15 +36,9 @@ jobs:
           retention-days: 7          
           
       - name: Send Discord Notification
-        if: always()
+        if: failure()
         run: |
-          STATUS="${{ job.status }}"
-          if [ "$STATUS" = "success" ]; then
-            MSG="CI - Backend 성공"
-          else
-            MSG="CI - Backend 실패!"
-          fi
-
+          MSG="CI - Backend 실패!"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
                -X POST \
