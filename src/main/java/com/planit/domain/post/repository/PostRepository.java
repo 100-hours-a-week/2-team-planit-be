@@ -1,28 +1,28 @@
-package com.planit.domain.post.repository;
+package com.planit.domain.post.repository; // 게시글 도메인 저장소 패키지
 
-import java.util.Optional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import java.util.Optional; // PostDetail 커스텀 조회용 Optional 타입
+import org.springframework.data.domain.Page; // 페이징 결과 타입
+import org.springframework.data.domain.Pageable; // Pageable 파라미터
+import org.springframework.data.jpa.repository.JpaRepository; // 기본 JPA 저장소
+import org.springframework.data.jpa.repository.Query; // Native Query 정의
+import org.springframework.data.repository.query.Param; // 쿼리 파라미터 바인딩
 
-public interface PostRepository extends JpaRepository<com.planit.domain.post.entity.Post, Long> {
+public interface PostRepository extends JpaRepository<com.planit.domain.post.entity.Post, Long>, PostRepositoryCustom {
 
     interface PostSummary {
-        Long getPostId();
-        String getTitle();
-        Long getAuthorId();
-        String getAuthorNickname();
-        Long getAuthorProfileImageId();
-        java.time.LocalDateTime getCreatedAt();
-        Long getLikeCount();
-        Long getCommentCount();
-        Long getRepresentativeImageId();
-        Double getRankingScore();
+        Long getPostId(); // 게시글 PK
+        String getTitle(); // 제목
+        Long getAuthorId(); // 작성자 PK
+        String getAuthorNickname(); // 작성자 닉네임
+        Long getAuthorProfileImageId(); // 프로필 이미지 ID
+        java.time.LocalDateTime getCreatedAt(); // 작성 시간
+        Long getLikeCount(); // 최근 1년 좋아요
+        Long getCommentCount(); // 최근 1년 댓글
+        Long getRepresentativeImageId(); // 대표 이미지 ID (null)
+        Double getRankingScore(); // ranking snapshot 값
     }
 
-    // posts, users, comments, likes, posted_images, post_ranking_snapshots를 조합한 요약 조회
+    // 자유게시판 목록용 네이티브 쿼리: posts + users + user_image + likes/comments + ranking 스냅샷 결합
     @Query(
         value =
             "select "
