@@ -86,8 +86,8 @@ jobs:
             echo "Health Check 시작"
             for retry_count in {1..15}
             do
-              # localhost:8080/actuator/health 또는 메인 페이지("/")로 요청
-              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || true)
+              # localhost:8080/api/health로 요청
+              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health || true)
               if [ "$response" -eq 200 ] || [ "$response" -eq 401 ]; then
                 echo "Server is up (HTTP $response)"
                 exit 0 # 성공 종료
