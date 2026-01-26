@@ -49,13 +49,13 @@ public class AiItineraryProcessor {
         if (response == null || response.itineraries() == null) {
             return;
         }
-        /*
-            // Persist only if trip exists
-                Trip trip = tripRepository.findById(job.request().tripId()).orElse(null);
-                if (trip == null) {
-                    return;
-                }
-         */
+
+        // Persist only if trip exists
+        Trip trip = tripRepository.findById(job.request().tripId()).orElse(null);
+        if (trip == null) {
+            return;
+        }
+        System.out.println("프로세서, 타이틀: "+trip.getTitle());
 
         // DB 저장은 생략하고 로그로 흐름만 확인
         System.out.println("[DB 생략] tripId=" + job.request().tripId()
@@ -64,10 +64,8 @@ public class AiItineraryProcessor {
         for (ItineraryDto itinerary : response.itineraries()) {
             // 일자별 일정 생성 로직 (DB 저장 생략)
 
-            /*
-                // Create day item (1st day, 2nd day...)
-                ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
-             */
+            // Create day item (1st day, 2nd day...)
+            ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
 
             System.out.println("[DB 생략] day=" + itinerary.day());
             List<ActivityDto> activities = itinerary.activities();
@@ -82,30 +80,25 @@ public class AiItineraryProcessor {
                 }
                 // Route는 이동 이벤트, 나머지는 장소 이벤트로 처리
                 if (isRoute(activity.type())) {
-                    /*
-                        transportRepository.save(new ItineraryItemTransport(
-                            item,
-                            "UNKNOWN",
-                            order,
-                            resolveStartTime(activity.startTime()),
-                            resolveDuration(activity.duration())
-                        ));
-                     */
+                    transportRepository.save(new ItineraryItemTransport(
+                        item,
+                        "UNKNOWN",
+                        order,
+                        resolveStartTime(activity.startTime()),
+                        resolveDuration(activity.duration())
+                    ));
                     System.out.println("[DB 생략] 이동 이벤트 order=" + order
                             + " start=" + resolveStartTime(activity.startTime())
                             + " duration=" + resolveDuration(activity.duration()));
                 } else {
-
-                    /*
-                        placeRepository.save(new ItineraryItemPlace(
-                            item,
-                            activity.placeId(),
-                            order,
-                            resolveStartTime(activity.startTime()),
-                            resolveDuration(activity.duration()),
-                            resolveCost(activity.cost())
+                    placeRepository.save(new ItineraryItemPlace(
+                        item,
+                        activity.placeId(),
+                        order,
+                        resolveStartTime(activity.startTime()),
+                        resolveDuration(activity.duration()),
+                        resolveCost(activity.cost())
                     ));
-                     */
 
                     System.out.println("[DB 생략] 장소 이벤트 order=" + order
                             + " placeId=" + activity.placeId()

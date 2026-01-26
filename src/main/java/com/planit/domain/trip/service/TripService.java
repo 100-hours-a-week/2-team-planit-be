@@ -24,7 +24,6 @@ public class TripService {
     public Long createTrip(TripCreateRequest request) {
 
 
-        /*
         Trip trip = tripRepository.save(new Trip(
                 request.title(),
                 request.arrivalDate(),
@@ -34,8 +33,10 @@ public class TripService {
                 request.travelCity(),
                 request.totalBudget()
         ));
-         */
+        System.out.println("여행 저장 후 trip객체 반환받음 ---> "+trip.getId());
 
+
+        /*
         Trip trip = new Trip(
                 request.title(),
                 request.arrivalDate(),
@@ -45,17 +46,18 @@ public class TripService {
                 request.travelCity(),
                 request.totalBudget()
         );
-        System.out.println("여행 저장 후 trip객체 반환받음");
+         */
+
 
 
         // Themes: Trip 1 : Theme N
         for (String theme : request.travelTheme()) {
             trip.addTheme(new TripTheme(trip, theme));
         }
-        System.out.println("테마 목록 할당 후 여행 재저장함");
-        //tripRepository.save(trip);
+        System.out.println("테마 목록 aaaaa할당 후 여행 재저장함");
+        tripRepository.save(trip);
 
-
+        System.out.println("job생성 전, trip.getId(): "+trip.getId());
         // Enqueue AI request and return immediately
         aiItineraryQueue.enqueue(new AiItineraryJob(new AiItineraryRequest(
                 trip.getId(),
