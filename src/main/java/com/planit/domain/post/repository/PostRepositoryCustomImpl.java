@@ -4,7 +4,6 @@ import com.planit.domain.post.dto.PostDetailResponse; // DTO
 import com.planit.domain.post.dto.PostDetailResponse.CommentInfo;
 import com.planit.domain.post.dto.PostDetailResponse.PostImage;
 import com.planit.domain.post.entity.BoardType;
-import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -84,7 +83,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         ); // 작성자 정보 구성
         Long likeCount = row[8] == null ? 0L : ((Number) row[8]).longValue();
         Long commentCount = row[9] == null ? 0L : ((Number) row[9]).longValue();
-        Boolean liked = Objects.equals(row[10], BigInteger.ONE);
+        Boolean liked = row[10] != null && ((Number) row[10]).longValue() == 1L;
         List<PostImage> images = fetchImages(postId); // 최대 5개 이미지 조회
         List<CommentInfo> comments = fetchComments(postId, requesterId); // 댓글 조회
         boolean editable = requesterId != null && requesterId.equals(authorId); // 수정/삭제 버튼 판단
@@ -120,12 +119,12 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             """); // posted_images에서 최대 5장 이미지 조회
         imageQuery.setParameter("postId", postId);
         @SuppressWarnings("unchecked")
-        List<BigInteger> results = imageQuery.getResultList();
+        List<Number> results = imageQuery.getResultList();
         if (results.isEmpty()) {
             return Collections.emptyList();
         }
         List<PostImage> images = new ArrayList<>();
-        for (BigInteger value : results) {
+        for (Number value : results) {
             images.add(new PostImage(value.longValue()));
         }
         return images;
@@ -134,15 +133,16 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private List<CommentInfo> fetchComments(Long postId, Long requesterId) {
         Query commentQuery = entityManager.createNativeQuery("""
             select c.comment_id,
-                   c.user_id,
+                   c.author_id,
                    u.nickname,
                    ui.image_id,
                    c.content,
                    c.created_at
             from comments c
-            join users u on u.user_id = c.user_id and u.is_deleted = 0
+            join users u on u.user_id = c.author_id and u.is_deleted = 0
             left join user_image ui on ui.user_id = u.user_id
             where c.post_id = :postId
+              and c.deleted_at is null
             order by c.created_at asc
             limit :limit
             """); // 댓글 20개 오래된 순
