@@ -68,3 +68,5 @@
 - 2026-01-26: Flyway V6 마이그레이션을 추가해 posts.author 컬럼을 조건부로 제거하여 삽입 시 SQL 1364(필수 미입력) 오류를 해결하고 v1 자유게시판 스펙에 맞춰 schema를 정리함.
 
 - 2026-01-26: Post 엔티티에서 userId 필드를 제거하고 author(User)만 관리하는 구조로 정리, PostService.createPost에서 User 엔티티를 주입하여 저장/응답을 처리해 JPA의 PK/FK 일관성을 확보함.
+
+- 2026-01-26: 게시글 수정 DTO/서비스/컨트롤러를 추가하여 PostUpdateRequest 기반 제목·본문·이미지 변경 + 권한 확인 흐름을 정리하고 `@PutMapping`을 multipart-form으로 노출함.
