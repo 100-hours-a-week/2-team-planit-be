@@ -74,6 +74,12 @@ public class Post {
         this.updatedAt = updatedAt;
     }
 
+    public void updateContent(String title, String content, LocalDateTime now) {
+        this.title = title;
+        this.content = content;
+        touchUpdatedAt(now);
+    }
+
     public static Post create(User author, String title, String content, BoardType boardType, LocalDateTime now) {
         Post post = new Post();
         post.author = author;
