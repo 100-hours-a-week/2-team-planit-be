@@ -4,7 +4,6 @@ import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse; // 상세 DTO
 import com.planit.domain.post.dto.PostListResponse; // 목록 DTO
-import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.domain.post.entity.BoardType; // 게시판 타입 enum
 import com.planit.domain.post.service.PostService; // 게시판 서비스
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,11 +12,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import jakarta.validation.Valid; // DTO 검증
-import jakarta.validation.constraints.NotBlank; // 필수 입력
 import jakarta.validation.constraints.Pattern; // 정규 표현식 검증
 import jakarta.validation.constraints.Size; // 길이 제한
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale; // 로케일 기반 대소문자 처리
 import org.springframework.http.HttpStatus; // HTTP 상태
 import org.springframework.http.MediaType; // 멀티파트 mime
@@ -28,14 +24,10 @@ import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
 import org.springframework.web.bind.annotation.ModelAttribute; // ModelAttribute 바인딩
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수
 import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping; // 클래스 단위 경로
 import org.springframework.web.bind.annotation.RequestParam; // 쿼리 파라미터
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController; // REST 컨트롤러
 import org.springframework.web.server.ResponseStatusException; // 예외 처리
-import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 
 @RestController // REST API를 반환하는 컨트롤러
 @RequestMapping("/posts") // /api/posts 컨텍스트에 매핑
@@ -112,46 +104,6 @@ public class PostController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         return postService.createPost(request, principal.getUsername());
-    }
-
-    @Operation(summary = "자유게시판 글 수정",
-        description = """
-            기존 게시글 제목/본문/이미지를 수정합니다.
-            게시판은 변경 불가하고 최대 5장(multiform)까지 업로드 가능합니다.
-            """)
-    @PutMapping(value = "/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public PostCreateResponse updatePost(
-        @PathVariable Long postId,
-        @RequestPart("title") @NotBlank @Size(max = 24) String title,
-        @RequestPart("content") @NotBlank @Size(max = 2000) String content,
-        @RequestPart(value = "images", required = false) List<MultipartFile> images,
-        @AuthenticationPrincipal UserDetails principal
-    ) {
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
-        }
-        PostUpdateRequest request = new PostUpdateRequest(
-            title,
-            content,
-            images == null ? Collections.emptyList() : images
-        );
-        return postService.updatePost(postId, request, principal.getUsername());
-    }
-
-    @Operation(summary = "자유게시판 글 삭제",
-        description = """
-            작성자만 삭제 버튼을 볼 수 있으며, 모달에서 확인 후 삭제 시 해당 게시글이 논리 삭제됩니다.
-            삭제 완료 시 자유게시판 목록으로 리다이렉트되어야 하며 이미지/댓글은 그대로 유지하면서 삭제 플래그만 변경합니다.
-            """)
-    @DeleteMapping("/{postId}")
-    public void deletePost(
-        @PathVariable Long postId,
-        @AuthenticationPrincipal UserDetails principal
-    ) {
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
-        }
-        postService.deletePost(postId, principal.getUsername());
     }
 
     private void validateSearch(String search) {
