@@ -48,3 +48,23 @@
 - 2026-01-27: 테스트 환경을 분리하여 기본 프로파일이 `test`로 실행되게 하고 H2 메모리 DB 설정(`src/test/resources/application-test.yml`)을 추가하여 `UserRepository`/`JwtAuthenticationFilter`를 포함한 JPA 빈들이 데이터베이스 의존성 없이 초기화되도록 지원함.
 - 2026-01-27: `BoardType` enum을 도입하고 `@Enumerated(EnumType.STRING)`으로 `Post.boardType`을 매핑한 뒤, Flyway `V2__board_type_string.sql`로 MySQL의 `posts.board_type` 컬럼을 `VARCHAR(255)`으로 변경하여 schema-validation 에러를 해결함.
 - 2026-01-26: 마이페이지/회원 정보 수정을 위한 `UserUpdateRequest`, `UserProfileResponse`, `UserController`/`UserService`, `UserProfileImageRepository`와 line-by-line 주석을 정비하고 SecurityConfig/Swagger/post 목록 DTO에 주석을 더해 도메인 흐름을 명확히 하며 `GRADLE_USER_HOME=./gradle-cache ./gradlew test` 실행 시 Gradle 배포 다운로드가 UnknownHostException으로 실패함을 확인함.
+
+- 2026-01-25: `Post` 엔티티를 게시물 작성 스펙에 맞춰 제목/본문 길이를 제한하고 감사 필드, 삭제 플래그, 여행 일정 연결 및 `PostedImage` 관계를 추가하였으며 `./gradlew clean compileJava` 실행은 홈 Gradle 락 파일 권한 문제로 실패함.
+
+- 2026-01-25: SecurityConfig에서 GET /posts/**을 permitAll로 열어 자유게시판 조회를 인증 없이 가능하게 하고 나머지 게시물 쓰기/삭제 요청은 인증 처리하면서 Swagger/헬스/인증 엔드포인트도 정리함.
+
+- 2026-01-26: Flyway V3 migration을 추가해 images 테이블(schema for uploaded files) 생성을 보장하여 Hibernate의 schema-validation 오류를 해결하고 `./gradlew bootRun` 로그에서 missing table [images] 문제가 발생하는 것을 방지함.
+- 2026-01-26: posted_images 테이블이 존재하지 않아 JPA가 부팅 실패했기에 Flyway V4 마이그레이션으로 해당 테이블을 생성하고 외래키/인덱스를 정의하여 `./gradlew bootRun`의 schema-validation을 정리함.
+
+- 2026-01-26: Flyway V5 마이그레이션을 추가해 posts 테이블에 is_deleted/deleted_at 컬럼을 생성하여 JPA의 schema-validation 오류를 제거하고 논리 삭제 플래그를 준비함.
+
+- 2026-01-26: Flyway V5 마이그레이션을 수정하여 posts 테이블에 IF NOT EXISTS 조건으로 is_deleted/deleted_at을 추가하도록 변경, 이전 run에서 삭제 컬럼이 이미 존재해도 밸리데이션 실패 없이 새로운 인덱스·플래그를 도입할 수 있게끔 조정함.
+
+- 2026-01-26: Flyway V5를 정보 스키마 기반 조건 추가 방식으로 다시 작성해 is_deleted/deleted_at 컬럼을 중복 없이 안전하게 생성하도록 정리하고, 실패 기록 정리 후 Flyway가 schema-validation을 통과하도록 준비함.
+
+- 2026-01-26: Post 엔티티에서 trip_id/Trip 연관 설명을 제거하고 PostCreateRequest/Service/Swagger 문서에서 여행 도메인 참조를 없앰으로써 v1 자유게시판 작성 스펙에 집중하도록 정리함.
+- 2026-01-26: `.gitignore` 하단에 `/build/`와 `**/build/`를 추가해 루트/서브모듈 build 디렉터리까지 모두 추적되지 않도록 정리함.
+
+- 2026-01-26: Flyway V6 마이그레이션을 추가해 posts.author 컬럼을 조건부로 제거하여 삽입 시 SQL 1364(필수 미입력) 오류를 해결하고 v1 자유게시판 스펙에 맞춰 schema를 정리함.
+
+- 2026-01-26: Post 엔티티에서 userId 필드를 제거하고 author(User)만 관리하는 구조로 정리, PostService.createPost에서 User 엔티티를 주입하여 저장/응답을 처리해 JPA의 PK/FK 일관성을 확보함.
