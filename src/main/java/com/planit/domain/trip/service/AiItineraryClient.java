@@ -34,7 +34,7 @@ public class AiItineraryClient {
         if (mockEnabled) {
             return createDummyResponse(request);
         }
-        // RestTemplate: Spring's basic HTTP client
+        // RestTemplate: 스프링 기본 HTTP 클라이언트
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<AiItineraryRequest> entity = new HttpEntity<>(request, headers);

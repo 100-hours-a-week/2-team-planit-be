@@ -2,7 +2,7 @@ package com.planit.domain.trip.dto;
 
 import java.util.List;
 
-// DTO for AI response body
+// AI 응답 바디를 매핑하기 위한 DTO
 public record AiItineraryResponse(
         String message,
         List<ItineraryDto> itineraries

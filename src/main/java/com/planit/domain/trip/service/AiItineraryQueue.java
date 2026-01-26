@@ -23,13 +23,13 @@ public class AiItineraryQueue {
     }
 
     public void enqueue(AiItineraryJob job) {
-        // Simple in-memory queue (temporary for v1)
+        // 간단한 인메모리 큐 (v1 임시)
         queue.offer(job);
     }
 
     @PostConstruct
     void startWorker() {
-        // Start consumer thread on app boot
+        // 앱 시작 시 큐 소비 스레드 시작
         worker = new Thread(this::runLoop, "ai-itinerary-queue");
         worker.setDaemon(true);
         worker.start();
@@ -37,7 +37,7 @@ public class AiItineraryQueue {
 
     @PreDestroy
     void stopWorker() {
-        // Stop consumer on shutdown
+        // 종료 시 소비 스레드 중단
         running = false;
         if (worker != null) {
             worker.interrupt();
@@ -47,7 +47,7 @@ public class AiItineraryQueue {
     private void runLoop() {
         while (running) {
             try {
-                // Wait until a job arrives
+                // 큐에 작업이 들어올 때까지 대기
                 AiItineraryJob job = queue.take();
                 processor.process(job);
             } catch (InterruptedException ex) {

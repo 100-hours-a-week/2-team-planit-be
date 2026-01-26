@@ -11,6 +11,8 @@ import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.ItineraryItemRepository;
 import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
+import com.planit.domain.trip.entity.Trip;
+
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalTime;
@@ -42,19 +44,32 @@ public class AiItineraryProcessor {
 
     @Transactional
     public void process(AiItineraryJob job) {
-        // Call AI server for itinerary
+        // AI 서버로 일정 생성 요청
         AiItineraryResponse response = client.requestItinerary(job.request());
         if (response == null || response.itineraries() == null) {
             return;
         }
-        // Persist only if trip exists
-        Trip trip = tripRepository.findById(job.request().tripId()).orElse(null);
-        if (trip == null) {
-            return;
-        }
+        /*
+            // Persist only if trip exists
+                Trip trip = tripRepository.findById(job.request().tripId()).orElse(null);
+                if (trip == null) {
+                    return;
+                }
+         */
+
+        // DB 저장은 생략하고 로그로 흐름만 확인
+        System.out.println("[DB 생략] tripId=" + job.request().tripId()
+                + " 일정 " + response.itineraries().size() + "일치 저장 예정");
+
         for (ItineraryDto itinerary : response.itineraries()) {
-            // Create day item (1st day, 2nd day...)
-            ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
+            // 일자별 일정 생성 로직 (DB 저장 생략)
+
+            /*
+                // Create day item (1st day, 2nd day...)
+                ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
+             */
+
+            System.out.println("[DB 생략] day=" + itinerary.day());
             List<ActivityDto> activities = itinerary.activities();
             if (activities == null) {
                 continue;
@@ -65,17 +80,24 @@ public class AiItineraryProcessor {
                     order++;
                     continue;
                 }
-                // Route -> transport event, others -> place event
+                // Route는 이동 이벤트, 나머지는 장소 이벤트로 처리
                 if (isRoute(activity.type())) {
-                    transportRepository.save(new ItineraryItemTransport(
+                    /*
+                        transportRepository.save(new ItineraryItemTransport(
                             item,
                             "UNKNOWN",
                             order,
                             resolveStartTime(activity.startTime()),
                             resolveDuration(activity.duration())
-                    ));
+                        ));
+                     */
+                    System.out.println("[DB 생략] 이동 이벤트 order=" + order
+                            + " start=" + resolveStartTime(activity.startTime())
+                            + " duration=" + resolveDuration(activity.duration()));
                 } else {
-                    placeRepository.save(new ItineraryItemPlace(
+
+                    /*
+                        placeRepository.save(new ItineraryItemPlace(
                             item,
                             activity.placeId(),
                             order,
@@ -83,6 +105,13 @@ public class AiItineraryProcessor {
                             resolveDuration(activity.duration()),
                             resolveCost(activity.cost())
                     ));
+                     */
+
+                    System.out.println("[DB 생략] 장소 이벤트 order=" + order
+                            + " placeId=" + activity.placeId()
+                            + " start=" + resolveStartTime(activity.startTime())
+                            + " duration=" + resolveDuration(activity.duration())
+                            + " cost=" + resolveCost(activity.cost()));
                 }
                 order++;
             }
@@ -94,7 +123,7 @@ public class AiItineraryProcessor {
     }
 
     private LocalTime resolveStartTime(LocalTime startTime) {
-        // Default 00:00 if missing
+        // 시작 시간이 없으면 00:00으로 보정
         return startTime != null ? startTime : LocalTime.MIDNIGHT;
     }
 
@@ -102,7 +131,7 @@ public class AiItineraryProcessor {
         if (durationMinutes == null || durationMinutes <= 0) {
             return LocalTime.MIDNIGHT;
         }
-        // duration is minutes -> LocalTime
+        // duration(분) -> LocalTime 변환
         return LocalTime.ofSecondOfDay(durationMinutes * 60L);
     }
 

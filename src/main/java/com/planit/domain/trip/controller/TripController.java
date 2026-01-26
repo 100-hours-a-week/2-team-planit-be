@@ -22,7 +22,7 @@ public class TripController {
 
     @PostMapping("/trips")
     public ResponseEntity<ApiResponse<TripCreateResponse>> createTrip(@Valid @RequestBody TripCreateRequest request) {
-        // Validate request, then create trip and enqueue AI job.
+        // 요청 검증 후 여행 생성 및 AI 큐 적재
         Long tripId = tripService.createTrip(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(new TripCreateResponse(tripId)));

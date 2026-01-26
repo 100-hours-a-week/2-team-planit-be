@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-// record: compact immutable DTO type (Java 16+)
+// record: 불변 DTO를 간단히 정의하는 문법 (Java 16+)
 public record TripCreateRequest(
         @NotBlank
         @Size(max = 15)

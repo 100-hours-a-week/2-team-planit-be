@@ -110,7 +110,7 @@ public class Trip {
     }
 
     public void addTheme(TripTheme theme) {
-        // Keep relation set on TripTheme constructor; add to list here.
+        // TripTheme 생성자에서 trip 연관관계를 설정하고, 여기서는 리스트에만 추가
         themes.add(theme);
     }
 }
