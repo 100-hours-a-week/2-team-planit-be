@@ -5,7 +5,6 @@ import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse;
 import com.planit.domain.post.dto.PostListResponse;
 import com.planit.domain.post.dto.PostSummaryResponse;
-import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedImage;
@@ -105,65 +104,6 @@ public class PostService {
             saved.getCreatedAt(),
             saved.getAuthor().getId(),
             imageIds);
-    }
-
-    /**
-     * 게시글 수정: 기존 Post를 조회하여 제목/본문/이미지 업데이트
-     */
-    @Transactional
-    public PostCreateResponse updatePost(Long postId, PostUpdateRequest request, String loginId) {
-        User user = resolveRequester(loginId);
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
-        }
-        Post post = postRepository.findById(postId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-        if (!post.getAuthor().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 수정 가능합니다.");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        post.setTitle(request.getTitle());
-        post.setContent(request.getContent());
-        post.touchUpdatedAt(now);
-        List<Long> imageIds = new ArrayList<>();
-        for (MultipartFile file : request.getImages()) {
-            if (file == null || file.isEmpty()) {
-                continue;
-            }
-            if (file.getSize() > 5 * 1024 * 1024) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*이미지 크기는 최대 5MB까지만 허용됩니다.");
-            }
-            Long imageId = imageStorageService.store(file);
-            imageIds.add(imageId);
-            PostedImage postedImage = new PostedImage(post.getId(), imageId, imageIds.size() == 1, now);
-            postedImageRepository.save(postedImage);
-        }
-        Post saved = postRepository.save(post);
-        return new PostCreateResponse(saved.getId(),
-            saved.getBoardType(),
-            saved.getTitle(),
-            saved.getContent(),
-            saved.getCreatedAt(),
-            saved.getAuthor().getId(),
-            imageIds);
-    }
-
-    /**
-     * 게시글 삭제: 작성자만 가능하며 논리 삭제
-     */
-    @Transactional
-    public void deletePost(Long postId, String loginId) {
-        User user = resolveRequester(loginId);
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
-        }
-        Post post = postRepository.findById(postId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-        if (!post.getAuthor().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 삭제할 수 있습니다.");
-        }
-        post.markDeleted(LocalDateTime.now());
-        postRepository.save(post);
     }
 
     /** 상세 조회: Post + requester 기준 권한 판단 */
