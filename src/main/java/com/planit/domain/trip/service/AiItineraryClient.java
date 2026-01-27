@@ -9,6 +9,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ public class AiItineraryClient {
     private final String baseUrl;
     private final boolean mockEnabled;
 
+    //생성자로 client클래스 필드 주입
     public AiItineraryClient(RestTemplate restTemplate,
                              @Value("${ai.base-url:http://localhost:8000}") String baseUrl,
                              @Value("${ai.mock-enabled:false}") boolean mockEnabled) {
@@ -30,8 +32,10 @@ public class AiItineraryClient {
         this.mockEnabled = mockEnabled;
     }
 
+    //ai서버 요청 메서드
     public AiItineraryResponse requestItinerary(AiItineraryRequest request) {
         if (mockEnabled) {
+            //throw new RestClientException("ai서버요청 에러응답 테스트용");
             return createDummyResponse(request);
         }
         // RestTemplate: 스프링 기본 HTTP 클라이언트
@@ -39,7 +43,10 @@ public class AiItineraryClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<AiItineraryRequest> entity = new HttpEntity<>(request, headers);
         return restTemplate.postForObject(baseUrl + "/api/v1/itinerary", entity, AiItineraryResponse.class);
+        // postForObject = throws RestClientException
     }
+
+
 
     private AiItineraryResponse createDummyResponse(AiItineraryRequest request) {
         LocalDate baseDate = request.arrivalDate() != null ? request.arrivalDate() : LocalDate.now();

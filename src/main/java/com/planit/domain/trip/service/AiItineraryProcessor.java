@@ -55,19 +55,24 @@ public class AiItineraryProcessor {
         if (trip == null) {
             return;
         }
+        /*
         System.out.println("프로세서, 타이틀: "+trip.getTitle());
+         */
 
+        /*
         // DB 저장은 생략하고 로그로 흐름만 확인
         System.out.println("[DB 생략] tripId=" + job.request().tripId()
                 + " 일정 " + response.itineraries().size() + "일치 저장 예정");
+         */
 
         for (ItineraryDto itinerary : response.itineraries()) {
-            // 일자별 일정 생성 로직 (DB 저장 생략)
 
             // Create day item (1st day, 2nd day...)
             ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
 
-            System.out.println("[DB 생략] day=" + itinerary.day());
+            // 일자별 일정 생성 로직 (DB 저장 생략)
+            //System.out.println("[DB 생략] day=" + itinerary.day());
+
             List<ActivityDto> activities = itinerary.activities();
             if (activities == null) {
                 continue;
@@ -87,9 +92,11 @@ public class AiItineraryProcessor {
                         resolveStartTime(activity.startTime()),
                         resolveDuration(activity.duration())
                     ));
+                    /*
                     System.out.println("[DB 생략] 이동 이벤트 order=" + order
                             + " start=" + resolveStartTime(activity.startTime())
                             + " duration=" + resolveDuration(activity.duration()));
+                     */
                 } else {
                     placeRepository.save(new ItineraryItemPlace(
                         item,

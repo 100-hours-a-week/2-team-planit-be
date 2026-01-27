@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "ininerary_item_transports")
+@Table(name = "itinerary_item_transports")
 public class ItineraryItemTransport {
 
     @Id

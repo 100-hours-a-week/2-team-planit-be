@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-// record: 불변 DTO를 간단히 정의하는 문법 (Java 16+)
 public record TripCreateRequest(
         @NotBlank
         @Size(max = 15)
@@ -34,5 +33,6 @@ public record TripCreateRequest(
         Integer totalBudget,
         @NotEmpty
         List<@NotBlank String> travelTheme
+        //wantedPlace 필드 추가 (List)
 ) {
 }
