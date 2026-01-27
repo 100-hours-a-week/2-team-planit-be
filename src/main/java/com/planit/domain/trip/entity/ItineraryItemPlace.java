@@ -38,6 +38,20 @@ public class ItineraryItemPlace {
     @Column(name = "cost", nullable = false)
     private BigDecimal cost;
 
+    @Column(name = "place_name", length = 255)
+    private String placeName;
+
+    @Column(name = "google_map_url", length = 500)
+    private String googleMapUrl;
+
+    @Column(name = "position_lat", length = 255)
+    private String positionLat;
+
+    @Column(name = "position_lng", length = 255)
+    private String positionLng;
+
+    //memo 필드 추가
+
     protected ItineraryItemPlace() {
     }
 
@@ -47,7 +61,11 @@ public class ItineraryItemPlace {
             Integer eventOrder,
             LocalTime startTime,
             LocalTime durationTime,
-            BigDecimal cost
+            BigDecimal cost,
+            String placeName,
+            String googleMapUrl,
+            String positionLat,
+            String positionLng
     ) {
         this.itineraryItem = itineraryItem;
         this.placeId = placeId;
@@ -55,9 +73,49 @@ public class ItineraryItemPlace {
         this.startTime = startTime;
         this.durationTime = durationTime;
         this.cost = cost;
+        this.placeName = placeName;
+        this.googleMapUrl = googleMapUrl;
+        this.positionLat = positionLat;
+        this.positionLng = positionLng;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public String getPlaceId() {
+        return placeId;
+    }
+
+    public Integer getEventOrder() {
+        return eventOrder;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getDurationTime() {
+        return durationTime;
+    }
+
+    public BigDecimal getCost() {
+        return cost;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public String getGoogleMapUrl() {
+        return googleMapUrl;
+    }
+
+    public String getPositionLat() {
+        return positionLat;
+    }
+
+    public String getPositionLng() {
+        return positionLng;
     }
 }

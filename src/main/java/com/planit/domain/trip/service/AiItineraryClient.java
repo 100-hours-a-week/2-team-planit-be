@@ -23,7 +23,7 @@ public class AiItineraryClient {
     private final String baseUrl;
     private final boolean mockEnabled;
 
-    //생성자로 client클래스 필드 주입
+    // 생성자로 client 클래스 필드 주입
     public AiItineraryClient(RestTemplate restTemplate,
                              @Value("${ai.base-url:http://localhost:8000}") String baseUrl,
                              @Value("${ai.mock-enabled:false}") boolean mockEnabled) {
@@ -32,10 +32,10 @@ public class AiItineraryClient {
         this.mockEnabled = mockEnabled;
     }
 
-    //ai서버 요청 메서드
+    // AI 서버 요청 메서드
     public AiItineraryResponse requestItinerary(AiItineraryRequest request) {
         if (mockEnabled) {
-            //throw new RestClientException("ai서버요청 에러응답 테스트용");
+            // throw new RestClientException("AI 서버 에러 응답 테스트용");
             return createDummyResponse(request);
         }
         // RestTemplate: 스프링 기본 HTTP 클라이언트
@@ -43,7 +43,7 @@ public class AiItineraryClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<AiItineraryRequest> entity = new HttpEntity<>(request, headers);
         return restTemplate.postForObject(baseUrl + "/api/v1/itinerary", entity, AiItineraryResponse.class);
-        // postForObject = throws RestClientException
+        // postForObject는 RestClientException을 던질 수 있음
     }
 
 
@@ -51,14 +51,14 @@ public class AiItineraryClient {
     private AiItineraryResponse createDummyResponse(AiItineraryRequest request) {
         LocalDate baseDate = request.arrivalDate() != null ? request.arrivalDate() : LocalDate.now();
 
-        ActivityDto activity1 = new ActivityDto("place", "place-1", LocalTime.of(9, 0), 50000, 120, "");
-        ActivityDto activity2 = new ActivityDto("route", null, LocalTime.of(11, 0), null, 30, "");
-        ActivityDto activity3 = new ActivityDto("place", "place-2", LocalTime.of(11, 30), 30000, 180, "");
+        ActivityDto activity1 = new ActivityDto("place", "place-1", LocalTime.of(9, 0), 50000, 120, "더미 메모");
+        ActivityDto activity2 = new ActivityDto("route", null, LocalTime.of(11, 0), null, 30, "더미 메모");
+        ActivityDto activity3 = new ActivityDto("place", "place-2", LocalTime.of(11, 30), 30000, 180, "더미 메모");
         ItineraryDto day1 = new ItineraryDto(1, baseDate, List.of(activity1, activity2, activity3));
 
-        ActivityDto activity4 = new ActivityDto("place", "place-3", LocalTime.of(10, 0), 40000, 90, "");
-        ActivityDto activity5 = new ActivityDto("route", null, LocalTime.of(11, 30), null, 45, "");
-        ActivityDto activity6 = new ActivityDto("place", "place-4", LocalTime.of(12, 15), 60000, 150, "");
+        ActivityDto activity4 = new ActivityDto("place", "place-3", LocalTime.of(10, 0), 40000, 90, "더미 메모");
+        ActivityDto activity5 = new ActivityDto("route", null, LocalTime.of(11, 30), null, 45, "더미 메모");
+        ActivityDto activity6 = new ActivityDto("place", "place-4", LocalTime.of(12, 15), 60000, 150, "더미 메모");
         ItineraryDto day2 = new ItineraryDto(2, baseDate.plusDays(1), List.of(activity4, activity5, activity6));
 
         return new AiItineraryResponse("OK", List.of(day1, day2));

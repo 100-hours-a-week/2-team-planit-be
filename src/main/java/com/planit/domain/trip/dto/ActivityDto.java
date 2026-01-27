@@ -12,5 +12,6 @@ public record ActivityDto(
         Integer cost,
         Integer duration,
         String memo
+        //transport 필드 추가
 ) {
 }
