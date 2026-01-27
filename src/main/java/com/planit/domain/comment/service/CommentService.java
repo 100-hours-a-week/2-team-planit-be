@@ -1,0 +1,61 @@
+package com.planit.domain.comment.service;
+
+import com.planit.domain.comment.dto.CommentDetail;
+import com.planit.domain.comment.dto.CommentRequest;
+import com.planit.domain.comment.dto.CommentResponse;
+import com.planit.domain.comment.entity.Comment;
+import com.planit.domain.comment.repository.CommentRepository;
+import com.planit.domain.post.entity.Post;
+import com.planit.domain.post.repository.PostRepository;
+import com.planit.domain.user.entity.User;
+import com.planit.domain.user.repository.UserRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 댓글 관련 비즈니스 로직
+ */
+@Service
+@RequiredArgsConstructor
+public class CommentService {
+
+    private final CommentRepository commentRepository;
+    private final PostRepository postRepository;
+    private final UserRepository userRepository;
+
+    public List<CommentDetail> listComments(Long postId) {
+        return commentRepository.findAllByPostIdAndDeletedAtIsNullOrderByCreatedAtAsc(postId)
+            .stream()
+            .map(c -> new CommentDetail(
+                c.getId(),
+                c.getContent(),
+                c.getCreatedAt(),
+                c.getAuthor().getId(),
+                c.getAuthor().getNickname(),
+                c.getAuthor().getProfileImageId()))
+            .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CommentResponse addComment(Long postId, String loginId, CommentRequest request) {
+        Post post = postRepository.findById(postId).orElseThrow();
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId).orElseThrow();
+        Comment comment = new Comment();
+        comment.setPost(post);
+        comment.setAuthor(user);
+        comment.setContent(request.getContent());
+        comment.setCreatedAt(LocalDateTime.now());
+        Comment saved = commentRepository.save(comment);
+        CommentResponse response = new CommentResponse();
+        response.setCommentId(saved.getId());
+        response.setAuthorNickname(user.getNickname());
+        response.setAuthorProfileImageId(user.getProfileImageId());
+        response.setContent(saved.getContent());
+        response.setCreatedAt(saved.getCreatedAt().toString());
+        return response;
+    }
+}
