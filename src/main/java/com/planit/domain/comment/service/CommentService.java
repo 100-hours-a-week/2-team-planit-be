@@ -11,7 +11,6 @@ import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,17 +26,9 @@ public class CommentService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
     public List<CommentDetail> listComments(Long postId) {
-        return commentRepository.findAllByPostIdAndDeletedAtIsNullOrderByCreatedAtAsc(postId)
-            .stream()
-            .map(c -> new CommentDetail(
-                c.getId(),
-                c.getContent(),
-                c.getCreatedAt(),
-                c.getAuthor().getId(),
-                c.getAuthor().getNickname(),
-                c.getAuthor().getProfileImageId()))
-            .collect(Collectors.toList());
+        return commentRepository.findDetailsByPostId(postId);
     }
 
     @Transactional
