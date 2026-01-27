@@ -18,6 +18,7 @@ import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -47,10 +48,9 @@ public class PostService {
         int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortOption.getSortProperty()).descending());
-        String pattern = search == null || search.isBlank() ? "%" : "%" + search + "%";
+        String pattern = buildSearchPattern(search);
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
             boardType.name(),
-            search,
             pattern,
             pageable
         );
@@ -66,7 +66,9 @@ public class PostService {
                 summary.getLikeCount(),
                 summary.getCommentCount(),
                 summary.getRepresentativeImageId(),
-                summary.getRankingScore()
+                summary.getRankingScore(),
+                summary.getPlaceName(),
+                summary.getTripTitle()
             ))
             .collect(Collectors.toList());
         return new PostListResponse(items, result.hasNext());
@@ -198,5 +200,12 @@ public class PostService {
         public String getSortProperty() {
             return sortProperty;
         }
+    }
+
+    private String buildSearchPattern(String search) {
+        if (search == null || search.isBlank()) {
+            return "%";
+        }
+        return "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
     }
 }
