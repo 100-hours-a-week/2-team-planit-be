@@ -1,5 +1,8 @@
 package com.planit.domain.user.service; // 사용자 도메인 비즈니스 로직을 담은 패키지입니다.
 
+import com.planit.domain.post.repository.PostRepository;
+import com.planit.domain.user.dto.MyPageResponse;
+import com.planit.domain.user.dto.PlanPreview;
 import com.planit.domain.user.dto.SignUpRequest; // 회원가입 요청 DTO
 import com.planit.domain.user.dto.UserAvailabilityResponse; // 중복 확인 응답 DTO
 import com.planit.domain.user.dto.UserProfileResponse; // 내 정보/마이페이지 응답 DTO
@@ -9,9 +12,11 @@ import com.planit.domain.user.entity.User; // 사용자 엔티티
 import com.planit.domain.user.entity.UserProfileImage; // 프로필 이미지 엔티티
 import com.planit.domain.user.repository.UserProfileImageRepository; // 이미지 테이블 저장소
 import com.planit.domain.user.repository.UserRepository; // 사용자 테이블 저장소
-import java.time.LocalDateTime; // 시간 관련 유틸
-import java.util.Optional; // Optional 반환 처리
-import java.util.Set; // UnicodeBlock 집합 타입
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor; // final 필드 생성자 자동 생성
 import lombok.extern.slf4j.Slf4j; // 로깅
 import org.springframework.http.HttpStatus; // HTTP 상태 코드
@@ -35,9 +40,10 @@ public class UserService {
             Character.UnicodeBlock.SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS
         ); // 이모지 판단에 사용하는 블록 집합
 
-    private final UserRepository userRepository; // 사용자 테이블 조작을 위한 저장소
-    private final UserProfileImageRepository userProfileImageRepository; // 프로필 이미지 저장소
-    private final PasswordEncoder passwordEncoder; // 비밀번호 암호화 도구
+    private final UserRepository userRepository;
+    private final UserProfileImageRepository userProfileImageRepository;
+    private final PostRepository postRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public UserSignupResponse signup(SignUpRequest request) {
         // 로그인 아이디 중복 확인
@@ -184,11 +190,47 @@ public class UserService {
     }
 
     private UserProfileResponse buildUserProfileResponse(User user) {
-        // 프로필 이미지 ID가 존재하면 함께 전달
         Long profileImageId = userProfileImageRepository.findByUserId(user.getId())
             .map(UserProfileImage::getImageId)
             .orElse(null);
         return new UserProfileResponse(user.getId(), user.getLoginId(), user.getNickname(), profileImageId);
+    }
+
+    public MyPageResponse getMyPage(String loginId) {
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+        UserRepository.ProfileSummary summary = userRepository.fetchProfileSummary(user.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 정보를 불러오지 못했습니다."));
+        PageRequest pageRequest = PageRequest.of(0, 3);
+        List<PlanPreview> previews = postRepository
+            .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
+            .stream()
+            .map(p -> new PlanPreview(
+                p.getId(),
+                p.getTitle(),
+                "내 계획",
+                p.getBoardType().name()
+            ))
+            .toList();
+        return new MyPageResponse(
+            summary.getUserId(),
+            summary.getLoginId(),
+            summary.getNickname(),
+            summary.getProfileImageId(),
+            summary.getPostCount(),
+            summary.getCommentCount(),
+            summary.getLikeCount(),
+            summary.getNotificationCount(),
+            previews
+        );
+    }
+
+    @Transactional
+    public void deleteAccount(String loginId) {
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+        userProfileImageRepository.deleteByUserId(user.getId());
+        userRepository.softDelete(user.getId(), LocalDateTime.now());
     }
 
     private boolean containsEmoji(String value) {
