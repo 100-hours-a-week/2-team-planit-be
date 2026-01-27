@@ -34,9 +34,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
             u.nickname as nickname,
             u.profile_image_id as profileImageId,
             (select count(1) from posts p where p.user_id = u.user_id and p.is_deleted = 0) as postCount,
-            (select count(1) from comments c where c.author_id = u.user_id and c.deleted = 0) as commentCount,
-            (select count(1) from likes l where l.user_id = u.user_id) as likeCount,
-            (select count(1) from notifications n where n.receiver_id = u.user_id) as notificationCount
+            (select count(1) from comments c where c.author_id = u.user_id and c.deleted_at is null) as commentCount,
+            (select count(1) from likes l where l.author_id = u.user_id) as likeCount,
+            (select count(1) from notifications n where n.user_id = u.user_id) as notificationCount
         from users u
         where u.user_id = :userId and u.is_deleted = 0
     """, nativeQuery = true)
