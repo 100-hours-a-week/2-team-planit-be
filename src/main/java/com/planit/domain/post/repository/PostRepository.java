@@ -72,7 +72,10 @@ public interface PostRepository
                             + "and ( :pattern = '%' "
                             + "   or lower(p.title) like lower(:pattern) "
                             + "   or lower(p.content) like lower(:pattern) ) "
-                            + "order by p.created_at desc",
+                            + "order by "
+                            + " case when :sortOption = 'COMMENTS' then commentCount "
+                            + "      when :sortOption = 'LIKES' then likeCount "
+                            + "      else p.created_at end desc",
             countQuery =
                     "select count(*) "
                             + "from posts p "
@@ -86,9 +89,10 @@ public interface PostRepository
             nativeQuery = true
     )
     Page<PostSummary> searchByBoardType(
-            @Param("boardType") String boardType,
-            @Param("pattern") String pattern,
-            Pageable pageable
+        @Param("boardType") String boardType,
+        @Param("pattern") String pattern,
+        @Param("sortOption") String sortOption,
+        Pageable pageable
     );
 
     /**
@@ -99,4 +103,3 @@ public interface PostRepository
             Pageable pageable
     );
 }
-
