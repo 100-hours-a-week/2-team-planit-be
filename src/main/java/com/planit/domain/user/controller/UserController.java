@@ -2,6 +2,7 @@ package com.planit.domain.user.controller; // 사용자 관련 REST 엔드포인
 
 import com.planit.domain.user.dto.SignUpRequest; // 회원가입 요청 payload DTO
 import com.planit.domain.user.dto.UserAvailabilityResponse; // 중복 확인 응답 DTO
+import com.planit.domain.user.dto.MyPageResponse;
 import com.planit.domain.user.dto.UserProfileResponse; // 인증된 사용자 정보 DTO
 import com.planit.domain.user.dto.UserSignupResponse; // 회원가입 결과 DTO
 import com.planit.domain.user.dto.UserUpdateRequest; // 사용자 정보 수정 요청 DTO
@@ -13,8 +14,8 @@ import jakarta.validation.constraints.Size; // 길이 검증
 import lombok.RequiredArgsConstructor; // final 필드 자동 생성자 주입
 import org.springframework.http.HttpStatus; // HTTP 상태 코드 상수
 import org.springframework.validation.annotation.Validated; // 컨트롤러 단위 검증 활성화
-import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
-import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 바인딩
 import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
 import org.springframework.web.bind.annotation.PutMapping; // PUT 매핑
@@ -78,8 +79,18 @@ public class UserController {
 
     @GetMapping("/me") // GET /api/users/me
     public UserProfileResponse me(@AuthenticationPrincipal UserDetails principal) {
-        // 인증된 loginId를 기준으로 사용자 정보를 반환
         return userService.getProfile(principal.getUsername());
+    }
+
+    @GetMapping("/me/mypage")
+    public MyPageResponse myPage(@AuthenticationPrincipal UserDetails principal) {
+        return userService.getMyPage(principal.getUsername());
+    }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@AuthenticationPrincipal UserDetails principal) {
+        userService.deleteAccount(principal.getUsername());
     }
 
     @PutMapping("/me") // PUT /api/users/me -> 프로필 수정 요청

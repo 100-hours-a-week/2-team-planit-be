@@ -1,11 +1,12 @@
 package com.planit.domain.post.repository; // 게시글 도메인 저장소 패키지
 
-import java.util.Optional; // PostDetail 커스텀 조회용 Optional 타입
-import org.springframework.data.domain.Page; // 페이징 결과 타입
-import org.springframework.data.domain.Pageable; // Pageable 파라미터
-import org.springframework.data.jpa.repository.JpaRepository; // 기본 JPA 저장소
-import org.springframework.data.jpa.repository.Query; // Native Query 정의
-import org.springframework.data.repository.query.Param; // 쿼리 파라미터 바인딩
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface PostRepository extends JpaRepository<com.planit.domain.post.entity.Post, Long>, PostRepositoryCustom {
 
@@ -63,6 +64,11 @@ public interface PostRepository extends JpaRepository<com.planit.domain.post.ent
         @Param("boardType") String boardType,
         @Param("search") String search,
         @Param("pattern") String pattern,
+        Pageable pageable
+    );
+
+    List<com.planit.domain.post.entity.Post> findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(
+        Long authorId,
         Pageable pageable
     );
 }
