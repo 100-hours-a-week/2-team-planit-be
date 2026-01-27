@@ -54,4 +54,20 @@ public class ItineraryItemTransport {
     public Long getId() {
         return id;
     }
+
+    public String getTransport() {
+        return transport;
+    }
+
+    public Integer getEventOrder() {
+        return eventOrder;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getDurationTime() {
+        return durationTime;
+    }
 }
