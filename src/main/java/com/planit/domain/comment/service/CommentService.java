@@ -58,4 +58,13 @@ public class CommentService {
         response.setCreatedAt(saved.getCreatedAt().toString());
         return response;
     }
+
+    @Transactional
+    public void deleteComment(Long commentId, String loginId) {
+        Comment comment = commentRepository.findById(commentId).orElseThrow();
+        if (!comment.getAuthor().getLoginId().equals(loginId)) {
+            throw new IllegalStateException("작성자만 삭제할 수 있습니다.");
+        }
+        comment.setDeletedAt(LocalDateTime.now());
+    }
 }
