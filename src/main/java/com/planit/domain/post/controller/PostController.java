@@ -24,6 +24,7 @@ import org.springframework.http.MediaType; // 멀티파트 mime
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증자
 import org.springframework.security.core.userdetails.UserDetails; // UserDetails 인터페이스
 import org.springframework.validation.annotation.Validated; // 검증 활성화
+import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
 import org.springframework.web.bind.annotation.ModelAttribute; // ModelAttribute 바인딩
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수
@@ -35,7 +36,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController; // REST 컨트롤러
 import org.springframework.web.server.ResponseStatusException; // 예외 처리
-import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 
 @RestController // REST API를 반환하는 컨트롤러
 @RequestMapping("/posts") // /api/posts 컨텍스트에 매핑
@@ -62,7 +62,7 @@ public class PostController {
     public PostListResponse listPosts(
         @RequestParam(defaultValue = "FREE") String boardType,
         @Parameter(description = "검색어(히스토리/단어 길이 2~24자, 특수문자/초성 불가)") @RequestParam(required = false) String search,
-        @Parameter(description = "정렬 옵션(LATEST/COMMENTS/LIKES)") @RequestParam(defaultValue = "LATEST") String sort,
+        @Parameter(description = "정렬 옵션(latest/comment/like)") @RequestParam(required = false) String sort,
         @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
         @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size
     ) {
@@ -70,12 +70,7 @@ public class PostController {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "v1 미구현 기능");
         }
         validateSearch(search); // helper text 기준으로 검색어 검증
-        PostService.SortOption sortOption;
-        try {
-            sortOption = PostService.SortOption.valueOf(sort.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            sortOption = PostService.SortOption.LATEST;
-        }
+        PostService.SortOption sortOption = resolveSortOption(sort);
         BoardType resolvedBoardType = BoardType.valueOf(boardType.trim().toUpperCase(Locale.ROOT));
         return postService.listPosts(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
     }
@@ -174,5 +169,21 @@ public class PostController {
 
     private String normalizeSearch(String search) {
         return search == null ? "" : search.trim();
+    }
+
+    private PostService.SortOption resolveSortOption(String sort) {
+        if (sort == null || sort.isBlank()) {
+            return PostService.SortOption.LATEST;
+        }
+        switch (sort.trim().toLowerCase(Locale.ROOT)) {
+            case "latest":
+                return PostService.SortOption.LATEST;
+            case "comment":
+                return PostService.SortOption.COMMENTS;
+            case "like":
+                return PostService.SortOption.LIKES;
+            default:
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
+        }
     }
 }

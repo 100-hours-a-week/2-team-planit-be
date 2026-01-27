@@ -52,6 +52,7 @@ public class PostService {
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
             boardType.name(),
             pattern,
+            sortOption.name(),
             pageable
         );
         List<PostSummaryResponse> items = result.getContent()
