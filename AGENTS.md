@@ -70,3 +70,4 @@
 - 2026-01-26: Post 엔티티에서 userId 필드를 제거하고 author(User)만 관리하는 구조로 정리, PostService.createPost에서 User 엔티티를 주입하여 저장/응답을 처리해 JPA의 PK/FK 일관성을 확보함.
 
 - 2026-01-26: 게시글 수정 DTO/서비스/컨트롤러를 추가하여 PostUpdateRequest 기반 제목·본문·이미지 변경 + 권한 확인 흐름을 정리하고 `@PutMapping`을 multipart-form으로 노출함.
+- 2026-01-29: Flyway를 더 이상 사용하지 않기로 해서 `application.yml`/`application-local.yml`의 `spring.flyway.enabled=false`를 선언해 수동 스키마 관리 기조를 유지함(테스트 미실행).

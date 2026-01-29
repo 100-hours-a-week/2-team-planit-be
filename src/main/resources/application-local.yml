@@ -9,10 +9,8 @@ spring: # Spring Boot 설정 루트
       ddl-auto: validate # 스키마 검증만 수행
     open-in-view: false # Open-in-view 비활성화로 lazy-loading 관리
 
-  flyway: # Flyway 마이그레이션 설정
-    enabled: true # 실행 활성화
-    locations: classpath:db/migration # 마이그레이션 경로
-    baseline-on-migrate: true # 기존 테이블 기준 수행
+  flyway:
+    enabled: false # 수동 DB 관리로 Flyway 적용 중지
 
 jwt: # JWT 관련 보안 설정
   secret: planit-local-secret-key-which-is-at-least-32-bytes-long!!! # 32자 이상 기준(secret 주입)
