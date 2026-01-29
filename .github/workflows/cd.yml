@@ -99,7 +99,7 @@ jobs:
             echo "Server failed to start."
             exit 1 # 실패 종료
 
-      # SLO 검증: 응답 시간이 300초 초과 시 CD 실패
+      # SLO 검증: 게시물 목록 조회 API 응답 시간 1초 미만
       - name: Verify SLO
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -108,10 +108,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # curl로 응답 시간 측정 (seconds 단위)
-            response_time=$(curl -s -o /dev/null -w "%{time_total}" http://localhost:8080/api/healthcheck || echo "999")
+            response_time=$(curl -s -o /dev/null -w "%{time_total}" "http://localhost:8080/api/posts" || echo "999")
             
-            # 300초 초과 시 실패
-            if (( $(echo "$response_time > 300" | bc -l) )); then
+            # 1초 이상이면 실패 (1초 미만 SLO)
+            if (( $(echo "$response_time >= 1" | bc -l) )); then
               exit 1
             fi
 
