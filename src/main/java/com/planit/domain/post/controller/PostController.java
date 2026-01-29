@@ -36,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController; // REST 컨트롤러
 import org.springframework.web.server.ResponseStatusException; // 예외 처리
+import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 
 @RestController // REST API를 반환하는 컨트롤러
 @RequestMapping("/posts") // /api/posts 컨텍스트에 매핑
