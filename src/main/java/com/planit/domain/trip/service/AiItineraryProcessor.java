@@ -1,8 +1,8 @@
 package com.planit.domain.trip.service;
 
-import com.planit.domain.trip.dto.ActivityDto;
+import com.planit.domain.trip.dto.AiItineraryActivityResponse;
 import com.planit.domain.trip.dto.AiItineraryResponse;
-import com.planit.domain.trip.dto.ItineraryDto;
+import com.planit.domain.trip.dto.AiItineraryDayResponse;
 import com.planit.domain.trip.entity.ItineraryItem;
 import com.planit.domain.trip.entity.ItineraryItemPlace;
 import com.planit.domain.trip.entity.ItineraryItemTransport;
@@ -55,17 +55,17 @@ public class AiItineraryProcessor {
             return;
         }
 
-        for (ItineraryDto itinerary : response.itineraries()) {
+        for (AiItineraryDayResponse itinerary : response.itineraries()) {
 
             // 일자별 일정 저장
             ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
 
-            List<ActivityDto> activities = itinerary.activities();
+            List<AiItineraryActivityResponse> activities = itinerary.activities();
             if (activities == null) {
                 continue;
             }
             int order = 1;
-            for (ActivityDto activity : activities) {
+            for (AiItineraryActivityResponse activity : activities) {
                 if (activity == null || activity.type() == null) {
                     order++;
                     continue;

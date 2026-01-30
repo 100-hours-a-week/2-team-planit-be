@@ -2,8 +2,8 @@ package com.planit.domain.trip.service;
 
 import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.AiItineraryResponse;
-import com.planit.domain.trip.dto.ActivityDto;
-import com.planit.domain.trip.dto.ItineraryDto;
+import com.planit.domain.trip.dto.AiItineraryActivityResponse;
+import com.planit.domain.trip.dto.AiItineraryDayResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -51,15 +51,29 @@ public class AiItineraryClient {
     private AiItineraryResponse createDummyResponse(AiItineraryRequest request) {
         LocalDate baseDate = request.arrivalDate() != null ? request.arrivalDate() : LocalDate.now();
 
-        ActivityDto activity1 = new ActivityDto("place", "place-1", LocalTime.of(9, 0), 50000, 120, "더미 메모");
-        ActivityDto activity2 = new ActivityDto("route", null, LocalTime.of(11, 0), null, 30, "더미 메모");
-        ActivityDto activity3 = new ActivityDto("place", "place-2", LocalTime.of(11, 30), 30000, 180, "더미 메모");
-        ItineraryDto day1 = new ItineraryDto(1, baseDate, List.of(activity1, activity2, activity3));
+        AiItineraryActivityResponse activity1 =
+                new AiItineraryActivityResponse( //앞으로는 가독성 좋게 이렇게 아래로 나열하기
+                        "place",
+                        "place-1",
+                        LocalTime.of(9, 0),
+                        50000,
+                        120,
+                        "더미 메모"
+                );
+        AiItineraryActivityResponse activity2 =
+                new AiItineraryActivityResponse("route", null, LocalTime.of(11, 0), null, 30, "더미 메모");
+        AiItineraryActivityResponse activity3 =
+                new AiItineraryActivityResponse("place", "place-2", LocalTime.of(11, 30), 30000, 180, "더미 메모");
+        AiItineraryDayResponse day1 = new AiItineraryDayResponse(1, baseDate, List.of(activity1, activity2, activity3));
 
-        ActivityDto activity4 = new ActivityDto("place", "place-3", LocalTime.of(10, 0), 40000, 90, "더미 메모");
-        ActivityDto activity5 = new ActivityDto("route", null, LocalTime.of(11, 30), null, 45, "더미 메모");
-        ActivityDto activity6 = new ActivityDto("place", "place-4", LocalTime.of(12, 15), 60000, 150, "더미 메모");
-        ItineraryDto day2 = new ItineraryDto(2, baseDate.plusDays(1), List.of(activity4, activity5, activity6));
+        AiItineraryActivityResponse activity4 =
+                new AiItineraryActivityResponse("place", "place-3", LocalTime.of(10, 0), 40000, 90, "더미 메모");
+        AiItineraryActivityResponse activity5 =
+                new AiItineraryActivityResponse("route", null, LocalTime.of(11, 30), null, 45, "더미 메모");
+        AiItineraryActivityResponse activity6 =
+                new AiItineraryActivityResponse("place", "place-4", LocalTime.of(12, 15), 60000, 150, "더미 메모");
+        AiItineraryDayResponse day2 =
+                new AiItineraryDayResponse(2, baseDate.plusDays(1), List.of(activity4, activity5, activity6));
 
         return new AiItineraryResponse("OK", List.of(day1, day2));
     }

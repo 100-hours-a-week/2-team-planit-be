@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record ItineraryDayResponse(
+        //itineraryDayId
         int day,
         LocalDate date,
         List<ItineraryActivityResponse> activities

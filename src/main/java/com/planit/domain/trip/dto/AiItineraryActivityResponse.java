@@ -1,29 +1,17 @@
 package com.planit.domain.trip.dto;
 
-import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalTime;
 
-public record ItineraryActivityResponse(
-        //id
-
-        //placeName
+// AI 응답의 activities[] 요소
+public record AiItineraryActivityResponse(
         String type,
-        Integer order,
-
+        String placeId,
+        @JsonFormat(pattern = "HH:mm")
         LocalTime startTime,
-        LocalTime durationTime,
-        BigDecimal cost,
-        //memo
-
-        String googleMapUrl,
-        String positionLat,
-        String positionLng,
-
-        String transport,
-
-        String placeId, //제거
-        String placeName //제거
-
+        Integer cost,
+        Integer duration,
+        String memo
         /*
             "placeName": "면식당",
             "transport":null,
@@ -35,6 +23,5 @@ public record ItineraryActivityResponse(
             "memo": "메모 내용"
             "googleMapUrl":"예시url"
          */
-
 ) {
 }
