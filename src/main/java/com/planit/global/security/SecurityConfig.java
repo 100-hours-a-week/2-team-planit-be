@@ -1,4 +1,4 @@
-package com.planit.global.security; // 보안 관련 설정 패키지
+package com.planit.global.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper; // 에러/응답을 JSON으로 직렬화
 import com.planit.domain.user.security.JwtAuthenticationFilter; // JWT 검증 흐름을 담당하는 필터
@@ -20,6 +20,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration // 스프링 빈으로 등록하여 security 체인을 설정
 @EnableWebSecurity // 기본 Spring Security 구성을 활성화
