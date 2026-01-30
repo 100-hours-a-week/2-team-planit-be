@@ -1,0 +1,149 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.fasterxml.jackson.dataformat",
+    "module": "jackson-dataformat-toml",
+    "version": "2.19.4",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-databind",
+          "version": {
+            "requires": "2.19.4"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-core",
+          "version": {
+            "requires": "2.19.4"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson",
+          "module": "jackson-bom",
+          "version": {
+            "requires": "2.19.4"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        }
+      ],
+      "files": [
+        {
+          "name": "jackson-dataformat-toml-2.19.4.jar",
+          "url": "jackson-dataformat-toml-2.19.4.jar",
+          "size": 56197,
+          "sha512": "c733c9f91882da83d10a42a48779d8b081ee6a340f2565b0c65783209030d8263eb5045485db8a800457178acc96a5eac3fc0e5631590c5e2238fe1f94f6e04c",
+          "sha256": "e6cbf9e55275ed5765b30bc06cf5b1f245047500060de361a01f60ca5a01ccfb",
+          "sha1": "3ae37bd14e77e15cc272dc5e3aa389563c937d21",
+          "md5": "e96665285fe22196edbaf71de2f76c41"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-databind",
+          "version": {
+            "requires": "2.19.4"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-core",
+          "version": {
+            "requires": "2.19.4"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson",
+          "module": "jackson-bom",
+          "version": {
+            "requires": "2.19.4"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        }
+      ],
+      "files": [
+        {
+          "name": "jackson-dataformat-toml-2.19.4.jar",
+          "url": "jackson-dataformat-toml-2.19.4.jar",
+          "size": 56197,
+          "sha512": "c733c9f91882da83d10a42a48779d8b081ee6a340f2565b0c65783209030d8263eb5045485db8a800457178acc96a5eac3fc0e5631590c5e2238fe1f94f6e04c",
+          "sha256": "e6cbf9e55275ed5765b30bc06cf5b1f245047500060de361a01f60ca5a01ccfb",
+          "sha1": "3ae37bd14e77e15cc272dc5e3aa389563c937d21",
+          "md5": "e96665285fe22196edbaf71de2f76c41"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [],
+      "files": [
+        {
+          "name": "jackson-dataformat-toml-2.19.4-javadoc.jar",
+          "url": "jackson-dataformat-toml-2.19.4-javadoc.jar",
+          "size": 85256,
+          "sha512": "a73ab06a1049b3effe25e668729a2e874dd2bc4343cafbcdf626d2b4b4a69fd1dd35500ef86f35e43d0503e626a067e43ffb36be8ada4ef609a2b5fce3e9e768",
+          "sha256": "f4ff2025d6f1575ffbbf257cd7e38a87bb54ee2e247cb19b375aee03b7ba52b1",
+          "sha1": "38f8b83f3563263db7995f36f76ca5a71f309e6a",
+          "md5": "74607c62109fccf0c690ccbf95c663f4"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [],
+      "files": [
+        {
+          "name": "jackson-dataformat-toml-2.19.4-sources.jar",
+          "url": "jackson-dataformat-toml-2.19.4-sources.jar",
+          "size": 39460,
+          "sha512": "c2384ac9f4233b1db04d9608e061f7d0bf1a90751457ab0bfd1a95a02705d58c6ab9a1d9fa9ae79ca29a3534264d61bbc11c12fae44c4752dc9b9f9e9e542746",
+          "sha256": "3098a214db8841ee24ef8c0251abe6c14b41c7e2507228229d92e1c4876b93d6",
+          "sha1": "ea3ea4a90d2f5c970f7eaa2e86eb7f6c15a6f1f9",
+          "md5": "1c4d0b91c148a1283c856f73e8f5eb14"
+        }
+      ]
+    }
+  ]
+}

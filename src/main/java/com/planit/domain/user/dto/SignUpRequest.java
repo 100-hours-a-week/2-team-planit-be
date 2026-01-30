@@ -2,6 +2,7 @@ package com.planit.domain.user.dto; // 사용자 인증/회원가입 관련 DTO�
 
 import jakarta.validation.constraints.AssertTrue; // 커스텀 불린 유효성 검사
 import jakarta.validation.constraints.NotBlank; // 빈 문자열 여부 확인
+import jakarta.validation.constraints.NotNull; // null 여부 검사
 import jakarta.validation.constraints.Pattern; // 정규식 기반 검증
 import jakarta.validation.constraints.Size; // 길이 제한 검증
 import lombok.Getter; // Getter 자동 생성
@@ -43,6 +44,7 @@ public class SignUpRequest {
     @Pattern(regexp = "^[^\\s]+$", message = "*띄어쓰기를 없애주세요")
     private String nickname; // 사용자 닉네임
 
+    @NotNull(message = "*프로필 사진을 추가해주세요.")
     private Long profileImageId; // 선택된 프로필 이미지 ID
 
     @AssertTrue(message = "*비밀번호가 다릅니다.")

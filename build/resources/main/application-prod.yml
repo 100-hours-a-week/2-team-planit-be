@@ -1,0 +1,8 @@
+spring: # Production 환경 Spring Boot 설정 루트
+  datasource: # 배포용 데이터베이스 접속 정보
+    url: ${SPRING_DATASOURCE_URL} # 환경 변수로 전달된 JDBC URL
+    username: ${SPRING_DATASOURCE_USERNAME} # 배포 DB 사용자
+    password: ${SPRING_DATASOURCE_PASSWORD} # 배포 DB 비밀번호
+
+jwt: # JWT secret 역시 환경 변수로 주입
+  secret: ${JWT_SECRET} # 반드시 32자 이상 랜덤 문자열
