@@ -69,4 +69,8 @@ public class User {
         this.profileImageId = imageId;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public Long getProfileImageId() {
+        return profileImageId;
+    }
 }
