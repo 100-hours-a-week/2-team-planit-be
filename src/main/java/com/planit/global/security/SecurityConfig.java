@@ -1,17 +1,18 @@
-package com.planit.global.security; // 보안 관련 설정 패키지
+package com.planit.global.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper; // JSON 변환 유틸
-import com.planit.domain.user.security.JwtAuthenticationFilter; // JWT 필터
-import com.planit.global.common.response.ErrorResponse; // 에러 응답 DTO
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.planit.domain.user.security.JwtAuthenticationFilter;
+import com.planit.global.common.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import lombok.RequiredArgsConstructor; // final 필드 생성자
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -22,53 +23,74 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-@Configuration // Spring 설정 클래스로 등록
-@EnableWebSecurity // Web Security 적용
+@Configuration
+@EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(); // JSON 변환 유틸
-    private final JwtAuthenticationFilter jwtAuthenticationFilter; // 커스텀 JWT 필터
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final List<String> ALLOWED_ORIGINS = List.of("http://localhost:5173");
+    private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
+    private static final List<String> ALLOWED_HEADERS = List.of("*");
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // JWT 쓰므로 CSRF 불필요
-            .httpBasic(basic -> basic.disable()) // HTTP 기본 인증 비활성
-            .formLogin(form -> form.disable()) // 폼 로그인 비활성
-            .logout(logout -> logout.disable()) // Spring 기본 로그아웃 비활성
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 무상태 세션 정책
-            .exceptionHandling(handler -> handler.authenticationEntryPoint(this::handleUnauthenticated)) // 인증 실패 JSON 응답
-            .anonymous(Customizer.withDefaults()) // 익명 접근 허용
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.disable())
+            .httpBasic(basic -> basic.disable())
+            .formLogin(form -> form.disable())
+            .logout(logout -> logout.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(handler -> handler.authenticationEntryPoint(this::handleUnauthenticated))
+            .anonymous(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/health").permitAll() // health 체크
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/health").permitAll()
                 .requestMatchers("/healthcheck").permitAll()
                 .requestMatchers("/users/signup").permitAll()
                 .requestMatchers("/users/check-login-id").permitAll()
                 .requestMatchers("/users/check-nickname").permitAll()
-                .requestMatchers(HttpMethod.GET, "/posts/**").permitAll() // 게시글은 누구나 조회 가능
-                .requestMatchers("/swagger-ui/**").permitAll() // Swagger 접근
+                .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()
+                .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
-                .requestMatchers("/auth/login").permitAll() // 로그인은 모두 허용
-                .anyRequest().authenticated() // 기타 요청은 인증 필요
+                .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // JWT 필터 등록
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); // BCrypt 비밀번호 암호화기 반환
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(ALLOWED_ORIGINS);
+        config.setAllowedMethods(ALLOWED_METHODS);
+        config.setAllowedHeaders(ALLOWED_HEADERS);
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     private void handleUnauthenticated(HttpServletRequest request,
                                        HttpServletResponse response,
                                        AuthenticationException exception) throws IOException {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value()); // 401 상태
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE); // JSON 응답
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name()); // 한글 인코딩
-        ErrorResponse errorResponse = ErrorResponse.of("*로그인이 필요한 요청입니다."); // 사용자 메시지
-        OBJECT_MAPPER.writeValue(response.getWriter(), errorResponse); // JSON 직렬화
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        ErrorResponse errorResponse = ErrorResponse.of("*로그인이 필요한 요청입니다.");
+        OBJECT_MAPPER.writeValue(response.getWriter(), errorResponse);
     }
 }
