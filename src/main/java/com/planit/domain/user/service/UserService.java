@@ -67,10 +67,10 @@ public class UserService {
         user.setDeleted(false);
         User saved = userRepository.save(user);
         // 프로필 이미지 테이블에 매핑
-        Long profileImageId = request.getProfileImageId() != null ? request.getProfileImageId() : DEFAULT_PROFILE_IMAGE_ID;
+        Long imageId = request.getProfileImageId() != null ? request.getProfileImageId() : DEFAULT_PROFILE_IMAGE_ID;
         UserProfileImage profileImage = new UserProfileImage();
         profileImage.setUserId(saved.getId());
-        profileImage.setImageId(profileImageId);
+        profileImage.setImageId(imageId);
         userProfileImageRepository.save(profileImage);
         // 생성된 사용자 ID 응답
         return new UserSignupResponse(saved.getId());
