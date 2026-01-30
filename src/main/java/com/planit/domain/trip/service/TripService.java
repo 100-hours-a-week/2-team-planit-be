@@ -102,54 +102,5 @@ public class TripService {
         return trip.getId();
     }
 
-    /*
-    @Transactional
-    public void regenerateItinerary(Long tripId, List<String> travelTheme) {
-        Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_001));
 
-        // 기존 테마 삭제 후 갱신
-        tripThemeRepository.deleteByTripId(tripId);
-        for (String theme : travelTheme) {
-            trip.addTheme(new TripTheme(trip, theme));
-        }
-        tripRepository.save(trip);
-
-        // 기존 일정 데이터 삭제
-        List<ItineraryDay> days = itineraryDayRepository.findByTripId(tripId);
-        if (!days.isEmpty()) {
-            List<Long> dayIds = days.stream().map(ItineraryDay::getId).toList();
-            itineraryItemPlaceRepository.deleteByItineraryDayIdIn(dayIds);
-            itineraryItemTransportRepository.deleteByItineraryDayIdIn(dayIds);
-            itineraryDayRepository.deleteAll(days);
-        }
-
-        // 기존 희망 장소 조회
-        List<String> wantedPlaces = wantedPlaceRepository.findByTripId(tripId)
-                .stream()
-                .map(WantedPlace::getGoogleMapId)
-                .toList();
-
-        // AI 요청을 동일하게 수행 (테마만 교체)
-        AiItineraryJob job = new AiItineraryJob(new AiItineraryRequest(
-                trip.getId(),
-                trip.getArrivalDate(),
-                trip.getArrivalTime(),
-                trip.getDepartureDate(),
-                trip.getDepartureTime(),
-                trip.getTravelCity(),
-                trip.getTotalBudget(),
-                travelTheme,
-                wantedPlaces
-        ));
-
-        if (aiMockEnabled) {
-            System.out.println("AI mock 모드: 재생성 즉시 처리");
-            aiItineraryProcessor.process(job);
-        } else {
-            aiItineraryQueue.enqueue(job);
-        }
-    }
-
-     */
 }

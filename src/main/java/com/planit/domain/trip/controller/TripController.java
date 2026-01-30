@@ -47,13 +47,5 @@ public class TripController {
                         .body(ErrorResponse.from(ErrorCode.TRIP_001)));
     }
 
-    /*
-    @PutMapping("/trips/{tripId}/itineraries")
-    public ResponseEntity<?> regenerateItineraries(@PathVariable Long tripId,
-                                                   @Valid @RequestBody ItineraryRegenerateRequest request) {
-        tripService.regenerateItinerary(tripId, request.travelTheme());
-        return ResponseEntity.ok(ApiResponse.success("REGENERATED"));
-    }
-     */
 
 }
