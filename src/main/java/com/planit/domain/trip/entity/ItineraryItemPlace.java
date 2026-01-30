@@ -20,11 +20,17 @@ public class ItineraryItemPlace {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "itinerary_item_id", nullable = false)
-    private ItineraryItem itineraryItem;
+    @JoinColumn(name = "itinerary_day_id", nullable = false)
+    private ItineraryDay itineraryDay;
 
     @Column(name = "place_id")
     private String placeId;
+
+    @Column(name = "place_name", length = 255)
+    private String placeName;
+
+    @Column(name = "type", length = 20)
+    private String type;
 
     @Column(name = "event_order", nullable = false)
     private Integer eventOrder;
@@ -38,45 +44,37 @@ public class ItineraryItemPlace {
     @Column(name = "cost", nullable = false)
     private BigDecimal cost;
 
-    @Column(name = "place_name", length = 255)
-    private String placeName;
+    @Column(name = "memo")
+    private String memo;
 
     @Column(name = "google_map_url", length = 500)
     private String googleMapUrl;
-
-    @Column(name = "position_lat", length = 255)
-    private String positionLat;
-
-    @Column(name = "position_lng", length = 255)
-    private String positionLng;
-
-    //memo 필드 추가
 
     protected ItineraryItemPlace() {
     }
 
     public ItineraryItemPlace(
-            ItineraryItem itineraryItem,
+            ItineraryDay itineraryDay,
             String placeId,
+            String placeName,
+            String type,
             Integer eventOrder,
             LocalTime startTime,
             LocalTime durationTime,
             BigDecimal cost,
-            String placeName,
-            String googleMapUrl,
-            String positionLat,
-            String positionLng
+            String memo,
+            String googleMapUrl
     ) {
-        this.itineraryItem = itineraryItem;
+        this.itineraryDay = itineraryDay;
         this.placeId = placeId;
+        this.placeName = placeName;
+        this.type = type;
         this.eventOrder = eventOrder;
         this.startTime = startTime;
         this.durationTime = durationTime;
         this.cost = cost;
-        this.placeName = placeName;
+        this.memo = memo;
         this.googleMapUrl = googleMapUrl;
-        this.positionLat = positionLat;
-        this.positionLng = positionLng;
     }
 
     public Long getId() {
@@ -85,6 +83,14 @@ public class ItineraryItemPlace {
 
     public String getPlaceId() {
         return placeId;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public String getType() {
+        return type;
     }
 
     public Integer getEventOrder() {
@@ -103,19 +109,11 @@ public class ItineraryItemPlace {
         return cost;
     }
 
-    public String getPlaceName() {
-        return placeName;
+    public String getMemo() {
+        return memo;
     }
 
     public String getGoogleMapUrl() {
         return googleMapUrl;
-    }
-
-    public String getPositionLat() {
-        return positionLat;
-    }
-
-    public String getPositionLng() {
-        return positionLng;
     }
 }

@@ -3,12 +3,12 @@ package com.planit.domain.trip.service;
 import com.planit.domain.trip.dto.AiItineraryActivityResponse;
 import com.planit.domain.trip.dto.AiItineraryResponse;
 import com.planit.domain.trip.dto.AiItineraryDayResponse;
-import com.planit.domain.trip.entity.ItineraryItem;
+import com.planit.domain.trip.entity.ItineraryDay;
 import com.planit.domain.trip.entity.ItineraryItemPlace;
 import com.planit.domain.trip.entity.ItineraryItemTransport;
 import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.repository.ItineraryDayRepository;
 import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
-import com.planit.domain.trip.repository.ItineraryItemRepository;
 import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
 
@@ -23,20 +23,20 @@ public class AiItineraryProcessor {
 
     private final AiItineraryClient client;
     private final TripRepository tripRepository;
-    private final ItineraryItemRepository itineraryItemRepository;
+    private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository placeRepository;
     private final ItineraryItemTransportRepository transportRepository;
 
     public AiItineraryProcessor(
             AiItineraryClient client,
             TripRepository tripRepository,
-            ItineraryItemRepository itineraryItemRepository,
+            ItineraryDayRepository itineraryDayRepository,
             ItineraryItemPlaceRepository placeRepository,
             ItineraryItemTransportRepository transportRepository
     ) {
         this.client = client;
         this.tripRepository = tripRepository;
-        this.itineraryItemRepository = itineraryItemRepository;
+        this.itineraryDayRepository = itineraryDayRepository;
         this.placeRepository = placeRepository;
         this.transportRepository = transportRepository;
     }
@@ -58,42 +58,46 @@ public class AiItineraryProcessor {
         for (AiItineraryDayResponse itinerary : response.itineraries()) {
 
             // 일자별 일정 저장
-            ItineraryItem item = itineraryItemRepository.save(new ItineraryItem(trip, itinerary.day()));
+            ItineraryDay day = itineraryDayRepository.save(new ItineraryDay(
+                    trip,
+                    itinerary.day(),
+                    itinerary.date() != null ? itinerary.date().atStartOfDay() : null
+            ));
+            System.out.println("일별일정 저장됨: "+day.getId()+"&"+day.getDayIndex());
+
 
             List<AiItineraryActivityResponse> activities = itinerary.activities();
             if (activities == null) {
                 continue;
             }
-            int order = 1;
             for (AiItineraryActivityResponse activity : activities) {
                 if (activity == null || activity.type() == null) {
-                    order++;
                     continue;
                 }
-                // Route는 이동 이벤트, 나머지는 장소 이벤트로 처리
+                // 이동(route)은 이동 이벤트, 나머지는 장소 이벤트로 처리
                 if (isRoute(activity.type())) {
                     transportRepository.save(new ItineraryItemTransport(
-                        item,
-                        "UNKNOWN", // 이동수단 정보가 없어서 임시값 사용
-                        order,
+                        day,
+                        activity.transport() != null ? activity.transport() : "UNKNOWN",
+                        activity.type(),
+                        activity.eventOrder() != null ? activity.eventOrder() : 0,
                         resolveStartTime(activity.startTime()),
                         resolveDuration(activity.duration())
                     ));
                 } else {
                     placeRepository.save(new ItineraryItemPlace(
-                        item,
-                        activity.placeId(),
-                        order,
+                        day,
+                        null,
+                        activity.placeName(),
+                        activity.type(),
+                        activity.eventOrder() != null ? activity.eventOrder() : 0,
                         resolveStartTime(activity.startTime()),
                         resolveDuration(activity.duration()),
                         resolveCost(activity.cost()),
-                        null,
-                        null,
-                        null,
-                        null
+                        activity.memo(),
+                        activity.googleMapUrl()
                     ));
                 }
-                order++;
             }
         }
     }

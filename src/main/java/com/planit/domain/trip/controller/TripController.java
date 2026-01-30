@@ -1,5 +1,6 @@
 package com.planit.domain.trip.controller;
 
+//import com.planit.domain.trip.dto.ItineraryRegenerateRequest;
 import com.planit.domain.trip.dto.ItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripCreateResponse;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -44,4 +46,14 @@ public class TripController {
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ErrorResponse.from(ErrorCode.TRIP_001)));
     }
+
+    /*
+    @PutMapping("/trips/{tripId}/itineraries")
+    public ResponseEntity<?> regenerateItineraries(@PathVariable Long tripId,
+                                                   @Valid @RequestBody ItineraryRegenerateRequest request) {
+        tripService.regenerateItinerary(tripId, request.travelTheme());
+        return ResponseEntity.ok(ApiResponse.success("REGENERATED"));
+    }
+     */
+
 }

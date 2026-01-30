@@ -2,9 +2,19 @@ package com.planit.domain.trip.service;
 
 import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.TripCreateRequest;
+import com.planit.domain.trip.entity.ItineraryDay;
 import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.entity.TripTheme;
+import com.planit.domain.trip.entity.WantedPlace;
+import com.planit.domain.trip.repository.ItineraryDayRepository;
+import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
+import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
+import com.planit.domain.trip.repository.TripThemeRepository;
+import com.planit.domain.trip.repository.WantedPlaceRepository;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,25 +23,39 @@ import org.springframework.transaction.annotation.Transactional;
 public class TripService {
 
     private final TripRepository tripRepository;
+    private final TripThemeRepository tripThemeRepository;
+    private final WantedPlaceRepository wantedPlaceRepository;
+    private final ItineraryDayRepository itineraryDayRepository;
+    private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
+    private final ItineraryItemTransportRepository itineraryItemTransportRepository;
     private final AiItineraryQueue aiItineraryQueue;
     private final AiItineraryProcessor aiItineraryProcessor;
     private final boolean aiMockEnabled;
 
-    public TripService(TripRepository tripRepository,
-                       AiItineraryQueue aiItineraryQueue,
-                       AiItineraryProcessor aiItineraryProcessor,
-                       @Value("${ai.mock-enabled:false}") boolean aiMockEnabled) {
+    public TripService(
+            TripRepository tripRepository,
+            TripThemeRepository tripThemeRepository,
+            WantedPlaceRepository wantedPlaceRepository,
+            ItineraryDayRepository itineraryDayRepository,
+            ItineraryItemPlaceRepository itineraryItemPlaceRepository,
+            ItineraryItemTransportRepository itineraryItemTransportRepository,
+            AiItineraryQueue aiItineraryQueue,
+            AiItineraryProcessor aiItineraryProcessor,
+            @Value("${ai.mock-enabled:false}") boolean aiMockEnabled
+    ) {
         this.tripRepository = tripRepository;
+        this.tripThemeRepository = tripThemeRepository;
+        this.wantedPlaceRepository = wantedPlaceRepository;
+        this.itineraryDayRepository = itineraryDayRepository;
+        this.itineraryItemPlaceRepository = itineraryItemPlaceRepository;
+        this.itineraryItemTransportRepository = itineraryItemTransportRepository;
         this.aiItineraryQueue = aiItineraryQueue;
         this.aiItineraryProcessor = aiItineraryProcessor;
         this.aiMockEnabled = aiMockEnabled;
     }
 
-
     @Transactional
     public Long createTrip(TripCreateRequest request) {
-
-
         Trip trip = tripRepository.save(new Trip(
                 request.title(),
                 request.arrivalDate(),
@@ -43,16 +67,20 @@ public class TripService {
         ));
         System.out.println("여행 저장 후 tripId 반환: " + trip.getId());
 
-
-
         // 테마 저장 (Trip 1 : Theme N)
         for (String theme : request.travelTheme()) {
             trip.addTheme(new TripTheme(trip, theme));
         }
-        // System.out.println("테마 목록 할당 후 여행 재저장함");
         tripRepository.save(trip);
 
-        // AI 서버 미사용 테스트를 위해 mock 모드에서는 즉시 처리
+        // 희망 장소 저장
+        if (request.wantedPlace() != null) {
+            for (String placeId : request.wantedPlace()) {
+                wantedPlaceRepository.save(new WantedPlace(trip, placeId));
+            }
+        }
+
+        // AI 요청을 큐에 적재 (mock 모드면 즉시 처리)
         AiItineraryJob job = new AiItineraryJob(new AiItineraryRequest(
                 trip.getId(),
                 trip.getArrivalDate(),
@@ -61,35 +89,67 @@ public class TripService {
                 trip.getDepartureTime(),
                 trip.getTravelCity(),
                 trip.getTotalBudget(),
-                request.travelTheme()
+                request.travelTheme(),
+                request.wantedPlace()
         ));
         if (aiMockEnabled) {
             System.out.println("AI mock 모드: 즉시 일정 생성 처리");
             aiItineraryProcessor.process(job);
         } else {
-            // AI 요청을 큐에 적재 후 즉시 응답
             aiItineraryQueue.enqueue(job);
         }
 
         return trip.getId();
-
     }
 
+    /*
+    @Transactional
+    public void regenerateItinerary(Long tripId, List<String> travelTheme) {
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_001));
 
-    
+        // 기존 테마 삭제 후 갱신
+        tripThemeRepository.deleteByTripId(tripId);
+        for (String theme : travelTheme) {
+            trip.addTheme(new TripTheme(trip, theme));
+        }
+        tripRepository.save(trip);
 
+        // 기존 일정 데이터 삭제
+        List<ItineraryDay> days = itineraryDayRepository.findByTripId(tripId);
+        if (!days.isEmpty()) {
+            List<Long> dayIds = days.stream().map(ItineraryDay::getId).toList();
+            itineraryItemPlaceRepository.deleteByItineraryDayIdIn(dayIds);
+            itineraryItemTransportRepository.deleteByItineraryDayIdIn(dayIds);
+            itineraryDayRepository.deleteAll(days);
+        }
 
+        // 기존 희망 장소 조회
+        List<String> wantedPlaces = wantedPlaceRepository.findByTripId(tripId)
+                .stream()
+                .map(WantedPlace::getGoogleMapId)
+                .toList();
 
+        // AI 요청을 동일하게 수행 (테마만 교체)
+        AiItineraryJob job = new AiItineraryJob(new AiItineraryRequest(
+                trip.getId(),
+                trip.getArrivalDate(),
+                trip.getArrivalTime(),
+                trip.getDepartureDate(),
+                trip.getDepartureTime(),
+                trip.getTravelCity(),
+                trip.getTotalBudget(),
+                travelTheme,
+                wantedPlaces
+        ));
 
+        if (aiMockEnabled) {
+            System.out.println("AI mock 모드: 재생성 즉시 처리");
+            aiItineraryProcessor.process(job);
+        } else {
+            aiItineraryQueue.enqueue(job);
+        }
+    }
 
-
-
-
-
-
-
-
-
-
-
+     */
 }

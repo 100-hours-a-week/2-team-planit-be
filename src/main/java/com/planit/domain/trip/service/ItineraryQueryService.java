@@ -3,15 +3,16 @@ package com.planit.domain.trip.service;
 import com.planit.domain.trip.dto.ItineraryActivityResponse;
 import com.planit.domain.trip.dto.ItineraryDayResponse;
 import com.planit.domain.trip.dto.ItineraryResponse;
-import com.planit.domain.trip.entity.ItineraryItem;
+import com.planit.domain.trip.entity.ItineraryDay;
 import com.planit.domain.trip.entity.ItineraryItemPlace;
 import com.planit.domain.trip.entity.ItineraryItemTransport;
 import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.repository.ItineraryDayRepository;
 import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
-import com.planit.domain.trip.repository.ItineraryItemRepository;
 import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -22,18 +23,18 @@ import org.springframework.stereotype.Service;
 public class ItineraryQueryService {
 
     private final TripRepository tripRepository;
-    private final ItineraryItemRepository itineraryItemRepository;
+    private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository placeRepository;
     private final ItineraryItemTransportRepository transportRepository;
 
     public ItineraryQueryService(
             TripRepository tripRepository,
-            ItineraryItemRepository itineraryItemRepository,
+            ItineraryDayRepository itineraryDayRepository,
             ItineraryItemPlaceRepository placeRepository,
             ItineraryItemTransportRepository transportRepository
     ) {
         this.tripRepository = tripRepository;
-        this.itineraryItemRepository = itineraryItemRepository;
+        this.itineraryDayRepository = itineraryDayRepository;
         this.placeRepository = placeRepository;
         this.transportRepository = transportRepository;
     }
@@ -44,55 +45,60 @@ public class ItineraryQueryService {
             return Optional.empty();
         }
 
-        List<ItineraryItem> items = itineraryItemRepository.findByTripIdOrderByDayIndex(tripId);
-        List<ItineraryDayResponse> days = new ArrayList<>();
-        LocalDate baseDate = trip.getArrivalDate();
+        List<ItineraryDay> itineraryDays = itineraryDayRepository.findByTripIdOrderByDayIndex(tripId);
+        List<ItineraryDayResponse> dayResponses = new ArrayList<>();
 
-        for (ItineraryItem item : items) {
+        for (ItineraryDay day : itineraryDays) {
             List<ItineraryActivityResponse> activities = new ArrayList<>();
 
             List<ItineraryItemPlace> places =
-                    placeRepository.findByItineraryItemIdOrderByEventOrder(item.getId());
+                    placeRepository.findByItineraryDayIdOrderByEventOrder(day.getId());
             for (ItineraryItemPlace place : places) {
                 activities.add(new ItineraryActivityResponse(
-                        "PLACE",
+                        place.getId(),
+                        place.getPlaceName(),
+                        null,
+                        place.getType(),
                         place.getEventOrder(),
                         place.getStartTime(),
-                        place.getDurationTime(),
+                        resolveDurationMinutes(place.getDurationTime()),
                         place.getCost(),
-                        null,
-                        place.getPlaceId(),
-                        place.getPlaceName(),
-                        place.getGoogleMapUrl(),
-                        place.getPositionLat(),
-                        place.getPositionLng()
+                        place.getMemo(),
+                        place.getGoogleMapUrl()
                 ));
             }
 
             List<ItineraryItemTransport> transports =
-                    transportRepository.findByItineraryItemIdOrderByEventOrder(item.getId());
+                    transportRepository.findByItineraryDayIdOrderByEventOrder(day.getId());
             for (ItineraryItemTransport transport : transports) {
                 activities.add(new ItineraryActivityResponse(
-                        "ROUTE",
-                        transport.getEventOrder(),
-                        transport.getStartTime(),
-                        transport.getDurationTime(),
+                        transport.getId(),
                         null,
                         transport.getTransport(),
-                        null,
-                        null,
+                        transport.getType(),
+                        transport.getEventOrder(),
+                        transport.getStartTime(),
+                        resolveDurationMinutes(transport.getDurationTime()),
                         null,
                         null,
                         null
                 ));
             }
 
-            activities.sort(Comparator.comparing(ItineraryActivityResponse::order));
+            activities.sort(Comparator.comparing(ItineraryActivityResponse::eventOrder, Comparator.nullsLast(Integer::compareTo)));
 
-            LocalDate date = baseDate != null ? baseDate.plusDays(item.getDayIndex() - 1) : null;
-            days.add(new ItineraryDayResponse(item.getDayIndex(), date, activities));
+            LocalDate date = day.getDate() != null ? day.getDate().toLocalDate()
+                    : (trip.getArrivalDate() != null ? trip.getArrivalDate().plusDays(day.getDayIndex() - 1) : null);
+            dayResponses.add(new ItineraryDayResponse(day.getId(), day.getDayIndex(), date, activities));
         }
 
-        return Optional.of(new ItineraryResponse(tripId, days));
+        return Optional.of(new ItineraryResponse(tripId, dayResponses));
+    }
+
+    private Integer resolveDurationMinutes(LocalTime durationTime) {
+        if (durationTime == null) {
+            return null;
+        }
+        return durationTime.getHour() * 60 + durationTime.getMinute();
     }
 }

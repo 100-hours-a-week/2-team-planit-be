@@ -4,37 +4,15 @@ import java.math.BigDecimal;
 import java.time.LocalTime;
 
 public record ItineraryActivityResponse(
-        //id
-
-        //placeName
-        String type,
-        Integer order,
-
-        LocalTime startTime,
-        LocalTime durationTime,
-        BigDecimal cost,
-        //memo
-
-        String googleMapUrl,
-        String positionLat,
-        String positionLng,
-
+        Long activityId,
+        String placeName,
         String transport,
-
-        String placeId, //제거
-        String placeName //제거
-
-        /*
-            "placeName": "면식당",
-            "transport":null,
-            "type": "Restaurant",
-            "eventOrder":1,
-            "startTime": "00:00",
-            "duration": 120,
-            "cost": 10000,
-            "memo": "메모 내용"
-            "googleMapUrl":"예시url"
-         */
-
+        String type,
+        Integer eventOrder,
+        LocalTime startTime,
+        Integer duration,
+        BigDecimal cost,
+        String memo,
+        String googleMapUrl
 ) {
 }

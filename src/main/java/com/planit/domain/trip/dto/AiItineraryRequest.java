@@ -20,7 +20,7 @@ public record AiItineraryRequest(
         String travelCity,
         Integer totalBudget,
 
-        List<String> travelTheme
-        //wantedPlace 필드 추가 (List)
+        List<String> travelTheme,
+        List<String> wantedPlace
 ) {
 }

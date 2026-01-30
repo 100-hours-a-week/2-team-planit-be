@@ -35,7 +35,7 @@ public record TripCreateRequest(
         Integer totalBudget,
 
         @NotEmpty
-        List<@NotBlank String> travelTheme
-        //wantedPlace 필드 추가 (List)
+        List<@NotBlank String> travelTheme,
+        List<@NotBlank String> wantedPlace
 ) {
 }
