@@ -1,0 +1,7 @@
+spring: # Spring Boot 핵심 설정 루트
+  profiles: # 활성화할 프로파일 정의
+    active: local # 개발용 로컬 프로파일 활성화
+
+server: # 내장 서버 구성
+  servlet: # 서블릿 관련 설정
+    context-path: /api # 전체 API에 붙일 context-path

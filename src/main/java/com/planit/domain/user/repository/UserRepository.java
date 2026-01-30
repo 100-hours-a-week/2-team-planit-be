@@ -1,55 +1,20 @@
 package com.planit.domain.user.repository; // 사용자 도메인 레포지토리 패키지
 
-import com.planit.domain.user.entity.User;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Set;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Transactional;
+import com.planit.domain.user.entity.User; // User 엔티티
+import java.util.Optional; // Optional 반환 타입
+import org.springframework.data.jpa.repository.JpaRepository; // JpaRepository 상속
+import org.springframework.data.jpa.repository.Query; // 커스텀 쿼리 정의
+import org.springframework.data.repository.query.Param; // 쿼리 파라미터 바인딩
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findByLoginIdAndDeletedFalse(String loginId);
+    Optional<User> findByLoginIdAndDeletedFalse(String loginId); // ID+삭제 flag 조건
 
-    Optional<User> findByNicknameAndDeletedFalse(String nickname);
+    Optional<User> findByNicknameAndDeletedFalse(String nickname); // 닉네임+삭제 flag
 
-    boolean existsByLoginIdAndDeletedFalse(String loginId);
+    boolean existsByLoginIdAndDeletedFalse(String loginId); // ID 중복 확인
 
-    boolean existsByNicknameAndDeletedFalse(String nickname);
+    boolean existsByNicknameAndDeletedFalse(String nickname); // 닉네임 중복 확인
 
-    @Query(value = "select count(1) > 0 from user_image where user_id = :userId and deleted_at is null", nativeQuery = true)
-    boolean existsProfileImageByUserId(@Param("userId") Long userId);
-
-    @Transactional
-    @Modifying
-    @Query("update User u set u.deleted = true, u.deletedAt = :when where u.id = :userId")
-    int softDelete(@Param("userId") Long userId, @Param("when") LocalDateTime when);
-
-    @Query(value = """
-        select
-            u.user_id as userId,
-            u.login_id as loginId,
-            u.nickname as nickname,
-            u.profile_image_id as profileImageId,
-            (select count(1) from posts p where p.user_id = u.user_id and p.is_deleted = 0) as postCount,
-            (select count(1) from comments c where c.author_id = u.user_id and c.deleted_at is null) as commentCount,
-            (select count(1) from likes l where l.author_id = u.user_id) as likeCount,
-            (select count(1) from notifications n where n.user_id = u.user_id) as notificationCount
-        from users u
-        where u.user_id = :userId and u.is_deleted = 0
-    """, nativeQuery = true)
-    Optional<ProfileSummary> fetchProfileSummary(@Param("userId") Long userId);
-
-    interface ProfileSummary {
-        Long getUserId();
-        String getLoginId();
-        String getNickname();
-        Long getProfileImageId();
-        Long getPostCount();
-        Long getCommentCount();
-        Long getLikeCount();
-        Long getNotificationCount();
-    }
+    @Query(value = "select count(1) > 0 from user_image where user_id = :userId", nativeQuery = true)
+    boolean existsProfileImageByUserId(@Param("userId") Long userId); // 프로필 이미지 존재 확인
 }
