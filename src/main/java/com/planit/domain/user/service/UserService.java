@@ -54,7 +54,7 @@ public class UserService {
 
         UserProfileImage profileImage = new UserProfileImage(); // 프로필 이미지 등록
         profileImage.setUserId(saved.getId());
-        profileImage.setImageId(request.getProfileImageId());
+        profileImage.setImageId(profileImageId);
         userProfileImageRepository.save(profileImage);
 
         return new UserSignupResponse(saved.getId()); // 생성된 ID 응답
