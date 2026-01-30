@@ -34,7 +34,7 @@ public class AiItineraryClient {
     // AI 서버 요청 메서드
     public AiItineraryResponse requestItinerary(AiItineraryRequest request) {
         if (mockEnabled) {
-            // throw new RestClientException("AI 서버 에러 응답 테스트용");
+            //throw new RestClientException("ai서버요청 에러응답 테스트용");
             return createDummyResponse(request);
         }
         // RestTemplate: 스프링 기본 HTTP 클라이언트
@@ -42,7 +42,7 @@ public class AiItineraryClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<AiItineraryRequest> entity = new HttpEntity<>(request, headers);
         return restTemplate.postForObject(baseUrl + "/api/v1/itinerary", entity, AiItineraryResponse.class);
-        // postForObject는 RestClientException을 던질 수 있음
+        // postForObject = throws RestClientException
     }
 
 
