@@ -6,3 +6,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
+
+ai:
+  base-url: http://localhost:8000
+  mock-enabled: false

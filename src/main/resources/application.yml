@@ -7,3 +7,7 @@ spring:
 
 server:
   port: 8080
+
+ai:
+  base-url: http://localhost:8000
+  mock-enabled: false
