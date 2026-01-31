@@ -12,11 +12,10 @@ ai:
   base-url: http://localhost:8000
   mock-enabled: false
 
-
-  jpa:
+jpa:
+  hibernate:
+    ddl-auto: update
+  properties:
     hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-    show-sql: true
+      format_sql: true
+  show-sql: true
