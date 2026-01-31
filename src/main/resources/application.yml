@@ -1,12 +1,14 @@
 spring:
   application:
     name: travel-service
-
   profiles:
-    active: local
+    active: prod
 
-server:
-  port: 8080
+server: # 내장 서버 구성
+  servlet: # 서블릿 관련 설정
+    context-path: /api # 전체 API에 붙일 context-path
+    port: 8080
+
 
 ai:
   base-url: http://localhost:8000
