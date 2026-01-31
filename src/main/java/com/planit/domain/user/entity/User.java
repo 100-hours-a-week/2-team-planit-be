@@ -1,4 +1,4 @@
-package com.planit.domain.user.entity; // 사용자 엔티티를 정의하는 패키지
+package com.planit.domain.user.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
