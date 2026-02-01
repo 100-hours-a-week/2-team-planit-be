@@ -70,4 +70,14 @@
 - 2026-01-26: Post 엔티티에서 userId 필드를 제거하고 author(User)만 관리하는 구조로 정리, PostService.createPost에서 User 엔티티를 주입하여 저장/응답을 처리해 JPA의 PK/FK 일관성을 확보함.
 
 - 2026-01-26: 게시글 수정 DTO/서비스/컨트롤러를 추가하여 PostUpdateRequest 기반 제목·본문·이미지 변경 + 권한 확인 흐름을 정리하고 `@PutMapping`을 multipart-form으로 노출함.
-- 2026-01-29: Flyway를 더 이상 사용하지 않기로 해서 `application.yml`/`application-local.yml`의 `spring.flyway.enabled=false`를 선언해 수동 스키마 관리 기조를 유지함(테스트 미실행).
+- 2026-01-29: Spring Security 환경에서 `http://localhost:5173` origin의 GET/POST/PUT/DELETE/OPTIONS 요청을 CORS 허용하도록 `SecurityConfig`를 새로 작성하고 CorsConfigurationSource를 정의했으며, OPTIONS과 `/auth/**`는 permitAll 처리해 프론트에서 OPTIONS 차단이 풀리도록 정리함(테스트 미실행).
+- 2026-01-30: 중복 CorsConfigurationSource 정의를 제거하기 위해 `WebConfig`를 삭제하고 SecurityConfig만으로 CORS 정책을 취급하도록 정리함(테스트 미실행).
+- 2026-01-30: Lombok getter가 CI에서 누락될 수 있는 문제를 방지하기 위해 `User.profileImageId`에 명시적인 `getProfileImageId()`를 추가해 `CommentService` 등에서 참조할 수 있도록 정리함(테스트 미실행).
+- 2026-01-29: `SignUpRequest.profileImageId`를 nullable로 바꾸고 UserService.signup에서 null이면 기본 프로필 이미지 ID를 채운 뒤 UserProfileImage를 생성하도록 변경해 초기 프로필 선택 없이도 회원가입이 되게 정리함(테스트 미실행).
+- 2026-02-01: 프로필 이미지를 `profile_image_url` 컬럼 + S3 URL로 일원화하고 `UserProfileImage`/`UserProfileImageRepository`를 제거한 뒤 S3Uploader·S3Config/S3 관련 DTO/서비스/컨트롤러를 구현해 AWS S3 업로드 → URL 저장 로직을 만들며 기존 imageId 의존 코드를 정리함(테스트 미실행).
+- 2026-02-01: `JwtAuthenticationFilter.shouldNotFilter`를 context path를 제거한 URI 기준으로 `/auth/login`, `/users/signup` 등을 판별하게 수정해 `POST /api/users/signup` 같은 요청도 JWT 필터를 건너뛰도록 정리함(테스트 미실행).
+- 2026-01-31: `build.gradle`의 `test` task에 `useJUnitPlatform()`을 선언해 JUnit5 테스트(`AuthVerificationControllerTest` 등)가 Gradle/CI에서 정상 실행되도록 정리함(테스트 미실행).
+- 2026-02-01: `cloud.aws.enabled` 플래그로 S3 관련 빈을 조건부 생성하도록 변경하고 `UserService`에서 `ObjectProvider<S3Uploader>`를 통해 S3 의존을 옵셔널로 처리했으며, 모든 환경 파일(`application-*,example`)에 `cloud.aws` 루트 정의를 넣고 `cloud.aws.enabled` 값을 분기하여 로컬에서 AWS 설정 없이 `bootRun`이 시작되도록 정리함.
+- 2026-02-01: prod 프로파일은 실제 배포에서만 쓰고 `application.yml`은 기본적으로 local을 활성화하도록 되돌렸으며 README에 prod 실행 시 필요한 환경변수(`SPRING_DATASOURCE_*`, `JWT_SECRET`, `AWS_*`)를 명시해 개발자가 prod를 수동으로 띄우지 않도록 안내함.
+- 2026-02-01: `planit.profile.default-image-url` 속성을 도입하고 `ProfileImageProperties`/LoginResponse/UserService를 default URL 기반으로 방어하며 Flyway V8 마이그레이션을 추가해 `users.profile_image_url` 컬럼을 보장하고 AuthService/GlobalExceptionHandler에서 명확한 예외 변환/로그를 남기도록 정리함.
+- 2026-02-01: JwtProvider를 Base64 디코딩 후 256비트 이상 키만 받도록 재작성하고, JwtProperties/config을 만들고 README에 `JWT_SECRET` 설정 명령을 기입해 local/prod 모두에서 WeakKeyException 없이 로그인 토큰을 생성하도록 정리함.
