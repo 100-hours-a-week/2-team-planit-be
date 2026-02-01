@@ -23,5 +23,4 @@ public class UserUpdateRequest {
 
     private String passwordConfirmation; // 비밀번호 확인 필드 (입력 시 password와 일치해야 함)
 
-    private Long profileImageId; // 프로필 이미지 변경 시 전달되는 이미지 ID
 }

@@ -1,12 +1,12 @@
-package com.planit.domain.user.service; // UserService 통합 테스트를 위한 패키지
+package com.planit.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.planit.domain.user.dto.SignUpRequest;
 import com.planit.domain.user.dto.UserSignupResponse;
 import com.planit.domain.user.entity.User;
-import com.planit.domain.user.repository.UserProfileImageRepository;
 import com.planit.domain.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,73 +15,60 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest // 실제 application context 로딩
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY) // H2 in-memory 사용
+@SpringBootTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:planit-test;DB_CLOSE_DELAY=-1;MODE=MYSQL",
     "spring.datasource.driverClassName=org.h2.Driver",
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.flyway.enabled=false"
 })
-@Transactional // 테스트마다 롤백
+@Transactional
 class UserServiceIntegrationTest {
 
     @Autowired
-    private UserService userService; // 실제 UserService 빈 주입
+    private UserService userService;
 
     @Autowired
-    private UserRepository userRepository; // 테스트에서 사용자 조회/검증
-
-    @Autowired
-    private UserProfileImageRepository userProfileImageRepository; // 프로필 이미지 검증용
+    private UserRepository userRepository;
 
     @Test
-    @DisplayName("회원가입 시 users/user_image 테이블에 데이터가 저장된다")
-    void signupPersistsUserAndProfileImage() {
+    @DisplayName("회원가입 시 users 테이블에 데이터가 저장된다")
+    void signupPersistsUser() {
         SignUpRequest request = new SignUpRequest();
         request.setLoginId("PlanitUser");
         request.setPassword("Correct1!");
         request.setPasswordConfirm("Correct1!");
         request.setNickname("Planitter");
-        request.setProfileImageId(99L);
 
-        UserSignupResponse response = userService.signup(request); // 회원가입 실행
+        UserSignupResponse response = userService.signup(request);
 
         assertThat(response).isNotNull();
         assertThat(response.getUserId()).isNotNull();
 
-        User persistedUser = userRepository.findById(response.getUserId()).orElseThrow(); // DB 확인
-        assertThat(persistedUser.getLoginId()).isEqualTo("PlanitUser");
-        assertThat(persistedUser.getNickname()).isEqualTo("Planitter");
-        assertThat(persistedUser.isDeleted()).isFalse();
-
-        assertThat(userRepository.existsByLoginIdAndDeletedFalse("PlanitUser")).isTrue();
-        assertThat(userProfileImageRepository.findAll())
-            .hasSize(1)
-            .first()
-            .satisfies(image -> {
-                assertThat(image.getUserId()).isEqualTo(response.getUserId());
-                assertThat(image.getImageId()).isEqualTo(99L);
-            });
+        User persisted = userRepository.findById(response.getUserId()).orElseThrow();
+        assertThat(persisted.getLoginId()).isEqualTo("PlanitUser");
+        assertThat(persisted.getNickname()).isEqualTo("Planitter");
+        assertThat(persisted.getProfileImageUrl()).isNull();
+        assertThat(persisted.isDeleted()).isFalse();
     }
 
     @Test
-    @DisplayName("프로필 이미지 삭제 요청 시 연관된 user_image 행이 제거된다")
-    void deleteProfileImageRemovesEntry() {
-        SignUpRequest request = new SignUpRequest();
-        request.setLoginId("PlanitUser2");
-        request.setPassword("Correct1!");
-        request.setPasswordConfirm("Correct1!");
-        request.setNickname("PlanitUser");
-        request.setProfileImageId(100L);
+    @DisplayName("탈퇴 시 soft delete 플래그가 켜진다")
+    void deleteAccountMarksDeleted() {
+        User user = new User();
+        user.setLoginId("toDelete");
+        user.setPassword("Correct1!");
+        user.setNickname("Planiter");
+        LocalDateTime now = LocalDateTime.now();
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        user.setDeleted(false);
+        userRepository.save(user);
 
-        UserSignupResponse response = userService.signup(request); // 사용자 + 이미지 생성
+        userService.deleteAccount(user.getLoginId());
 
-        assertThat(userProfileImageRepository.existsByUserId(response.getUserId())).isTrue(); // 존재 확인
-
-        userService.deleteProfileImage(response.getUserId()); // 삭제 케이스 실행
-
-        assertThat(userProfileImageRepository.existsByUserId(response.getUserId())).isFalse(); // 삭제 되었는지 확인
-        assertThat(userProfileImageRepository.findAll()).isEmpty();
+        User deleted = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(deleted.isDeleted()).isTrue();
     }
 }

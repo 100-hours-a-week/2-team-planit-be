@@ -10,7 +10,7 @@ import com.planit.domain.user.repository.UserRepository;
 import com.planit.domain.user.security.JwtAuthenticationFilter;
 import com.planit.domain.user.security.JwtProvider;
 import com.planit.global.common.exception.GlobalExceptionHandler;
-import com.planit.global.config.SecurityConfig;
+import com.planit.global.security.SecurityConfig;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +53,7 @@ class AuthVerificationControllerTest {
     void verifyReturnsLoginIdWhenTokenValid() throws Exception {
         String token = jwtProvider.generateToken(user.getLoginId()); // JWT 발급
 
-        mockMvc.perform(get("/api/auth/verify")
+        mockMvc.perform(get("/auth/verify")
                 .header("Authorization", "Bearer " + token)) // Bearer 토큰 추가
             .andExpect(status().isOk()) // 200 OK
             .andExpect(jsonPath("$.loginId").value("planit_user")) // loginId 응답 확인

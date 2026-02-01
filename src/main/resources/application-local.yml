@@ -13,8 +13,13 @@ spring:
     show-sql: true
 
 jwt:
-  secret: planit-local-secret-key
+  secret: ${JWT_SECRET:QmFzZTY0RW5jb2RlZFNhbXBsZVNlY3JldEtleUo3VjI5bQ==}
+  access-token-expiration-ms: 3600000
 
 ai:
   base-url: http://localhost:8000
   mock-enabled: true
+
+planit:
+  profile:
+    default-image-url: https://planit.local/default-profile.png

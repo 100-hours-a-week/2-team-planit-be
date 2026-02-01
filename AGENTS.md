@@ -1,0 +1,83 @@
+# AGENTS.md
+
+## Log
+- 2025-02-14: Initialized AGENTS.md per user request (no prior history found).
+- 2025-02-14: `./gradlew clean build` 성공했으며 `com.planit` 하위 `UserController`/`UserService` 오류를 확인할 수 없어 증상 재현 정보 요청 중.
+- 2026-01-20: `SignUpRequest` DTO를 신규 정의하고 back-end 유효성(아이디/비밀번호/닉네임/프로필 이미지/비밀번호 확인)과 메시지를 기능 정의서에 맞게 맞췄으며 `./gradlew compileJava`를 실행하여 컴파일 성공 확인.
+- 2026-01-21: 로그인 ID 허용 범위를 영문 소문자, 숫자, `_`로 좁히고(`SignUpRequest`와 `UserController`), 회원가입/중복확인 전용 `UserService`와 `/users/{signup,check-login-id,check-nickname}` API를 추가하여 중복 메시지·비밀번호 암호화·프로필 이미지 링크 저장을 반영하고 `SecurityConfig`에 `PasswordEncoder` 빈을 등록했으며 `./gradlew compileJava` 확인.
+- 2026-01-21: 서버 유효성 정책을 요구사항 기반으로 다시 정리하여 `SignUpRequest`와 `/users/check-login-id` 검증에서 대소문자 모두 허용하도록 수정하고, `UserController`/`UserService`를 재구성하여 회원가입+중복 확인 흐름을 처리한 뒤 `./gradlew compileJava` 재실행으로 통합 성공을 확인.
+- 2026-01-20: 지워진 `UserService`/`UserController`를 재생성하여 아이디·닉네임 중복 검사, 비밀번호 암호화, 프로필 이미지 저장 흐름과 `/users/signup`, `/users/check-login-id`, `/users/check-nickname` API를 다시 구현하고 `./gradlew compileJava`로 컴파일 성공 확인.
+- 2026-01-21: 로그인 ID 패턴 메시지를 영문 소문자/숫자/`_` 기준으로 정리하고 DTO/엔터티/컨트롤러 검증을 스펙 메시지에 맞춰 조정한 뒤 `ValidationExceptionHandler`를 추가해 유효성 응답이 단순한 메시지로 내려가도록 하고 `./gradlew compileJava` 성공을 확인.
+- 2026-01-21: MockMvc 기반 `UserValidationIntegrationTest`를 추가하여 프로필 이미지 누락, 로그인 아이디 패턴 위반, 비밀번호 불일치 시 메시지를 검증하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`로 테스트 성공을 확인.
+- 2026-01-21: 로그인 ID에 영문 대소문자도 허용하도록 DTO/엔터티/컨트롤러의 검증 패턴과 메시지를 다시 맞추고 `ValidationExceptionHandler`가 내려주는 helper text도 일관되게 유지되도록 확인함.
+- 2026-01-21: H2를 테스트 종속성에 추가하고 `UserServiceIntegrationTest`를 만들어 실제 `users`/`user_image` 테이블이 회원가입 시 생성되는지 검증한 뒤, 해당 환경에서 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 다시 성공시킴.
+- 2026-01-21: `com.planit.global.exception` 패키지(`ErrorResponse`, `GlobalExceptionHandler`)를 `com.planit.exception`으로 통합하여 단일 exception 경로에서 모든 핸들러를 관리하게 한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`로 빌드 성공 확인.
+- 2026-01-21: `ValidationExceptionHandler`를 제거하고 `GlobalExceptionHandler`에 중심을 모아 단일 예외 흐름을 유지한 뒤 MockMvc 테스트를 `GlobalExceptionHandler` 기준으로 확장하여 errors 배열을 포함한 응답을 검증하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 통과시킴.
+- 2026-01-21: `global/config` 디렉터리를 제거하고 `SecurityConfig`를 `com.planit.config`로 옮겨 config 폴더 상위에 더 이상 global 네임스페이스가 남지 않도록 정리함.
+- 2026-01-21: 사용자 프로필 이미지 삭제 API(`/users/{userId}/profile-image`)와 `UserService.deleteProfileImage`를 추가, `user_image` 테이블에서 association을 제거하고 API/서비스/통합 테스트를 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
+- 2026-01-21: Springdoc OpenAPI (`OpenApiConfig`)를 등록하여 Swagger UI를 생성하고, `UserSignupSpecTest`로 정상/중복/패턴/정책 시나리오를 통합 확인한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 통합 테스트를 실행함.
+- 2026-01-21: Swagger UI (`/swagger-ui/**`, `/v3/api-docs/**`)를 `SecurityConfig`에서 permitAll 처리해 인증 없이 접근 가능하게 하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
+- 2026-01-21: springdoc 버전을 Spring Boot 3.5.9와 호환되는 2.5.0으로 올리고(2.5.x 이상으로 권장) 테스트를 다시 실행해 문서/Swagger가 정상 작동하는지 확인함.
+- 2026-01-21: Spring Boot을 3.3.5로 다시 다운그레이드하고 springdoc-openapi 2.5.0을 유지한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew clean build`로 전체 컴파일/테스트를 성공시킴.
+- 2026-01-21: `server.servlet.context-path`를 `/api`로 지정해 전체 REST API가 `/api` 베이스 하위로 이동하도록 설정한 뒤 Health/controller 테스트를 `/api/` prefix를 포함해 재검증함.
+- 2026-01-21: 소스/테스트 패키지를 도메인형 구조(예: `com.planit.global.config`, `com.planit.domain.user.*`)로 재배치하고 관련 package/import를 모두 조정한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 통합 검증함.
+- 2026-01-21: OpenAPI 정의의 server URL을 `/api`로 맞춰 Swagger 문서가 실제 context-path와 일치하도록 조정하고 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 재검증함.
+- 2026-01-21: `User` 엔티티에서 모든 validation 어노테이션을 제거하고 DTO 수준에서만 유효성을 처리하도록 정리한 후 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 통합 테스트를 재실행함.
+- 2026-01-21: Security matcher를 `/api` 없이 순수 엔드포인트(`/users/...`, `/swagger-ui/**`, `/v3/api-docs/**`)만 허용하도록 조정하고 다시 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`로 검증함.
+- 2026-01-21: `SecurityConfig`를 `com.planit.global.security`로 옮기고 테스트/설정에서 새 패키지를 참조하도록 조정한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`를 재실행함.
+- 2026-01-21: 아이디 `@Pattern` 메시지를 “영문 대소문자, 숫자, _” 설명으로 정리해 반복되는 유효성 에러 결과를 피하고, 해당 메시지가 `/api/users/signup` 시나리오 테스트에서도 반영되도록 변경한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradlew test`를 통과시킴.
+- 2026-01-22: 로그인 기능정의서에 맞춰 로그인 ID 입력값을 영문 소문자·숫자·`_`만 허용하도록 DTO 및 `/users/check-login-id` 검증과 메시지를 조정하고, 관련 통합 테스트도 동일 helper text로 업데이트한 뒤 `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 통과시킴.
+- 2026-01-22: SecurityConfig에 stateless 세션/AuthenticationEntryPoint와 jwt 필터 흐름을 정리하고 AuthController 경로를 `/auth`로 맞춘 뒤 PasswordEncoder 빈을 UserService에 주입하여 `./gradlew test`를 성공적으로 실행함.
+- 2026-01-22: JWT 검증 확인용 `/api/auth/verify` 엔드포인트와 토큰 유효성/401 메시지를 점검하는 MockMvc 테스트를 추가하고 `./gradlew test`로 통합 확인을 마침.
+- 2026-01-25: `SecurityConfig`에 `@EnableWebSecurity`를 추가해 보안 설정이 스프링 기본 웹 보안과 명시적으로 연동되도록 한 뒤 `./gradlew test`에서 성공을 확인함.
+- 2026-01-25: `JwtProvider`를 `com.planit.domain.user.security`로 이동하고 테스트/필터/서비스의 import 경로를 조정한 뒤 `./gradlew test`를 다시 성공시킴.
+- 2026-01-25: `UserController`의 `@RequestMapping`을 `/api/users`로 정리해 context-path `/api`와 일치시킨 뒤 `./gradlew test`로 전체 검증을 완료함.
+- 2026-01-25: 인증이 필요한 `/api/users/{userId}/profile-image` 접근을 별도 MockMvc 테스트로 확인하여 401 메시지를 검증하고 `./gradlew test`를 다시 실행함.
+- 2026-01-25: Swagger OpenAPI 설명에 “로그인 후 Bearer 토큰 입력” 안내를 추가하고 `bearerAuth` 스킴을 등록하여 Authorization 버튼이 JWT 인증 흐름을 문서화하도록 정리한 뒤 `./gradlew test` 통과함.
+- 2026-01-25: `JwtAuthenticationFilter.shouldNotFilter`를 구현해 로그인/회원가입/헬스/Swagger 경로를 건너뛰고 허용된 경로에서만 JWT 검사를 하도록 정리한 뒤 `./gradlew test`로 재검증함.
+- 2026-01-25: `JwtAuthenticationFilter.shouldNotFilter`를 `startsWith` 기반으로 넓혀 로그인/가입/검증/헬스/Swagger 경로를 명확히 제외하고 로그를 찍도록 정리한 뒤 `./gradlew test`로 확인함.
+- 2026-01-25: SecurityConfig 및 JwtAuthenticationFilter에서 컨텍스트 패스(`/api`)를 제외한 실제 엔드포인트만 비교하도록 다듬어 permitAll/필터 제외 흐름이 일치하게 정리한 뒤 `./gradlew test`로 확인함.
+- 2026-01-25: OpenAPI 정의에 `bearerAuth` global security requirement를 추가하고 helper 설명을 유지하여 Swagger에서 Authorize 버튼을 명확히 안내함.
+- 2026-01-25: `/api/users/me` 호출 로그를 `UserService`에 기록하게 하고 `@Operation` 보안 문서를 붙여 인증된 내 정보 조회를 명시적으로 설명한 뒤 `./gradlew test`로 검증함.
+- 2026-01-25: 주요 DTO/컨트롤러/서비스/보안/설정/테스트 파일에 line-by-line 주석을 추가하고 `build.gradle`/환경 파일들도 같은 수준으로 설명을 달아 코드와 설정 문서를 직관적으로 남긴 뒤 `./gradlew test`가 통과됨.
+- 2026-01-25: JwtAuthenticationFilter에서 principal을 UserDetails로 설정하고 `UserService` 로그와 함께 인증 컨텍스트가 정상 작동하도록 변경한 뒤 `./gradlew test`를 통과함.
+- 2026-01-25: JwtAuthenticationFilter의 `shouldNotFilter` 조건을 `/auth/login`만 제외하도록 미세조정해서 `/auth/verify`가 필터를 통과하고 인증 흐름에서 정상 작동하도록 정리한 뒤 `./gradlew test`를 성공시킴.
+- 2026-01-25: `application-local.yml`에 32자 이상 JWT secret을 명시하고 `JwtProvider`에서 기본값을 없애며 키 생성/검증 흐름을 정리하여 토큰 발급이 WeakKeyException 없이 동작하도록 한 뒤 `./gradlew test`를 통과함.
+- 2026-01-23: `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 권한 상승 환경에서 다시 실행하여 OpenApiDocTest 포함 전체 테스트가 성공함을 확인하고 `.gradle/` 캐시 현황을 기록함.
+- 2026-01-23: 게시물 목록 조회를 위한 `PostController`/`PostService`/`PostRepository`/DTO를 추가하여 테이블 조합(`posts`, `users`, `comments`, `likes`, `posted_images`)과 검색/정렬/helper text 요건을 반영하고 Swagger 문서를 통해 스펙을 기록함.
+- 2026-01-27: 테스트 환경을 분리하여 기본 프로파일이 `test`로 실행되게 하고 H2 메모리 DB 설정(`src/test/resources/application-test.yml`)을 추가하여 `UserRepository`/`JwtAuthenticationFilter`를 포함한 JPA 빈들이 데이터베이스 의존성 없이 초기화되도록 지원함.
+- 2026-01-27: `BoardType` enum을 도입하고 `@Enumerated(EnumType.STRING)`으로 `Post.boardType`을 매핑한 뒤, Flyway `V2__board_type_string.sql`로 MySQL의 `posts.board_type` 컬럼을 `VARCHAR(255)`으로 변경하여 schema-validation 에러를 해결함.
+- 2026-01-26: 마이페이지/회원 정보 수정을 위한 `UserUpdateRequest`, `UserProfileResponse`, `UserController`/`UserService`, `UserProfileImageRepository`와 line-by-line 주석을 정비하고 SecurityConfig/Swagger/post 목록 DTO에 주석을 더해 도메인 흐름을 명확히 하며 `GRADLE_USER_HOME=./gradle-cache ./gradlew test` 실행 시 Gradle 배포 다운로드가 UnknownHostException으로 실패함을 확인함.
+
+- 2026-01-25: `Post` 엔티티를 게시물 작성 스펙에 맞춰 제목/본문 길이를 제한하고 감사 필드, 삭제 플래그, 여행 일정 연결 및 `PostedImage` 관계를 추가하였으며 `./gradlew clean compileJava` 실행은 홈 Gradle 락 파일 권한 문제로 실패함.
+
+- 2026-01-25: SecurityConfig에서 GET /posts/**을 permitAll로 열어 자유게시판 조회를 인증 없이 가능하게 하고 나머지 게시물 쓰기/삭제 요청은 인증 처리하면서 Swagger/헬스/인증 엔드포인트도 정리함.
+
+- 2026-01-26: Flyway V3 migration을 추가해 images 테이블(schema for uploaded files) 생성을 보장하여 Hibernate의 schema-validation 오류를 해결하고 `./gradlew bootRun` 로그에서 missing table [images] 문제가 발생하는 것을 방지함.
+- 2026-01-26: posted_images 테이블이 존재하지 않아 JPA가 부팅 실패했기에 Flyway V4 마이그레이션으로 해당 테이블을 생성하고 외래키/인덱스를 정의하여 `./gradlew bootRun`의 schema-validation을 정리함.
+
+- 2026-01-26: Flyway V5 마이그레이션을 추가해 posts 테이블에 is_deleted/deleted_at 컬럼을 생성하여 JPA의 schema-validation 오류를 제거하고 논리 삭제 플래그를 준비함.
+
+- 2026-01-26: Flyway V5 마이그레이션을 수정하여 posts 테이블에 IF NOT EXISTS 조건으로 is_deleted/deleted_at을 추가하도록 변경, 이전 run에서 삭제 컬럼이 이미 존재해도 밸리데이션 실패 없이 새로운 인덱스·플래그를 도입할 수 있게끔 조정함.
+
+- 2026-01-26: Flyway V5를 정보 스키마 기반 조건 추가 방식으로 다시 작성해 is_deleted/deleted_at 컬럼을 중복 없이 안전하게 생성하도록 정리하고, 실패 기록 정리 후 Flyway가 schema-validation을 통과하도록 준비함.
+
+- 2026-01-26: Post 엔티티에서 trip_id/Trip 연관 설명을 제거하고 PostCreateRequest/Service/Swagger 문서에서 여행 도메인 참조를 없앰으로써 v1 자유게시판 작성 스펙에 집중하도록 정리함.
+- 2026-01-26: `.gitignore` 하단에 `/build/`와 `**/build/`를 추가해 루트/서브모듈 build 디렉터리까지 모두 추적되지 않도록 정리함.
+
+- 2026-01-26: Flyway V6 마이그레이션을 추가해 posts.author 컬럼을 조건부로 제거하여 삽입 시 SQL 1364(필수 미입력) 오류를 해결하고 v1 자유게시판 스펙에 맞춰 schema를 정리함.
+
+- 2026-01-26: Post 엔티티에서 userId 필드를 제거하고 author(User)만 관리하는 구조로 정리, PostService.createPost에서 User 엔티티를 주입하여 저장/응답을 처리해 JPA의 PK/FK 일관성을 확보함.
+
+- 2026-01-26: 게시글 수정 DTO/서비스/컨트롤러를 추가하여 PostUpdateRequest 기반 제목·본문·이미지 변경 + 권한 확인 흐름을 정리하고 `@PutMapping`을 multipart-form으로 노출함.
+- 2026-01-29: Spring Security 환경에서 `http://localhost:5173` origin의 GET/POST/PUT/DELETE/OPTIONS 요청을 CORS 허용하도록 `SecurityConfig`를 새로 작성하고 CorsConfigurationSource를 정의했으며, OPTIONS과 `/auth/**`는 permitAll 처리해 프론트에서 OPTIONS 차단이 풀리도록 정리함(테스트 미실행).
+- 2026-01-30: 중복 CorsConfigurationSource 정의를 제거하기 위해 `WebConfig`를 삭제하고 SecurityConfig만으로 CORS 정책을 취급하도록 정리함(테스트 미실행).
+- 2026-01-30: Lombok getter가 CI에서 누락될 수 있는 문제를 방지하기 위해 `User.profileImageId`에 명시적인 `getProfileImageId()`를 추가해 `CommentService` 등에서 참조할 수 있도록 정리함(테스트 미실행).
+- 2026-01-29: `SignUpRequest.profileImageId`를 nullable로 바꾸고 UserService.signup에서 null이면 기본 프로필 이미지 ID를 채운 뒤 UserProfileImage를 생성하도록 변경해 초기 프로필 선택 없이도 회원가입이 되게 정리함(테스트 미실행).
+- 2026-02-01: 프로필 이미지를 `profile_image_url` 컬럼 + S3 URL로 일원화하고 `UserProfileImage`/`UserProfileImageRepository`를 제거한 뒤 S3Uploader·S3Config/S3 관련 DTO/서비스/컨트롤러를 구현해 AWS S3 업로드 → URL 저장 로직을 만들며 기존 imageId 의존 코드를 정리함(테스트 미실행).
+- 2026-02-01: `JwtAuthenticationFilter.shouldNotFilter`를 context path를 제거한 URI 기준으로 `/auth/login`, `/users/signup` 등을 판별하게 수정해 `POST /api/users/signup` 같은 요청도 JWT 필터를 건너뛰도록 정리함(테스트 미실행).
+- 2026-01-31: `build.gradle`의 `test` task에 `useJUnitPlatform()`을 선언해 JUnit5 테스트(`AuthVerificationControllerTest` 등)가 Gradle/CI에서 정상 실행되도록 정리함(테스트 미실행).
+- 2026-02-01: `cloud.aws.enabled` 플래그로 S3 관련 빈을 조건부 생성하도록 변경하고 `UserService`에서 `ObjectProvider<S3Uploader>`를 통해 S3 의존을 옵셔널로 처리했으며, 모든 환경 파일(`application-*,example`)에 `cloud.aws` 루트 정의를 넣고 `cloud.aws.enabled` 값을 분기하여 로컬에서 AWS 설정 없이 `bootRun`이 시작되도록 정리함.
+- 2026-02-01: prod 프로파일은 실제 배포에서만 쓰고 `application.yml`은 기본적으로 local을 활성화하도록 되돌렸으며 README에 prod 실행 시 필요한 환경변수(`SPRING_DATASOURCE_*`, `JWT_SECRET`, `AWS_*`)를 명시해 개발자가 prod를 수동으로 띄우지 않도록 안내함.
+- 2026-02-01: `planit.profile.default-image-url` 속성을 도입하고 `ProfileImageProperties`/LoginResponse/UserService를 default URL 기반으로 방어하며 Flyway V8 마이그레이션을 추가해 `users.profile_image_url` 컬럼을 보장하고 AuthService/GlobalExceptionHandler에서 명확한 예외 변환/로그를 남기도록 정리함.
+- 2026-02-01: JwtProvider를 Base64 디코딩 후 256비트 이상 키만 받도록 재작성하고, JwtProperties/config을 만들고 README에 `JWT_SECRET` 설정 명령을 기입해 local/prod 모두에서 WeakKeyException 없이 로그인 토큰을 생성하도록 정리함.

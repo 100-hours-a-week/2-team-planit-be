@@ -36,8 +36,8 @@ public class User {
     @Column(columnDefinition = "json")
     private String preferences;
 
-    @Column(name = "profile_image_id")
-    private Long profileImageId; // 프로필 이미지 링크
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
 
@@ -65,12 +65,8 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void attachProfileImage(Long imageId) {
-        this.profileImageId = imageId;
+    public void attachProfileImage(String imageUrl) {
+        this.profileImageUrl = imageUrl;
         this.updatedAt = LocalDateTime.now();
-    }
-
-    public Long getProfileImageId() {
-        return profileImageId;
     }
 }

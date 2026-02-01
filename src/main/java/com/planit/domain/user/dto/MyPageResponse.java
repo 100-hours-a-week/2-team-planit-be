@@ -18,7 +18,7 @@ public class MyPageResponse {
     private Long userId;
     private String loginId;
     private String nickname;
-    private Long profileImageId;
+    private String profileImageUrl;
     private Long postCount;
     private Long commentCount;
     private Long likeCount;

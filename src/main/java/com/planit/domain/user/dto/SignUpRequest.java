@@ -43,8 +43,6 @@ public class SignUpRequest {
     @Pattern(regexp = "^[^\\s]+$", message = "*띄어쓰기를 없애주세요")
     private String nickname; // 사용자 닉네임
 
-    private Long profileImageId; // 선택된 프로필 이미지 ID
-
     @AssertTrue(message = "*비밀번호가 다릅니다.")
     private boolean isPasswordMatching() {
         if (password == null || passwordConfirm == null) {

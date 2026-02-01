@@ -13,7 +13,7 @@ import lombok.Setter;
 public class CommentResponse {
     private Long commentId;
     private String authorNickname;
-    private Long authorProfileImageId;
+    private String authorProfileImageUrl;
     private String content;
     private String createdAt; // hh:mm / yyyy-MM-dd 형식
 }

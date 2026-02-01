@@ -11,6 +11,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import java.sql.SQLException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 
 
 @RestControllerAdvice
@@ -40,6 +42,20 @@ public class GlobalExceptionHandler {
         logger.warn("UnsupportedMediaType", ex);
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
                 .body(ErrorResponse.from(ErrorCode.COMMON_001));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        logger.error("🔥 JWT KEY ERROR: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.from(ErrorCode.COMMON_999));
+    }
+
+    @ExceptionHandler({NullPointerException.class, SQLException.class})
+    public ResponseEntity<ErrorResponse> handleCriticalException(RuntimeException ex) {
+        logger.error("CriticalException: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.from(ErrorCode.COMMON_999));
     }
 
     @ExceptionHandler(Exception.class)
