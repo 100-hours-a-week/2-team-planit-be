@@ -17,15 +17,15 @@ public class CommentDetail {
     private LocalDateTime createdAt;
     private Long authorId;
     private String authorNickname;
-    private Long authorProfileImageId;
+    private String authorProfileImageUrl;
 
     public CommentDetail(Long commentId, String content, LocalDateTime createdAt, Long authorId,
-                         String authorNickname, Long authorProfileImageId) {
+                         String authorNickname, String authorProfileImageUrl) {
         this.commentId = commentId;
         this.content = content;
         this.createdAt = createdAt;
         this.authorId = authorId;
         this.authorNickname = authorNickname;
-        this.authorProfileImageId = authorProfileImageId;
+            this.authorProfileImageUrl = authorProfileImageUrl;
     }
 }

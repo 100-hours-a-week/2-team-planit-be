@@ -27,7 +27,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
             c.createdAt,
             c.author.id,
             c.author.nickname,
-            c.author.profileImageId
+            c.author.profileImageUrl
         )
         from Comment c
         where c.post.id = :postId

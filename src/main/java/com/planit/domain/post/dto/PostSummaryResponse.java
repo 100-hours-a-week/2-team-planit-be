@@ -9,7 +9,7 @@ public class PostSummaryResponse {
     private final String title;
     private final Long authorId;
     private final String authorNickname;
-    private final Long authorProfileImageId;
+    private final String authorProfileImageUrl;
     private final LocalDateTime createdAt;
     private final Long likeCount;
     private final Long commentCount;
@@ -23,7 +23,7 @@ public class PostSummaryResponse {
         String title,
         Long authorId,
         String authorNickname,
-        Long authorProfileImageId,
+        String authorProfileImageUrl,
         LocalDateTime createdAt,
         Long likeCount,
         Long commentCount,
@@ -36,7 +36,7 @@ public class PostSummaryResponse {
         this.title = title;
         this.authorId = authorId;
         this.authorNickname = authorNickname;
-        this.authorProfileImageId = authorProfileImageId;
+        this.authorProfileImageUrl = authorProfileImageUrl;
         this.createdAt = createdAt;
         this.likeCount = likeCount;
         this.commentCount = commentCount;

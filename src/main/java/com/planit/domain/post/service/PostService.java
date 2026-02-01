@@ -62,7 +62,7 @@ public class PostService {
                 summary.getTitle(),
                 summary.getAuthorId(),
                 summary.getAuthorNickname(),
-                summary.getAuthorProfileImageId(),
+                summary.getAuthorProfileImageUrl(),
                 summary.getCreatedAt(),
                 summary.getLikeCount(),
                 summary.getCommentCount(),

@@ -13,19 +13,22 @@ import jakarta.validation.constraints.Pattern; // 정규식 검증
 import jakarta.validation.constraints.Size; // 길이 검증
 import lombok.RequiredArgsConstructor; // final 필드 자동 생성자 주입
 import org.springframework.http.HttpStatus; // HTTP 상태 코드 상수
-import org.springframework.validation.annotation.Validated; // 컨트롤러 단위 검증 활성화
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 바인딩
-import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
-import org.springframework.web.bind.annotation.PutMapping; // PUT 매핑
-import org.springframework.web.bind.annotation.RequestBody; // 본문 바인딩
-import org.springframework.web.bind.annotation.RequestMapping; // 클래스 단위 경로
-import org.springframework.web.bind.annotation.RequestParam; // 쿼리 파라미터 바인딩
-import org.springframework.web.bind.annotation.ResponseStatus; // 응답 상태 설정
-import org.springframework.web.bind.annotation.RestController; // REST 컨트롤러 선언
-import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증 정보 주입
-import org.springframework.security.core.userdetails.UserDetails; // 인증 주체 표현 인터페이스
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController // REST 요청 처리를 위한 컨트롤러
 @RequestMapping("/users") // 실제 경로는 `/api/users` (context-path `/api` 포함)
@@ -40,6 +43,12 @@ public class UserController {
     public UserSignupResponse signup(@Valid @RequestBody SignUpRequest request) {
         // DTO 검증 후 서비스로 위임하여 저장
         return userService.signup(request);
+    }
+
+    @PostMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UserProfileResponse uploadProfileImage(@AuthenticationPrincipal UserDetails principal,
+                                                  @RequestPart("image") MultipartFile image) {
+        return userService.uploadProfileImage(principal.getUsername(), image);
     }
 
     @GetMapping("/check-login-id") // GET /api/users/check-login-id?loginId=...
@@ -58,12 +67,6 @@ public class UserController {
     ) {
         // ID 중복 여부를 응답
         return userService.checkLoginId(loginId);
-    }
-
-    @DeleteMapping("/{userId}/profile-image") // DELETE /api/users/{userId}/profile-image
-    @ResponseStatus(HttpStatus.NO_CONTENT) // 리소스 없을 때 204 반환
-    public void deleteProfileImage(@PathVariable Long userId) {
-        userService.deleteProfileImage(userId);
     }
 
     @GetMapping("/check-nickname") // GET /api/users/check-nickname?nickname=...

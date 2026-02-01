@@ -44,7 +44,7 @@ public class CommentService {
         CommentResponse response = new CommentResponse();
         response.setCommentId(saved.getId());
         response.setAuthorNickname(user.getNickname());
-        response.setAuthorProfileImageId(user.getProfileImageId());
+        response.setAuthorProfileImageUrl(user.getProfileImageUrl());
         response.setContent(saved.getContent());
         response.setCreatedAt(saved.getCreatedAt().toString());
         return response;
