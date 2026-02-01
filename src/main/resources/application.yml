@@ -1,6 +1,6 @@
 spring: # Spring Boot 핵심 설정 루트
   profiles: # 활성화할 프로파일 정의
-    active: local # 개발용 로컬 프로파일 활성화
+    active: prod
   application:
     name: travel-service
 
