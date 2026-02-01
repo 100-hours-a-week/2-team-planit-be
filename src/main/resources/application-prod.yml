@@ -4,6 +4,13 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
 
 jwt:
   secret: ${JWT_SECRET}
@@ -12,10 +19,3 @@ ai:
   base-url: http://localhost:8000
   mock-enabled: false
 
-jpa:
-  hibernate:
-    ddl-auto: update
-  properties:
-    hibernate:
-      format_sql: true
-  show-sql: true
