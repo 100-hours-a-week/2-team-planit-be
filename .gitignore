@@ -1,45 +1,55 @@
-HELP.md
+### HELP ### # documentation references not tracked in repo
+HELP.md # ignore user-facing help notes to avoid committing local guidance
 
-.gradle
+### Gradle ### # build artifacts and caches
+.gradle/ # gradle daemon/cache directory
+build/ # project build output
+!gradle/wrapper/gradle-wrapper.jar # keep wrapper jar under version control
+!**/src/main/**/build/ # allow per-module build dirs to be tracked if needed
+!**/src/test/**/build/ # allow per-module test build dirs
+
+### Application config ### # environment-specific configs
+application-*.yml # ignore sensitive application configs
+application-*.yaml # YAML variants
+.env # local dotenv file
+.env.* # environment-specific variants
+
+### STS ### # Spring Tool Suite project files
+.apt_generated # generated metadata
+.classpath # IDE classpath
+.factorypath # factory path
+.project # project file
+.settings/ # global workspace settings
+.springBeans # bean config cache
+.sts4-cache/ # sts cache folder
+bin/ # binary outputs
+!**/src/main/**/bin/ # keep source-specific bin directories when needed
+!**/src/test/**/bin/ # keep test-specific bin directories
+
+### IntelliJ IDEA ### # IntelliJ workspace files
+.idea/ # project config
+*.iws # workspace
+*.iml # module files
+*.ipr # project file
+out/ # compiler output
+!**/src/main/**/out/ # allow specific module outputs if needed
+!**/src/test/**/out/ # allow test outputs
+
+### NetBeans ### # NetBeans/nb-gradle files
+/nbproject/private/ # IDE metadata
+/nbbuild/ # nb build dir
+/dist/ # distribution output
+/nbdist/ # nb dist output
+/.nb-gradle/ # nb gradle caches
+
+### VS Code ### # VS Code workspace
+.vscode/ # IDE config
+
+# --- Corrected ignore entries (keep at end) ---
+.gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-application-*.yml
-application-*.yaml
-.env
-.env.*
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
 bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
 out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-git push origin main
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
+.idea/
 .vscode/
-
+.DS_Store
