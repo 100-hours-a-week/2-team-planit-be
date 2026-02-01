@@ -3,6 +3,19 @@ spring: # Production 환경 Spring Boot 설정 루트
     url: ${SPRING_DATASOURCE_URL} # 환경 변수로 전달된 JDBC URL
     username: ${SPRING_DATASOURCE_USERNAME} # 배포 DB 사용자
     password: ${SPRING_DATASOURCE_PASSWORD} # 배포 DB 비밀번호
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
 
 jwt: # JWT secret 역시 환경 변수로 주입
   secret: ${JWT_SECRET} # 반드시 32자 이상 랜덤 문자열
+
+ai:
+  base-url: http://localhost:8000
+  mock-enabled: false
+

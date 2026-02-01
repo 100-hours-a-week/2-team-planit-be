@@ -10,7 +10,7 @@ import com.planit.domain.user.repository.UserRepository;
 import com.planit.domain.user.security.JwtAuthenticationFilter;
 import com.planit.domain.user.security.JwtProvider;
 import com.planit.global.common.exception.GlobalExceptionHandler;
-import com.planit.global.security.SecurityConfig;
+import com.planit.global.config.SecurityConfig;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

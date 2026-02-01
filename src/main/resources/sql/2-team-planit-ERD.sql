@@ -40,7 +40,7 @@ CREATE TABLE `chat_rooms` (
 	`total_messages_number`	INT	NULL	COMMENT '채팅방 내 총 메시지 개수'
 );
 
-CREATE TABLE `ininerary_item_transports` (
+CREATE TABLE `itinerary_item_transports` (
 	`transport_id`	BIGINT	NOT NULL	COMMENT '이동 정보 레코드를 식별하는 기본 키',
 	`itinerary_item_id`	BIGINT	NOT NULL	COMMENT '해당 이동이 속한 일정 항목',
 	`transport`	VARCHAR(20)	NOT NULL	COMMENT '이동 수단 (예 : WALK, CAR, BUS, SUBWAY 등)',
@@ -229,7 +229,7 @@ ALTER TABLE `chat_rooms` ADD CONSTRAINT `PK_CHAT_ROOMS` PRIMARY KEY (
 	`room_id`
 );
 
-ALTER TABLE `ininerary_item_transports` ADD CONSTRAINT `PK_ININERARY_ITEM_TRANSPORTS` PRIMARY KEY (
+ALTER TABLE `itinerary_item_transports` ADD CONSTRAINT `PK_ITINERARY_ITEM_TRANSPORTS` PRIMARY KEY (
 	`transport_id`
 );
 

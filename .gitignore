@@ -44,3 +44,12 @@ out/ # compiler output
 
 ### VS Code ### # VS Code workspace
 .vscode/ # IDE config
+
+# --- Corrected ignore entries (keep at end) ---
+.gradle/
+build/
+bin/
+out/
+.idea/
+.vscode/
+.DS_Store

@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.user.dto.UserProfileResponse;
 import com.planit.global.common.exception.GlobalExceptionHandler;
-import com.planit.global.security.SecurityConfig;
+import com.planit.global.config.SecurityConfig;
 import com.planit.domain.user.service.UserService;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;

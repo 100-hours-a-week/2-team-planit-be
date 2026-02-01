@@ -1,16 +1,20 @@
-spring: # Spring Boot 설정 루트
-  datasource: # DB 접속 정보
-    url: jdbc:mysql://localhost:3306/planit?serverTimezone=Asia/Seoul # 로컬 MySQL URL
-    username: planit # 로컬 DB 사용자명
-    password: planit # 로컬 DB 비밀번호
-
-  jpa: # JPA 관련 설정
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/planit?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: planit
+    password: planit
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
     hibernate:
-      ddl-auto: validate # 스키마 검증만 수행
-    open-in-view: false # Open-in-view 비활성화로 lazy-loading 관리
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
 
-  flyway:
-    enabled: false # 수동 DB 관리로 Flyway 적용 중지
+jwt:
+  secret: planit-local-secret-key
 
-jwt: # JWT 관련 보안 설정
-  secret: planit-local-secret-key-which-is-at-least-32-bytes-long!!! # 32자 이상 기준(secret 주입)
+ai:
+  base-url: http://localhost:8000
+  mock-enabled: true
