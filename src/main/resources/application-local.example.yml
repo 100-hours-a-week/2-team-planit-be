@@ -9,7 +9,7 @@ jwt: # JWT 관련 설정
 
 planit:
   profile:
-    default-image-url: https://planit.example.com/default-profile.png
+    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
 
 trip:
   create-window-enabled: false # 로컬에서는 시간 제한 비활성화

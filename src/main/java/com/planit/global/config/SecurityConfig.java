@@ -37,7 +37,14 @@ public class SecurityConfig {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final List<String> ALLOWED_ORIGINS = List.of("http://localhost:5173", "http://127.0.0.1:5173");
-    private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+    private static final List<String> ALLOWED_METHODS = List.of(
+        HttpMethod.GET.name(),
+        HttpMethod.POST.name(),
+        HttpMethod.PUT.name(),
+        HttpMethod.PATCH.name(),
+        HttpMethod.DELETE.name(),
+        HttpMethod.OPTIONS.name()
+    );
     private static final List<String> ALLOWED_HEADERS = List.of("*");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -63,6 +70,10 @@ public class SecurityConfig {
                         .requestMatchers("/users/signup").permitAll()
                         .requestMatchers("/users/check-login-id").permitAll()
                         .requestMatchers("/users/check-nickname").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/posts/*/comments").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/posts/*/comments").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/posts/*/comments/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/posts/*/comments/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
@@ -104,6 +115,4 @@ public class SecurityConfig {
         ErrorResponse errorResponse = ErrorResponse.from(ErrorCode.COMMON_001); //paul소스 버전으로 of메서드 -> from메서드로 임시 수정함
         OBJECT_MAPPER.writeValue(response.getWriter(), errorResponse);
     }
-
-
 }

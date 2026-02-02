@@ -1,6 +1,6 @@
 spring: # Spring Boot 핵심 설정 루트
   profiles: # 활성화할 프로파일 정의
-    active: prod # 기본은 로컬 개발용 프로파일
+    active: local # 기본은 로컬 개발용 프로파일
   application:
     name: travel-service
 
@@ -22,3 +22,9 @@ ai:
 
 trip:
   create-window-enabled: true
+
+planit:
+  profile:
+    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
+  cloudfront:
+    domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}
