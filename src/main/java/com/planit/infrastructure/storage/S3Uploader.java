@@ -33,6 +33,9 @@ public class S3Uploader {
     @Value("${cloud.aws.region.static}")
     private String region;
 
+    @Value("${planit.cloudfront.domain}")
+    private String cloudfrontDomain;
+
     public String uploadProfileImage(MultipartFile file, Long userId) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*프로필 이미지를 선택해주세요.");
@@ -66,6 +69,9 @@ public class S3Uploader {
     }
 
     private String buildPublicUrl(String key) {
+        if (StringUtils.hasText(cloudfrontDomain)) {
+            return String.format("https://%s/%s", cloudfrontDomain, key);
+        }
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
     }
 }

@@ -3,9 +3,10 @@ package com.planit.domain.user.security;
 import com.planit.domain.user.config.JwtProperties;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -14,6 +15,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
@@ -29,9 +31,6 @@ public class JwtProvider {
     @PostConstruct
     public void init() {
         byte[] keyBytes = decodeSecret(jwtProperties.getSecret());
-        if (keyBytes.length < 32) {
-            throw new IllegalStateException("JWT secret key must be at least 256 bits");
-        }
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenValidity = Duration.ofMillis(jwtProperties.getAccessTokenExpirationMs());
     }
@@ -71,6 +70,15 @@ public class JwtProvider {
         if (!StringUtils.hasText(secret)) {
             throw new IllegalStateException("JWT secret must be provided");
         }
-        return Decoders.BASE64.decode(secret);
+        byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
+        if (raw.length >= 32) {
+            return raw;
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(raw);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm unavailable", ex);
+        }
     }
 }
