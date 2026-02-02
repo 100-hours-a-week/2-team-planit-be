@@ -79,15 +79,12 @@ public class PostService {
     /** 게시글 작성: User 인증 + multipart 이미지 저장 */
     @Transactional
     public PostCreateResponse createPost(PostCreateRequest request, List<MultipartFile> images, String loginId) {
-        if (BoardType.FREE != request.getBoardType()) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "v1 자유게시판만 지원됩니다.");
-        }
         User user = resolveRequester(loginId);
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         LocalDateTime now = LocalDateTime.now(); // 기기 시간 기준
-        Post post = Post.create(user, request.getTitle(), request.getContent(), request.getBoardType(), now);
+        Post post = Post.create(user, request.getTitle(), request.getContent(), BoardType.FREE, now);
         Post saved = postRepository.save(post);
         List<Long> imageIds = new ArrayList<>();
         List<MultipartFile> uploadImages = images == null ? Collections.emptyList() : images;

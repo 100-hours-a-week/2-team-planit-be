@@ -12,9 +12,13 @@ import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.trip.repository.TripThemeRepository;
 import com.planit.domain.trip.repository.WantedPlaceRepository;
+import com.planit.domain.user.entity.User;
+import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TripService {
 
     private final TripRepository tripRepository;
+    private final UserRepository userRepository;
     private final TripThemeRepository tripThemeRepository;
     private final WantedPlaceRepository wantedPlaceRepository;
     private final ItineraryDayRepository itineraryDayRepository;
@@ -31,9 +36,11 @@ public class TripService {
     private final AiItineraryQueue aiItineraryQueue;
     private final AiItineraryProcessor aiItineraryProcessor;
     private final boolean aiMockEnabled;
+    private final boolean createWindowEnabled;
 
     public TripService(
             TripRepository tripRepository,
+            UserRepository userRepository,
             TripThemeRepository tripThemeRepository,
             WantedPlaceRepository wantedPlaceRepository,
             ItineraryDayRepository itineraryDayRepository,
@@ -41,9 +48,11 @@ public class TripService {
             ItineraryItemTransportRepository itineraryItemTransportRepository,
             AiItineraryQueue aiItineraryQueue,
             AiItineraryProcessor aiItineraryProcessor,
-            @Value("${ai.mock-enabled:false}") boolean aiMockEnabled
+            @Value("${ai.mock-enabled:false}") boolean aiMockEnabled,
+            @Value("${trip.create-window-enabled:true}") boolean createWindowEnabled
     ) {
         this.tripRepository = tripRepository;
+        this.userRepository = userRepository;
         this.tripThemeRepository = tripThemeRepository;
         this.wantedPlaceRepository = wantedPlaceRepository;
         this.itineraryDayRepository = itineraryDayRepository;
@@ -52,11 +61,33 @@ public class TripService {
         this.aiItineraryQueue = aiItineraryQueue;
         this.aiItineraryProcessor = aiItineraryProcessor;
         this.aiMockEnabled = aiMockEnabled;
+        this.createWindowEnabled = createWindowEnabled;
     }
 
     @Transactional
-    public Long createTrip(TripCreateRequest request) {
+    public Long createTrip(TripCreateRequest request, String loginId) {
+        // 일정 생성 허용 시간(02:00 ~ 14:00) 외에는 요청 차단
+        if (createWindowEnabled && !isCreateWindowOpen(LocalTime.now())) {
+            throw new BusinessException(ErrorCode.TRIP_005);
+        }
+
+        // 1) 토큰에서 추출된 loginId로 사용자 조회
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
+
+        // 2) 이미 여행이 있으면 생성 막기 (중복 데이터는 정리)
+        long existingTripCount = tripRepository.countByUserId(user.getId());
+        if (existingTripCount >= 1) {
+            // 이미 1개 이상 존재하면 생성은 막고, 중복 데이터가 있으면 정리
+            if (existingTripCount >= 2) {
+                cleanupDuplicateTrips(user.getId());
+            }
+            throw new BusinessException(ErrorCode.TRIP_002);
+        }
+
+        // 3) 여행 기본 정보 저장
         Trip trip = tripRepository.save(new Trip(
+                user,
                 request.title(),
                 request.arrivalDate(),
                 request.departureDate(),
@@ -65,7 +96,6 @@ public class TripService {
                 request.travelCity(),
                 request.totalBudget()
         ));
-        System.out.println("여행 저장 후 tripId 반환: " + trip.getId());
 
         // 테마 저장 (Trip 1 : Theme N)
         for (String theme : request.travelTheme()) {
@@ -80,7 +110,7 @@ public class TripService {
             }
         }
 
-        // AI 요청을 큐에 적재 (mock 모드면 즉시 처리)
+        // 4) AI 요청을 큐에 적재 (mock 모드면 즉시 처리)
         AiItineraryJob job = new AiItineraryJob(new AiItineraryRequest(
                 trip.getId(),
                 trip.getArrivalDate(),
@@ -102,5 +132,78 @@ public class TripService {
         return trip.getId();
     }
 
+    private boolean isCreateWindowOpen(LocalTime now) {
+        LocalTime start = LocalTime.of(2, 0);
+        LocalTime end = LocalTime.of(14, 0);
+        // 02:00 포함, 14:00 미포함
+        return !now.isBefore(start) && now.isBefore(end);
+    }
+
+    @Transactional
+    public void deleteUserTrip(String loginId) {
+        // 1) 사용자 조회
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
+
+        // 2) 유일한 여행 조회 후 삭제
+        Trip trip = tripRepository.findTopByUserIdOrderByIdDesc(user.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_001));
+
+        deleteTripData(trip.getId());
+        tripRepository.delete(trip);
+    }
+
+    @Transactional
+    public Optional<Trip> findOrCleanupUserTrip(String loginId) {
+        // 유저의 여행이 2개 이상인 경우, 최신 1개만 유지
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
+
+        List<Trip> trips = tripRepository.findByUserIdOrderByIdDesc(user.getId());
+        if (trips.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (trips.size() >= 2) {
+            // 최신 1개만 남기고 나머지 정리
+            Trip latest = trips.get(0);
+            for (int i = 1; i < trips.size(); i++) {
+                Trip oldTrip = trips.get(i);
+                deleteTripData(oldTrip.getId());
+                tripRepository.delete(oldTrip);
+            }
+            return Optional.of(latest);
+        }
+
+        return Optional.of(trips.get(0));
+    }
+
+    private void cleanupDuplicateTrips(Long userId) {
+        List<Trip> trips = tripRepository.findByUserIdOrderByIdDesc(userId);
+        if (trips.size() <= 1) {
+            return;
+        }
+        Trip latest = trips.get(0);
+        for (int i = 1; i < trips.size(); i++) {
+            Trip oldTrip = trips.get(i);
+            deleteTripData(oldTrip.getId());
+            tripRepository.delete(oldTrip);
+        }
+    }
+
+    private void deleteTripData(Long tripId) {
+        // 일정 데이터 삭제 (장소/이동 -> 일별 일정 순서)
+        List<ItineraryDay> days = itineraryDayRepository.findByTripId(tripId);
+        List<Long> dayIds = days.stream().map(ItineraryDay::getId).toList();
+        if (!dayIds.isEmpty()) {
+            itineraryItemPlaceRepository.deleteByItineraryDayIdIn(dayIds);
+            itineraryItemTransportRepository.deleteByItineraryDayIdIn(dayIds);
+        }
+        itineraryDayRepository.deleteAll(days);
+
+        // 테마/희망장소 삭제
+        tripThemeRepository.deleteByTripId(tripId);
+        wantedPlaceRepository.deleteByTripId(tripId);
+    }
 
 }

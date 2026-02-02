@@ -58,6 +58,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.from(ErrorCode.COMMON_001));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        logger.warn("IllegalArgument", ex);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.from(ErrorCode.COMMON_001));
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
         logger.error("🔥 JWT KEY ERROR: {}", ex.getMessage(), ex);

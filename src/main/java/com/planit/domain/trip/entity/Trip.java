@@ -6,12 +6,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.planit.domain.user.entity.User;
 
 @Entity
 @Table(name = "trips")
@@ -20,6 +23,10 @@ public class Trip {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user; // 여행 소유자
 
     @Column(name = "group_id")
     private Long groupId;
@@ -52,6 +59,7 @@ public class Trip {
     }
 
     public Trip(
+            User user,
             String title,
             LocalDate arrivalDate,
             LocalDate departureDate,
@@ -60,6 +68,7 @@ public class Trip {
             String travelCity,
             Integer totalBudget
     ) {
+        this.user = user;
         this.title = title;
         this.arrivalDate = arrivalDate;
         this.departureDate = departureDate;
@@ -71,6 +80,10 @@ public class Trip {
 
     public Long getId() {
         return id;
+    }
+
+    public User getUser() {
+        return user;
     }
 
     public Long getGroupId() {

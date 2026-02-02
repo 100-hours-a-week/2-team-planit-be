@@ -1,6 +1,6 @@
 spring: # Spring Boot 핵심 설정 루트
   profiles: # 활성화할 프로파일 정의
-    active: local # 기본은 로컬 개발용 프로파일
+    active: prod # 기본은 로컬 개발용 프로파일
   application:
     name: travel-service
 
@@ -19,3 +19,6 @@ server: # 내장 서버 구성
 ai:
   base-url: http://localhost:8000
   mock-enabled: false
+
+trip:
+  create-window-enabled: true

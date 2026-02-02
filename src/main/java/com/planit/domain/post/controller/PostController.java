@@ -1,5 +1,7 @@
 package com.planit.domain.post.controller; // 게시글 관련 컨트롤러 패키지
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse; // 상세 DTO
@@ -12,13 +14,15 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import jakarta.validation.Valid; // DTO 검증
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotBlank; // 필수 입력
 import jakarta.validation.constraints.Pattern; // 정규 표현식 검증
 import jakarta.validation.constraints.Size; // 길이 제한
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale; // 로케일 기반 대소문자 처리
+import java.util.Set;
 import org.springframework.http.HttpStatus; // HTTP 상태
 import org.springframework.http.MediaType; // 멀티파트 mime
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증자
@@ -36,7 +40,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController; // REST 컨트롤러
 import org.springframework.web.server.ResponseStatusException; // 예외 처리
-import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 
 @RestController // REST API를 반환하는 컨트롤러
 @RequestMapping("/posts") // /api/posts 컨텍스트에 매핑
@@ -45,9 +48,13 @@ import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 public class PostController {
 
     private final PostService postService; // 게시글 서비스 주입
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
-    public PostController(PostService postService) {
+    public PostController(PostService postService, ObjectMapper objectMapper, Validator validator) {
         this.postService = postService;
+        this.objectMapper = objectMapper;
+        this.validator = validator;
     }
 
     /**
@@ -67,12 +74,12 @@ public class PostController {
         @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
         @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size
     ) {
-        if (!"FREE".equalsIgnoreCase(boardType)) {
+        BoardType resolvedBoardType = parseBoardType(boardType);
+        if (BoardType.FREE != resolvedBoardType) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "v1 미구현 기능");
         }
         validateSearch(search); // helper text 기준으로 검색어 검증
         PostService.SortOption sortOption = resolveSortOption(sort);
-        BoardType resolvedBoardType = BoardType.valueOf(boardType.trim().toUpperCase(Locale.ROOT));
         return postService.listPosts(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
     }
 
@@ -101,13 +108,14 @@ public class PostController {
         ))
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public PostCreateResponse createPost(
-        @RequestPart("data") @Valid PostCreateRequest request,
+        @RequestPart("data") String data,
         @RequestPart(value = "images", required = false) List<MultipartFile> images,
         @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
+        PostCreateRequest request = parseCreateRequest(data);
         return postService.createPost(request, images, principal.getUsername());
     }
 
@@ -173,6 +181,23 @@ public class PostController {
         return search == null ? "" : search.trim();
     }
 
+    private PostCreateRequest parseCreateRequest(String data) {
+        try {
+            PostCreateRequest request = objectMapper.readValue(data, PostCreateRequest.class);
+            Set<ConstraintViolation<PostCreateRequest>> violations = validator.validate(request);
+            if (!violations.isEmpty()) {
+                String message = violations.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .findFirst()
+                    .orElse("*입력값을 다시 확인해주세요.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+            }
+            return request;
+        } catch (JsonProcessingException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*요청 JSON을 파싱할 수 없습니다.");
+        }
+    }
+
     private PostService.SortOption resolveSortOption(String sort) {
         if (sort == null || sort.isBlank()) {
             return PostService.SortOption.LATEST;
@@ -187,5 +212,16 @@ public class PostController {
             default:
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
         }
+    }
+
+    private BoardType parseBoardType(String boardType) {
+        if (boardType == null || boardType.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 게시판입니다.");
+        }
+        String normalized = boardType.trim().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "freely" , "free" , "자유게시판" , "자유" -> BoardType.FREE;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 게시판입니다.");
+        };
     }
 }

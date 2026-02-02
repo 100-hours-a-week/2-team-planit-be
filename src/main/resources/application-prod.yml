@@ -34,3 +34,6 @@ ai:
 planit:
   profile:
     default-image-url: https://planit-prod.example.com/default-profile.png
+
+trip:
+  create-window-enabled: true # 운영환경에서는 시간 제한 활성화
