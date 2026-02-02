@@ -6,3 +6,7 @@ spring: # Spring Boot 설정 루트
 
 jwt: # JWT 관련 설정
   secret: YOUR_JWT_SECRET # 32자 이상 시크릿으로 변경 (예: 랜덤 문자열)
+
+planit:
+  profile:
+    default-image-url: https://planit.example.com/default-profile.png

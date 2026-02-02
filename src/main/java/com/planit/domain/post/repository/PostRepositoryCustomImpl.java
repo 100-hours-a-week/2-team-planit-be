@@ -43,21 +43,20 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                    p.content,
                    p.created_at,
                    p.board_type,
-                   u.user_id,
-                   u.nickname,
-                   ui.image_id,
+            u.user_id,
+            u.nickname,
+            u.profile_image_url,
                    (select count(1) from likes l where l.post_id = p.post_id) as like_count,
                    (select count(1) from comments c where c.post_id = p.post_id) as comment_count,
                    case
                      when :requesterId < 0 then 0
-                     when exists(select 1 from likes l2 where l2.post_id = p.post_id and l2.user_id = :requesterId) then 1
+                     when exists(select 1 from likes l2 where l2.post_id = p.post_id and l2.author_id = :requesterId) then 1
                      else 0
                    end as liked
             from posts p
             join users u on u.user_id = p.user_id and u.is_deleted = 0
-            left join user_image ui on ui.user_id = u.user_id
             where p.post_id = :postId
-            """); // posts+users+user_image 조합
+            """); // posts+users 조합
         baseQuery.setParameter("postId", postId);
         baseQuery.setParameter("requesterId", requesterId == null ? -1L : requesterId);
         @SuppressWarnings("unchecked")
@@ -67,7 +66,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         }
         Object[] row = rows.get(0);
         Long authorId = ((Number) row[5]).longValue();
-        Long profileImageId = row[7] == null ? null : ((Number) row[7]).longValue();
+        String profileImageUrl = (String) row[7];
         String boardTypeValue = (String) row[4];
         BoardType boardType = BoardType.FREE;
         if (boardTypeValue != null) {
@@ -79,7 +78,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         PostDetailResponse.AuthorInfo author = new PostDetailResponse.AuthorInfo(
             authorId,
             (String) row[6],
-            profileImageId
+            profileImageUrl
         ); // 작성자 정보 구성
         Long likeCount = row[8] == null ? 0L : ((Number) row[8]).longValue();
         Long commentCount = row[9] == null ? 0L : ((Number) row[9]).longValue();
@@ -135,12 +134,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             select c.comment_id,
                    c.author_id,
                    u.nickname,
-                   ui.image_id,
+                   u.profile_image_url,
                    c.content,
                    c.created_at
             from comments c
             join users u on u.user_id = c.author_id and u.is_deleted = 0
-            left join user_image ui on ui.user_id = u.user_id
             where c.post_id = :postId
               and c.deleted_at is null
             order by c.created_at asc
@@ -156,7 +154,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<CommentInfo> comments = new ArrayList<>();
         for (Object[] row : rows) {
             Long authorId = ((Number) row[1]).longValue();
-            Long profileImageId = row[3] == null ? null : ((Number) row[3]).longValue();
+            String profileImageUrl = (String) row[3];
             boolean deletable = requesterId != null && requesterId.equals(authorId);
             Timestamp commentTimestamp = (Timestamp) row[5];
             LocalDateTime commentCreatedAt = commentTimestamp == null ? null : commentTimestamp.toLocalDateTime();
@@ -164,7 +162,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 ((Number) row[0]).longValue(),
                 authorId,
                 (String) row[2],
-                profileImageId,
+                profileImageUrl,
                 (String) row[4],
                 commentCreatedAt,
                 deletable

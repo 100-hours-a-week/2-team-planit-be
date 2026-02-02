@@ -1,9 +1,21 @@
 spring: # Spring Boot 핵심 설정 루트
   profiles: # 활성화할 프로파일 정의
-    active: local # 개발용 로컬 프로파일 활성화
-  flyway:
-    enabled: false # Flyway 비활성화 (수동 마이그레이션)
+    active: local # 기본은 로컬 개발용 프로파일
+  application:
+    name: travel-service
 
 server: # 내장 서버 구성
   servlet: # 서블릿 관련 설정
     context-path: /api # 전체 API에 붙일 context-path
+    port: 8080
+
+---
+
+# prod 환경은 실제 배포에서만 활성화하세요.
+# prod 프로파일을 실행하려면 아래 환경변수들을 반드시 채워야 합니다.
+# SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
+# JWT_SECRET, AWS_S3_BUCKET, AWS_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
+
+ai:
+  base-url: http://localhost:8000
+  mock-enabled: false

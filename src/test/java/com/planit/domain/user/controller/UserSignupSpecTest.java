@@ -2,7 +2,6 @@ package com.planit.domain.user.controller; // 통합 테스트용 컨트롤러 �
 
 import com.fasterxml.jackson.databind.ObjectMapper; // JSON 직렬화 도구
 import com.planit.domain.user.entity.User;
-import com.planit.domain.user.repository.UserProfileImageRepository;
 import com.planit.domain.user.repository.UserRepository;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -40,18 +39,13 @@ class UserSignupSpecTest {
     @Autowired
     private UserRepository userRepository; // DB 조회/저장
 
-    @Autowired
-    private UserProfileImageRepository userProfileImageRepository; // 프로필 이미지 체크용 저장소
-
     @BeforeEach
     void setUp() {
-        userProfileImageRepository.deleteAll(); // 테스트 전 데이터 정리
         userRepository.deleteAll();
     }
 
     @AfterEach
     void tearDown() {
-        userProfileImageRepository.deleteAll(); // 테스트 후 정리
         userRepository.deleteAll();
     }
 
@@ -62,8 +56,7 @@ class UserSignupSpecTest {
             "loginId", "validuser",
             "password", "Correct1!",
             "passwordConfirm", "Correct1!",
-            "nickname", "planitter",
-            "profileImageId", 11L
+            "nickname", "planitter"
         );
 
         mockMvc.perform(post("/api/users/signup")
@@ -73,8 +66,6 @@ class UserSignupSpecTest {
             .andExpect(jsonPath("$.userId").exists()); // userId 존재 확인
 
         assertThat(userRepository.existsByLoginIdAndDeletedFalse("validuser")).isTrue(); // 회원 생성 여부 확인
-        assertThat(userProfileImageRepository.existsByUserId(
-            userRepository.findByLoginIdAndDeletedFalse("validuser").orElseThrow().getId())).isTrue();
     }
 
     @Test
@@ -93,8 +84,7 @@ class UserSignupSpecTest {
             "loginId", "duplicate123",
             "password", "Correct1!",
             "passwordConfirm", "Correct1!",
-            "nickname", "another",
-            "profileImageId", 12L
+            "nickname", "another"
         );
 
         mockMvc.perform(post("/api/users/signup")
@@ -120,8 +110,7 @@ class UserSignupSpecTest {
             "loginId", "new9999",
             "password", "Correct1!",
             "passwordConfirm", "Correct1!",
-            "nickname", "planitter",
-            "profileImageId", 13L
+            "nickname", "planitter"
         );
 
         mockMvc.perform(post("/api/users/signup")
@@ -138,8 +127,7 @@ class UserSignupSpecTest {
             "loginId", "Invalid!",
             "password", "Correct1!",
             "passwordConfirm", "Correct1!",
-            "nickname", "planitter",
-            "profileImageId", 14L
+            "nickname", "planitter"
         );
 
         mockMvc.perform(post("/api/users/signup")
@@ -157,8 +145,7 @@ class UserSignupSpecTest {
             "loginId", "validuser2",
             "password", "nopolicy1",
             "passwordConfirm", "nopolicy1",
-            "nickname", "planitter2",
-            "profileImageId", 15L
+            "nickname", "planitter2"
         );
 
         mockMvc.perform(post("/api/users/signup")

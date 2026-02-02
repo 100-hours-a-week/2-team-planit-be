@@ -20,7 +20,7 @@ public interface PostRepository
         String getTitle();
         Long getAuthorId();
         String getAuthorNickname();
-        Long getAuthorProfileImageId();
+        String getAuthorProfileImageUrl();
         LocalDateTime getCreatedAt();
         Long getLikeCount();
         Long getCommentCount();
@@ -43,7 +43,7 @@ public interface PostRepository
                             + "p.title as title, "
                             + "u.user_id as authorId, "
                             + "u.nickname as authorNickname, "
-                            + "ui.image_id as authorProfileImageId, "
+                            + "u.profile_image_url as authorProfileImageUrl, "
                             + "p.created_at as createdAt, "
                             + "(select count(1) from likes l "
                             + " where l.post_id = p.post_id "
@@ -66,7 +66,6 @@ public interface PostRepository
                             + "from posts p "
                             + "join users u on u.user_id = p.user_id "
                             + " and u.is_deleted = 0 "
-                            + "left join user_image ui on ui.user_id = u.user_id "
                             + "where p.board_type = :boardType "
                             + "and p.is_deleted = 0 "
                             + "and ( :pattern = '%' "

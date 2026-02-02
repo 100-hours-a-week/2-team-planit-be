@@ -1,44 +1,55 @@
-package com.planit.domain.user.security; // JWT 도메인 관련 보안 패키지
+package com.planit.domain.user.security;
 
-import io.jsonwebtoken.Claims; // JWT claims 추출
-import io.jsonwebtoken.Jwts; // JWT 빌더/파서
-import io.jsonwebtoken.SignatureAlgorithm; // 서명 알고리즘
-import io.jsonwebtoken.security.Keys; // HMAC 키 생성
-import java.security.Key; // 서명 키 타입
-import java.time.Duration; // 토큰 유효시간 표현
-import java.time.Instant; // 현재 시각
-import java.util.Date; // Date 변환
-import lombok.Getter; // getter 자동 생성
-import org.springframework.beans.factory.annotation.Value; // 프로퍼티 주입
-import org.springframework.stereotype.Component; // 빈 등록
+import com.planit.domain.user.config.JwtProperties;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import java.security.Key;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import jakarta.annotation.PostConstruct;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
-@Component // 스프링 빈으로 등록
+@Component
+@RequiredArgsConstructor
 public class JwtProvider {
 
-    @Value("${jwt.secret}") // application.yml에서 시크릿 주입
-    private String jwtSecret;
+    private final JwtProperties jwtProperties;
+
+    private Key key;
 
     @Getter
-    private final Duration accessTokenValidity = Duration.ofMinutes(30); // access token TTL
+    private Duration accessTokenValidity;
 
-    public String generateToken(String loginId) { // loginId로 JWT 생성
+    @PostConstruct
+    public void init() {
+        byte[] keyBytes = decodeSecret(jwtProperties.getSecret());
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT secret key must be at least 256 bits");
+        }
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.accessTokenValidity = Duration.ofMillis(jwtProperties.getAccessTokenExpirationMs());
+    }
+
+    public String generateToken(String loginId) {
         Instant now = Instant.now();
         return Jwts.builder()
             .setSubject(loginId)
             .setIssuedAt(Date.from(now))
             .setExpiration(Date.from(now.plus(accessTokenValidity)))
-            .signWith(key(), SignatureAlgorithm.HS256) // HS256으로 서명
+            .signWith(key, SignatureAlgorithm.HS256)
             .compact();
     }
 
-    private Key key() { // 시크릿을 키 객체로 변환
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
-    }
-
-    public boolean validateToken(String token) { // JWT 유효성 검사
+    public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
-                .setSigningKey(key())
+                .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token);
             return true;
@@ -47,12 +58,19 @@ public class JwtProvider {
         }
     }
 
-    public String getSubject(String token) { // JWT subject(loginId) 추출
+    public String getSubject(String token) {
         return Jwts.parserBuilder()
-            .setSigningKey(key())
+            .setSigningKey(key)
             .build()
             .parseClaimsJws(token)
             .getBody()
             .getSubject();
+    }
+
+    private byte[] decodeSecret(String secret) {
+        if (!StringUtils.hasText(secret)) {
+            throw new IllegalStateException("JWT secret must be provided");
+        }
+        return Decoders.BASE64.decode(secret);
     }
 }

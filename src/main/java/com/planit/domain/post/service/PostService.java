@@ -17,6 +17,7 @@ import com.planit.domain.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -62,7 +63,7 @@ public class PostService {
                 summary.getTitle(),
                 summary.getAuthorId(),
                 summary.getAuthorNickname(),
-                summary.getAuthorProfileImageId(),
+                summary.getAuthorProfileImageUrl(),
                 summary.getCreatedAt(),
                 summary.getLikeCount(),
                 summary.getCommentCount(),
@@ -77,7 +78,7 @@ public class PostService {
 
     /** 게시글 작성: User 인증 + multipart 이미지 저장 */
     @Transactional
-    public PostCreateResponse createPost(PostCreateRequest request, String loginId) {
+    public PostCreateResponse createPost(PostCreateRequest request, List<MultipartFile> images, String loginId) {
         if (BoardType.FREE != request.getBoardType()) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "v1 자유게시판만 지원됩니다.");
         }
@@ -89,7 +90,8 @@ public class PostService {
         Post post = Post.create(user, request.getTitle(), request.getContent(), request.getBoardType(), now);
         Post saved = postRepository.save(post);
         List<Long> imageIds = new ArrayList<>();
-        for (MultipartFile file : request.getImages()) {
+        List<MultipartFile> uploadImages = images == null ? Collections.emptyList() : images;
+        for (MultipartFile file : uploadImages) {
             if (file == null || file.isEmpty()) {
                 continue;
             }

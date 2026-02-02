@@ -43,11 +43,41 @@
 - 2026-01-25: JwtAuthenticationFilter에서 principal을 UserDetails로 설정하고 `UserService` 로그와 함께 인증 컨텍스트가 정상 작동하도록 변경한 뒤 `./gradlew test`를 통과함.
 - 2026-01-25: JwtAuthenticationFilter의 `shouldNotFilter` 조건을 `/auth/login`만 제외하도록 미세조정해서 `/auth/verify`가 필터를 통과하고 인증 흐름에서 정상 작동하도록 정리한 뒤 `./gradlew test`를 성공시킴.
 - 2026-01-25: `application-local.yml`에 32자 이상 JWT secret을 명시하고 `JwtProvider`에서 기본값을 없애며 키 생성/검증 흐름을 정리하여 토큰 발급이 WeakKeyException 없이 동작하도록 한 뒤 `./gradlew test`를 통과함.
-- 2026-01-23: 2026-01-20~01-23 트러블슈팅 로그 정리를 위한 정보 제공 요청을 수신하고 AGENTS.md 요약 및 1/23 기록 필요 점검을 수행함.
-- 2026-01-23: `.idea`/`.gradle` 캐시가 트래킹된 상태를 감지하고 `git rm --cached`로 인덱스에서 제거하여 `.gitignore` 규칙을 실제 상태에 맞춤.
-- 2026-01-23: `build/` 결과물이 트래킹돼 있는 점을 확인하고 `git rm -r --cached build`로 제거하여 `.gitignore`과 일치하도록 정리함.
-- 2026-01-23: `UserService.getProfile`을 확장하여 프로필 이미지 존재 여부와 사용자 일정 히스토리를 포함한 `UserProfileResponse`를 반환하도록 하고, 관련 DTO/TripRepository를 구현하여 마이페이지 정보 요구사항을 반영함(단, `./gradlew test`는 권한 오류로 미실행).
-- 2026-01-23: `UserController`에 내 정보 수정/탈퇴 엔드포인트를 추가하고, DTO/유효성 조건을 enforce해서 마이페이지 흐름에 맞게 사용자 편집/삭제 흐름을 API 수준에서 제공하도록 정리함.
-- 2026-01-23: `SecurityConfig`에 인증/권한 예외 핸들러와 permitAll 경로 정리, JWT 필터 제외 대상으로 목표 마이페이지 흐름(회원수정/탈퇴/로그인/헬스/Swagger)만 인증되도록 구성해 `UserController`의 새 엔드포인트를 보호함.
-- 2026-01-23: Swagger 문서를 검증하는 OpenApiDocTest를 추가해 `/api/users/me` 계정/수정/탈퇴/일정삭제 엔드포인트와 관련 DTO/보안 요구가 `/api/v3/api-docs`에 반영되는지 확인하고, 마이페이지 UX 요구에 맞춘 스펙이 유지되도록 함.
-- 2026-01-23: build 클래스에 남아 있던 `com.planit.global.health.HealthCheckController`를 삭제하여 `com.planit.global.controller.HealthCheckController`와의 bean 이름 충돌을 해소하고 clean build에서 충돌 없이 컨트롤러가 로드되도록 정리함.
+- 2026-01-23: `GRADLE_USER_HOME=/Users/sumin/Downloads/planit/.gradle ./gradlew test`를 권한 상승 환경에서 다시 실행하여 OpenApiDocTest 포함 전체 테스트가 성공함을 확인하고 `.gradle/` 캐시 현황을 기록함.
+- 2026-01-23: 게시물 목록 조회를 위한 `PostController`/`PostService`/`PostRepository`/DTO를 추가하여 테이블 조합(`posts`, `users`, `comments`, `likes`, `posted_images`)과 검색/정렬/helper text 요건을 반영하고 Swagger 문서를 통해 스펙을 기록함.
+- 2026-01-27: 테스트 환경을 분리하여 기본 프로파일이 `test`로 실행되게 하고 H2 메모리 DB 설정(`src/test/resources/application-test.yml`)을 추가하여 `UserRepository`/`JwtAuthenticationFilter`를 포함한 JPA 빈들이 데이터베이스 의존성 없이 초기화되도록 지원함.
+- 2026-01-27: `BoardType` enum을 도입하고 `@Enumerated(EnumType.STRING)`으로 `Post.boardType`을 매핑한 뒤, Flyway `V2__board_type_string.sql`로 MySQL의 `posts.board_type` 컬럼을 `VARCHAR(255)`으로 변경하여 schema-validation 에러를 해결함.
+- 2026-01-26: 마이페이지/회원 정보 수정을 위한 `UserUpdateRequest`, `UserProfileResponse`, `UserController`/`UserService`, `UserProfileImageRepository`와 line-by-line 주석을 정비하고 SecurityConfig/Swagger/post 목록 DTO에 주석을 더해 도메인 흐름을 명확히 하며 `GRADLE_USER_HOME=./gradle-cache ./gradlew test` 실행 시 Gradle 배포 다운로드가 UnknownHostException으로 실패함을 확인함.
+
+- 2026-01-25: `Post` 엔티티를 게시물 작성 스펙에 맞춰 제목/본문 길이를 제한하고 감사 필드, 삭제 플래그, 여행 일정 연결 및 `PostedImage` 관계를 추가하였으며 `./gradlew clean compileJava` 실행은 홈 Gradle 락 파일 권한 문제로 실패함.
+
+- 2026-01-25: SecurityConfig에서 GET /posts/**을 permitAll로 열어 자유게시판 조회를 인증 없이 가능하게 하고 나머지 게시물 쓰기/삭제 요청은 인증 처리하면서 Swagger/헬스/인증 엔드포인트도 정리함.
+
+- 2026-01-26: Flyway V3 migration을 추가해 images 테이블(schema for uploaded files) 생성을 보장하여 Hibernate의 schema-validation 오류를 해결하고 `./gradlew bootRun` 로그에서 missing table [images] 문제가 발생하는 것을 방지함.
+- 2026-01-26: posted_images 테이블이 존재하지 않아 JPA가 부팅 실패했기에 Flyway V4 마이그레이션으로 해당 테이블을 생성하고 외래키/인덱스를 정의하여 `./gradlew bootRun`의 schema-validation을 정리함.
+
+- 2026-01-26: Flyway V5 마이그레이션을 추가해 posts 테이블에 is_deleted/deleted_at 컬럼을 생성하여 JPA의 schema-validation 오류를 제거하고 논리 삭제 플래그를 준비함.
+
+- 2026-01-26: Flyway V5 마이그레이션을 수정하여 posts 테이블에 IF NOT EXISTS 조건으로 is_deleted/deleted_at을 추가하도록 변경, 이전 run에서 삭제 컬럼이 이미 존재해도 밸리데이션 실패 없이 새로운 인덱스·플래그를 도입할 수 있게끔 조정함.
+
+- 2026-01-26: Flyway V5를 정보 스키마 기반 조건 추가 방식으로 다시 작성해 is_deleted/deleted_at 컬럼을 중복 없이 안전하게 생성하도록 정리하고, 실패 기록 정리 후 Flyway가 schema-validation을 통과하도록 준비함.
+
+- 2026-01-26: Post 엔티티에서 trip_id/Trip 연관 설명을 제거하고 PostCreateRequest/Service/Swagger 문서에서 여행 도메인 참조를 없앰으로써 v1 자유게시판 작성 스펙에 집중하도록 정리함.
+- 2026-01-26: `.gitignore` 하단에 `/build/`와 `**/build/`를 추가해 루트/서브모듈 build 디렉터리까지 모두 추적되지 않도록 정리함.
+
+- 2026-01-26: Flyway V6 마이그레이션을 추가해 posts.author 컬럼을 조건부로 제거하여 삽입 시 SQL 1364(필수 미입력) 오류를 해결하고 v1 자유게시판 스펙에 맞춰 schema를 정리함.
+
+- 2026-01-26: Post 엔티티에서 userId 필드를 제거하고 author(User)만 관리하는 구조로 정리, PostService.createPost에서 User 엔티티를 주입하여 저장/응답을 처리해 JPA의 PK/FK 일관성을 확보함.
+
+- 2026-01-26: 게시글 수정 DTO/서비스/컨트롤러를 추가하여 PostUpdateRequest 기반 제목·본문·이미지 변경 + 권한 확인 흐름을 정리하고 `@PutMapping`을 multipart-form으로 노출함.
+- 2026-01-29: Spring Security 환경에서 `http://localhost:5173` origin의 GET/POST/PUT/DELETE/OPTIONS 요청을 CORS 허용하도록 `SecurityConfig`를 새로 작성하고 CorsConfigurationSource를 정의했으며, OPTIONS과 `/auth/**`는 permitAll 처리해 프론트에서 OPTIONS 차단이 풀리도록 정리함(테스트 미실행).
+- 2026-01-30: 중복 CorsConfigurationSource 정의를 제거하기 위해 `WebConfig`를 삭제하고 SecurityConfig만으로 CORS 정책을 취급하도록 정리함(테스트 미실행).
+- 2026-01-30: Lombok getter가 CI에서 누락될 수 있는 문제를 방지하기 위해 `User.profileImageId`에 명시적인 `getProfileImageId()`를 추가해 `CommentService` 등에서 참조할 수 있도록 정리함(테스트 미실행).
+- 2026-01-29: `SignUpRequest.profileImageId`를 nullable로 바꾸고 UserService.signup에서 null이면 기본 프로필 이미지 ID를 채운 뒤 UserProfileImage를 생성하도록 변경해 초기 프로필 선택 없이도 회원가입이 되게 정리함(테스트 미실행).
+- 2026-02-01: 프로필 이미지를 `profile_image_url` 컬럼 + S3 URL로 일원화하고 `UserProfileImage`/`UserProfileImageRepository`를 제거한 뒤 S3Uploader·S3Config/S3 관련 DTO/서비스/컨트롤러를 구현해 AWS S3 업로드 → URL 저장 로직을 만들며 기존 imageId 의존 코드를 정리함(테스트 미실행).
+- 2026-02-01: `JwtAuthenticationFilter.shouldNotFilter`를 context path를 제거한 URI 기준으로 `/auth/login`, `/users/signup` 등을 판별하게 수정해 `POST /api/users/signup` 같은 요청도 JWT 필터를 건너뛰도록 정리함(테스트 미실행).
+- 2026-01-31: `build.gradle`의 `test` task에 `useJUnitPlatform()`을 선언해 JUnit5 테스트(`AuthVerificationControllerTest` 등)가 Gradle/CI에서 정상 실행되도록 정리함(테스트 미실행).
+- 2026-02-01: `cloud.aws.enabled` 플래그로 S3 관련 빈을 조건부 생성하도록 변경하고 `UserService`에서 `ObjectProvider<S3Uploader>`를 통해 S3 의존을 옵셔널로 처리했으며, 모든 환경 파일(`application-*,example`)에 `cloud.aws` 루트 정의를 넣고 `cloud.aws.enabled` 값을 분기하여 로컬에서 AWS 설정 없이 `bootRun`이 시작되도록 정리함.
+- 2026-02-01: prod 프로파일은 실제 배포에서만 쓰고 `application.yml`은 기본적으로 local을 활성화하도록 되돌렸으며 README에 prod 실행 시 필요한 환경변수(`SPRING_DATASOURCE_*`, `JWT_SECRET`, `AWS_*`)를 명시해 개발자가 prod를 수동으로 띄우지 않도록 안내함.
+- 2026-02-01: `planit.profile.default-image-url` 속성을 도입하고 `ProfileImageProperties`/LoginResponse/UserService를 default URL 기반으로 방어하며 Flyway V8 마이그레이션을 추가해 `users.profile_image_url` 컬럼을 보장하고 AuthService/GlobalExceptionHandler에서 명확한 예외 변환/로그를 남기도록 정리함.
+- 2026-02-01: JwtProvider를 Base64 디코딩 후 256비트 이상 키만 받도록 재작성하고, JwtProperties/config을 만들고 README에 `JWT_SECRET` 설정 명령을 기입해 local/prod 모두에서 WeakKeyException 없이 로그인 토큰을 생성하도록 정리함.

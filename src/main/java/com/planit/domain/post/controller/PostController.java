@@ -101,13 +101,14 @@ public class PostController {
         ))
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public PostCreateResponse createPost(
-        @Valid @ModelAttribute PostCreateRequest request,
+        @RequestPart("data") @Valid PostCreateRequest request,
+        @RequestPart(value = "images", required = false) List<MultipartFile> images,
         @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        return postService.createPost(request, principal.getUsername());
+        return postService.createPost(request, images, principal.getUsername());
     }
 
     @Operation(summary = "자유게시판 글 수정",

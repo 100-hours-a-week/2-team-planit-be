@@ -33,15 +33,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String contextPath = request.getContextPath(); // 설정된 컨텍스트 패스 (/api)
-        String path = request.getRequestURI().substring(contextPath.length()); // 실제 엔드포인트
-        return path.equals("/auth/login")
-            || path.startsWith("/users/signup")
-            || path.startsWith("/users/check-login-id")
-            || path.startsWith("/users/check-nickname")
-            || path.startsWith("/health")
-            || path.startsWith("/swagger-ui")
-            || path.startsWith("/v3/api-docs");
+        String contextPath = request.getContextPath();
+        String uri = request.getRequestURI();
+        if (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)) {
+            uri = uri.substring(contextPath.length());
+        }
+        return uri.equals("/auth/login")
+            || uri.startsWith("/users/signup")
+            || uri.startsWith("/users/check-login-id")
+            || uri.startsWith("/users/check-nickname")
+            || uri.startsWith("/health")
+            || uri.startsWith("/swagger-ui")
+            || uri.startsWith("/v3/api-docs");
     }
 
     @Override

@@ -1,34 +1,49 @@
 package com.planit.domain.user.service; // 사용자 도메인 비즈니스 로직을 담은 패키지입니다.
 
 import com.planit.domain.post.repository.PostRepository;
+import com.planit.domain.user.config.ProfileImageProperties;
 import com.planit.domain.user.dto.MyPageResponse;
 import com.planit.domain.user.dto.PlanPreview;
-import com.planit.domain.user.dto.SignUpRequest; // 회원가입 요청 DTO
-import com.planit.domain.user.dto.UserAvailabilityResponse; // 중복 확인 응답 DTO
-import com.planit.domain.user.dto.UserProfileResponse; // 내 정보/마이페이지 응답 DTO
-import com.planit.domain.user.dto.UserSignupResponse; // 회원가입 결과 DTO
-import com.planit.domain.user.dto.UserUpdateRequest; // 회원 정보 수정 요청 DTO
-import com.planit.domain.user.entity.User; // 사용자 엔티티
-import com.planit.domain.user.entity.UserProfileImage; // 프로필 이미지 엔티티
-import com.planit.domain.user.repository.UserProfileImageRepository; // 이미지 테이블 저장소
-import com.planit.domain.user.repository.UserRepository; // 사용자 테이블 저장소
+import com.planit.domain.user.dto.SignUpRequest;
+import com.planit.domain.user.dto.UserAvailabilityResponse;
+import com.planit.domain.user.dto.UserProfileResponse;
+import com.planit.domain.user.dto.UserSignupResponse;
+import com.planit.domain.user.dto.UserUpdateRequest;
+import com.planit.domain.user.entity.User;
+import com.planit.domain.user.exception.DuplicateLoginIdException;
+import com.planit.domain.user.exception.DuplicateNicknameException;
+import com.planit.domain.user.repository.UserRepository;
+import com.planit.domain.user.service.support.UserConstraintMetadata;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
+import com.planit.infrastructure.storage.S3Uploader;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
-import lombok.RequiredArgsConstructor; // final 필드 생성자 자동 생성
-import lombok.extern.slf4j.Slf4j; // 로깅
-import org.springframework.http.HttpStatus; // HTTP 상태 코드
-import org.springframework.security.crypto.password.PasswordEncoder; // 비밀번호 암호화
-import org.springframework.stereotype.Service; // 서비스 빈 선언
-import org.springframework.transaction.annotation.Transactional; // 트랜잭션 처리
-import org.springframework.web.server.ResponseStatusException; // REST 예외 응답
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
-@Service // Spring 컨테이너에 서비스 빈으로 등록
-@RequiredArgsConstructor // final 필드 생성자 자동 생성
-@Slf4j // 로깅을 위한 lombok 로거 생성
+@Service
+@RequiredArgsConstructor
+@Slf4j
 public class UserService {
+
+    private static final Pattern KEY_PATTERN = Pattern.compile("key '(?:[^.']+\\.)?(?<constraint>[^']+)'");
+    private static final Pattern CONSTRAINT_PATTERN = Pattern.compile("constraint '(?<constraint>[^']+)'");
 
     private static final Set<Character.UnicodeBlock> EMOJI_BLOCKS =
         Set.of(
@@ -38,25 +53,18 @@ public class UserService {
             Character.UnicodeBlock.DINGBATS,
             Character.UnicodeBlock.TRANSPORT_AND_MAP_SYMBOLS,
             Character.UnicodeBlock.SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS
-        ); // 이모지 판단에 사용하는 블록 집합
-
-    private static final long DEFAULT_PROFILE_IMAGE_ID = 1L;
+        );
 
     private final UserRepository userRepository;
-    private final UserProfileImageRepository userProfileImageRepository;
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectProvider<S3Uploader> s3UploaderProvider;
+    private final ProfileImageProperties imageProperties;
+    private final UserConstraintMetadata constraintMetadata;
 
     public UserSignupResponse signup(SignUpRequest request) {
-        // 로그인 아이디 중복 확인
-        if (userRepository.existsByLoginIdAndDeletedFalse(request.getLoginId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 아이디 입니다.");
-        }
-        // 닉네임 중복 체크
-        if (userRepository.existsByNicknameAndDeletedFalse(request.getNickname())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 닉네임 입니다.");
-        }
-        // 엔티티 생성 및 필수 필드 할당
+        validateLoginId(request.getLoginId());
+        validateNickname(request.getNickname());
         User user = new User();
         user.setLoginId(request.getLoginId());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -65,41 +73,106 @@ public class UserService {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         user.setDeleted(false);
-        User saved = userRepository.save(user);
-        // 프로필 이미지 테이블에 매핑
-        Long imageId = request.getProfileImageId() != null ? request.getProfileImageId() : DEFAULT_PROFILE_IMAGE_ID;
-        UserProfileImage profileImage = new UserProfileImage();
-        profileImage.setUserId(saved.getId());
-        profileImage.setImageId(imageId);
-        userProfileImageRepository.save(profileImage);
-        // 생성된 사용자 ID 응답
+        User saved;
+        try {
+            saved = userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw resolveDuplicateException(request, ex);
+        }
         return new UserSignupResponse(saved.getId());
+    }
+
+    private RuntimeException resolveDuplicateException(SignUpRequest request, DataIntegrityViolationException ex) {
+        String constraint = findConstraintName(ex);
+        if (constraint != null) {
+            Optional<String> column = constraintMetadata.findColumnByConstraint(constraint);
+            if (column.isPresent()) {
+                RuntimeException mapped = mapColumnToException(column.get());
+                if (mapped != null) {
+                    return mapped;
+                }
+            }
+        }
+        if (userRepository.existsByNicknameAndDeletedFalse(request.getNickname())) {
+            return new DuplicateNicknameException();
+        }
+        if (userRepository.existsByLoginIdAndDeletedFalse(request.getLoginId())) {
+            return new DuplicateLoginIdException();
+        }
+        log.error("Unhandled DataIntegrityViolation during signup", ex);
+        return new BusinessException(ErrorCode.COMMON_999);
+    }
+
+    private RuntimeException mapColumnToException(String column) {
+        if ("nickname".equalsIgnoreCase(column)) {
+            return new DuplicateNicknameException();
+        }
+        if ("login_id".equalsIgnoreCase(column)) {
+            return new DuplicateLoginIdException();
+        }
+        return null;
+    }
+
+    private String findConstraintName(DataIntegrityViolationException ex) {
+        Throwable root = ex.getRootCause();
+        while (root != null && !(root instanceof SQLException)) {
+            root = root.getCause();
+        }
+        if (root instanceof SQLException sqlException) {
+            return extractConstraintName(sqlException.getMessage());
+        }
+        return null;
+    }
+
+    private String extractConstraintName(String message) {
+        if (!StringUtils.hasText(message)) {
+            return null;
+        }
+        Matcher matcher = KEY_PATTERN.matcher(message);
+        if (matcher.find()) {
+            return matcher.group("constraint");
+        }
+        matcher = CONSTRAINT_PATTERN.matcher(message);
+        if (matcher.find()) {
+            return matcher.group("constraint");
+        }
+        return null;
+    }
+
+    @Transactional
+    public UserProfileResponse uploadProfileImage(String loginId, MultipartFile file) {
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+        if (user.isDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다.");
+        }
+        S3Uploader uploader = s3UploaderProvider.getIfAvailable();
+        if (uploader == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
+        }
+        String imageUrl = uploader.uploadProfileImage(file, user.getId());
+        user.setProfileImageUrl(imageUrl);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        return buildUserProfileResponse(user);
     }
 
     @Transactional
     public UserProfileResponse updateProfile(String loginId, UserUpdateRequest request) {
-        // 인증된 loginId로 현재 사용자 엔티티 조회
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
-        // 닉네임 유효성 및 중복 여부 검증
         ensureNicknameAvailable(request.getNickname(), user);
-        String providedPassword = request.getPassword();
-        String confirmation = request.getPasswordConfirmation();
-        // 비밀번호 변경 시 유효성 확인
-        ensurePasswordRules(providedPassword, confirmation);
+        ensurePasswordRules(request.getPassword(), request.getPasswordConfirmation());
         user.setNickname(request.getNickname());
-        if (providedPassword != null && !providedPassword.isBlank()) {
-            user.setPassword(passwordEncoder.encode(providedPassword));
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
         user.setUpdatedAt(LocalDateTime.now());
-        // 프로필 이미지 변경 반영
-        applyProfileImage(request.getProfileImageId(), user.getId());
-        // 최신 정보 반환
         return buildUserProfileResponse(user);
     }
 
     public UserAvailabilityResponse checkLoginId(String loginId) {
-        // 로그인 ID 중복 시 적절한 메시지 반환
         if (userRepository.existsByLoginIdAndDeletedFalse(loginId)) {
             return new UserAvailabilityResponse(false, "*중복된 아이디 입니다.");
         }
@@ -107,7 +180,6 @@ public class UserService {
     }
 
     public UserAvailabilityResponse checkNickname(String nickname) {
-        // 닉네임 중복 여부 확인
         if (userRepository.existsByNicknameAndDeletedFalse(nickname)) {
             return new UserAvailabilityResponse(false, "*중복된 닉네임 입니다.");
         }
@@ -118,85 +190,7 @@ public class UserService {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         log.info("Retrieved profile for loginId={}", loginId);
-        // 응답 DTO 생성
         return buildUserProfileResponse(user);
-    }
-
-    @Transactional
-    public void deleteProfileImage(Long userId) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
-        if (user.isDeleted()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다.");
-        }
-        Optional<UserProfileImage> existing = userProfileImageRepository.findByUserId(userId);
-        existing.ifPresent(image -> userProfileImageRepository.delete(image));
-    }
-
-    private void ensureNicknameAvailable(String candidate, User currentUser) {
-        // 닉네임이 변경 되었고 중복이라면 에러
-        if (!candidate.equals(currentUser.getNickname()) &&
-            userRepository.existsByNicknameAndDeletedFalse(candidate)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 닉네임입니다.");
-        }
-        // 이모지 포함 여부 확인
-        if (containsEmoji(candidate)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*닉네임에는 이모지를 사용할 수 없습니다.");
-        }
-    }
-
-    private void ensurePasswordRules(String password, String confirmation) {
-        boolean hasPassword = password != null && !password.isBlank();
-        boolean hasConfirmation = confirmation != null && !confirmation.isBlank();
-        if (!hasPassword && !hasConfirmation) {
-            return;
-        }
-        // 비밀번호가 누락되었는지 확인
-        if (!hasPassword) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호를 입력해주세요.");
-        }
-        // 확인 비밀번호 누락 시
-        if (!hasConfirmation) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호를 한 번 더 입력해주세요.");
-        }
-        // 비밀번호와 확인 입력이 불일치하는지 검증
-        if (!password.equals(confirmation)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호와 다릅니다.");
-        }
-        // 비밀번호 정책 (대소문자/숫자/특수문자 포함, 8~20자) 체크
-        if (password.length() < 8 || password.length() > 20 ||
-            !password.matches(".*[A-Z].*") ||
-            !password.matches(".*[a-z].*") ||
-            !password.matches(".*\\d.*") ||
-            password.chars().noneMatch(ch -> !Character.isLetterOrDigit(ch))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "*비밀번호는 8자 이상, 20자 이하이며, 대문자, 소문자, 숫자, 특수문자를 각각 최소 1개 포함해야 합니다.");
-        }
-    }
-
-    private void applyProfileImage(Long imageId, Long userId) {
-        // 프로필 이미지 ID가 없으면 변경 작업 없음
-        if (imageId == null) {
-            return;
-        }
-        Optional<UserProfileImage> existing = userProfileImageRepository.findByUserId(userId);
-        if (existing.isPresent()) {
-            // 기존 객체에 새로운 ID 설정
-            existing.get().setImageId(imageId);
-            return;
-        }
-        // 새 이미지를 등록
-        UserProfileImage profileImage = new UserProfileImage();
-        profileImage.setUserId(userId);
-        profileImage.setImageId(imageId);
-        userProfileImageRepository.save(profileImage);
-    }
-
-    private UserProfileResponse buildUserProfileResponse(User user) {
-        Long profileImageId = userProfileImageRepository.findByUserId(user.getId())
-            .map(UserProfileImage::getImageId)
-            .orElse(null);
-        return new UserProfileResponse(user.getId(), user.getLoginId(), user.getNickname(), profileImageId);
     }
 
     public MyPageResponse getMyPage(String loginId) {
@@ -219,7 +213,7 @@ public class UserService {
             summary.getUserId(),
             summary.getLoginId(),
             summary.getNickname(),
-            summary.getProfileImageId(),
+            resolveProfileImageUrl(summary.getProfileImageUrl()),
             summary.getPostCount(),
             summary.getCommentCount(),
             summary.getLikeCount(),
@@ -232,12 +226,73 @@ public class UserService {
     public void deleteAccount(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
-        userProfileImageRepository.deleteByUserId(user.getId());
         userRepository.softDelete(user.getId(), LocalDateTime.now());
     }
 
+    private UserProfileResponse buildUserProfileResponse(User user) {
+        return new UserProfileResponse(
+            user.getId(),
+            user.getLoginId(),
+            user.getNickname(),
+            resolveProfileImageUrl(user.getProfileImageUrl())
+        );
+    }
+
+    private void validateLoginId(String loginId) {
+        if (userRepository.existsByLoginIdAndDeletedFalse(loginId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 아이디 입니다.");
+        }
+    }
+
+    private void validateNickname(String nickname) {
+        if (userRepository.existsByNicknameAndDeletedFalse(nickname)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 닉네임 입니다.");
+        }
+    }
+
+    private void ensureNicknameAvailable(String candidate, User currentUser) {
+        if (!candidate.equals(currentUser.getNickname()) &&
+            userRepository.existsByNicknameAndDeletedFalse(candidate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 닉네임입니다.");
+        }
+        if (containsEmoji(candidate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*닉네임에는 이모지를 사용할 수 없습니다.");
+        }
+    }
+
+    private void ensurePasswordRules(String password, String confirmation) {
+        boolean hasPassword = password != null && !password.isBlank();
+        boolean hasConfirmation = confirmation != null && !confirmation.isBlank();
+        if (!hasPassword && !hasConfirmation) {
+            return;
+        }
+        if (!hasPassword) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호를 입력해주세요.");
+        }
+        if (!hasConfirmation) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호를 한 번 더 입력해주세요.");
+        }
+        if (!password.equals(confirmation)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호와 다릅니다.");
+        }
+        if (password.length() < 8 || password.length() > 20 ||
+            !password.matches(".*[A-Z].*") ||
+            !password.matches(".*[a-z].*") ||
+            !password.matches(".*\\d.*") ||
+            password.chars().noneMatch(ch -> !Character.isLetterOrDigit(ch))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "*비밀번호는 8자 이상, 20자 이하이며, 대문자, 소문자, 숫자, 특수문자를 각각 최소 1개 포함해야 합니다.");
+        }
+    }
+
+    private String resolveProfileImageUrl(String candidate) {
+        if (StringUtils.hasText(candidate)) {
+            return candidate;
+        }
+        return imageProperties.getDefaultImageUrl();
+    }
+
     private boolean containsEmoji(String value) {
-        // UnicodeBlock 정보를 통해 이모지 블록 포함 여부 판단
         return value.codePoints()
             .mapToObj(Character.UnicodeBlock::of)
             .anyMatch(EMOJI_BLOCKS::contains);
