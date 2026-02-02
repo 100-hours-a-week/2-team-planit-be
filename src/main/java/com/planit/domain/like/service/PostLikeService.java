@@ -3,6 +3,7 @@ package com.planit.domain.like.service;
 import com.planit.domain.like.dto.PostLikeResponse;
 import com.planit.domain.like.entity.Like;
 import com.planit.domain.like.repository.PostLikeRepository;
+import com.planit.domain.notification.service.NotificationService;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.user.entity.User;
@@ -21,6 +22,7 @@ public class PostLikeService {
     private final PostLikeRepository postLikeRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public PostLikeResponse getPostLikeInfo(Long postId, String loginId) {
         boolean likedByMe = false;
@@ -40,6 +42,7 @@ public class PostLikeService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "*이미 좋아요한 게시글입니다.");
         }
         postLikeRepository.save(Like.of(post, user));
+        publishLikeNotificationIfNeeded(post, user);
     }
 
     @Transactional
@@ -51,5 +54,13 @@ public class PostLikeService {
     private User resolveUser(String loginId) {
         return userRepository.findByLoginIdAndDeletedFalse(loginId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다."));
+    }
+
+    private void publishLikeNotificationIfNeeded(Post post, User actor) {
+        Long authorId = post.getAuthor().getId();
+        if (actor.getId().equals(authorId)) {
+            return;
+        }
+        notificationService.createLikeNotification(authorId, post.getId(), actor.getNickname());
     }
 }

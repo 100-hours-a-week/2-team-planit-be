@@ -70,6 +70,8 @@ public class SecurityConfig {
                         .requestMatchers("/users/signup").permitAll()
                         .requestMatchers("/users/check-login-id").permitAll()
                         .requestMatchers("/users/check-nickname").permitAll()
+                        .requestMatchers("/api/notifications/**").authenticated()
+                        .requestMatchers("/api/plans/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/posts/*/comments").permitAll()
                         .requestMatchers(HttpMethod.POST, "/posts/*/comments").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/posts/*/comments/**").authenticated()

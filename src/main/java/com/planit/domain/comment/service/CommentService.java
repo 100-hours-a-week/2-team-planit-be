@@ -5,6 +5,7 @@ import com.planit.domain.comment.dto.CommentRequest;
 import com.planit.domain.comment.dto.CommentResponse;
 import com.planit.domain.comment.entity.Comment;
 import com.planit.domain.comment.repository.CommentRepository;
+import com.planit.domain.notification.service.NotificationService;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.user.entity.User;
@@ -25,6 +26,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<CommentDetail> listComments(Long postId) {
@@ -42,6 +44,7 @@ public class CommentService {
         comment.setCreatedAt(LocalDateTime.now());
         Comment saved = commentRepository.save(comment);
         postRepository.incrementCommentCount(postId);
+        publishCommentNotification(post, user, request.getContent());
         CommentResponse response = new CommentResponse();
         response.setCommentId(saved.getId());
         response.setAuthorNickname(user.getNickname());
@@ -62,5 +65,30 @@ public class CommentService {
         }
         comment.markDeleted();
         postRepository.decrementCommentCount(comment.getPost().getId());
+    }
+
+    private void publishCommentNotification(Post post, User actor, String content) {
+        if (post.getAuthor().getId().equals(actor.getId())) {
+            return;
+        }
+        String preview = buildPreview(content);
+        notificationService.createCommentNotification(
+            post.getAuthor().getId(),
+            post.getId(),
+            actor.getNickname(),
+            preview
+        );
+    }
+
+    private String buildPreview(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        String trimmed = content.strip();
+        int limit = 50;
+        if (trimmed.length() <= limit) {
+            return trimmed;
+        }
+        return trimmed.substring(0, limit).stripTrailing() + "...";
     }
 }
