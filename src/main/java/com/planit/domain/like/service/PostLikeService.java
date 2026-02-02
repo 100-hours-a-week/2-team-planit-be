@@ -9,8 +9,10 @@ import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -31,14 +33,23 @@ public class PostLikeService {
     }
 
     @Transactional
-    public void toggleLike(Long postId, String loginId) {
-        User user = userRepository.findByLoginIdAndDeletedFalse(loginId).orElseThrow();
+    public void addLike(Long postId, String loginId) {
+        User user = resolveUser(loginId);
         Post post = postRepository.findById(postId).orElseThrow();
-        Optional<Like> existing = postLikeRepository.findByPostIdAndAuthorId(postId, user.getId());
-        if (existing.isPresent()) {
-            postLikeRepository.delete(existing.get());
-        } else {
-            postLikeRepository.save(Like.of(post, user));
+        if (postLikeRepository.existsByPostIdAndAuthorId(postId, user.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "*이미 좋아요한 게시글입니다.");
         }
+        postLikeRepository.save(Like.of(post, user));
+    }
+
+    @Transactional
+    public void removeLike(Long postId, String loginId) {
+        User user = resolveUser(loginId);
+        postLikeRepository.deleteByPostIdAndAuthorId(postId, user.getId());
+    }
+
+    private User resolveUser(String loginId) {
+        return userRepository.findByLoginIdAndDeletedFalse(loginId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다."));
     }
 }
