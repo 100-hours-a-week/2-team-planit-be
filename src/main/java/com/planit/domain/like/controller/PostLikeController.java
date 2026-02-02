@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/posts/{postId}/likes")
@@ -47,7 +48,14 @@ public class PostLikeController {
         @PathVariable Long postId,
         @AuthenticationPrincipal UserDetails principal
     ) {
-        String loginId = principal.getUsername();
+        String loginId = requireLogin(principal);
         likeService.toggleLike(postId, loginId);
+    }
+
+    private String requireLogin(UserDetails principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        return principal.getUsername();
     }
 }

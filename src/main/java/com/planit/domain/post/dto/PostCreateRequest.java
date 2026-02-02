@@ -5,13 +5,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.constraints.NotBlank; // 빈 문자열 검사
 import jakarta.validation.constraints.NotNull; // null 체크
 import jakarta.validation.constraints.Size; // 길이 제한
-import java.util.Collections;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.web.multipart.MultipartFile; // 이미지 업로드 지원
 
 /**
  * 게시글 작성 요청 DTO
@@ -38,13 +36,5 @@ public class PostCreateRequest {
     @Size(max = 2000, message = "*내용은 최대 2,000자까지 작성할 수 있습니다.")
     private String content; // 게시글 본문
 
-    @Parameter(description = "이미지 최대 5장(jpg/png/webp)")
-    @Size(max = 5, message = "*이미지는 최대 5장까지 업로드 가능합니다.")
-    private List<MultipartFile> images; // multipart/form-data 파일 필드
-
     private List<Long> placeIds; // 추후 place 연계용 ID 리스트 (현재 optional)
-
-    public List<MultipartFile> getImages() {
-        return images == null ? Collections.emptyList() : images;
-    }
 }

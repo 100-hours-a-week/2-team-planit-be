@@ -13,7 +13,6 @@ import jakarta.validation.constraints.Pattern; // 정규식 검증
 import jakarta.validation.constraints.Size; // 길이 검증
 import lombok.RequiredArgsConstructor; // final 필드 자동 생성자 주입
 import org.springframework.http.HttpStatus; // HTTP 상태 코드 상수
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController // REST 요청 처리를 위한 컨트롤러
 @RequestMapping("/users") // 실제 경로는 `/api/users` (context-path `/api` 포함)
@@ -48,7 +48,7 @@ public class UserController {
     @PostMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadProfileImage(@AuthenticationPrincipal UserDetails principal,
                                                   @RequestPart("image") MultipartFile image) {
-        return userService.uploadProfileImage(principal.getUsername(), image);
+        return userService.uploadProfileImage(requireLogin(principal), image);
     }
 
     @GetMapping("/check-login-id") // GET /api/users/check-login-id?loginId=...
@@ -82,18 +82,18 @@ public class UserController {
 
     @GetMapping("/me") // GET /api/users/me
     public UserProfileResponse me(@AuthenticationPrincipal UserDetails principal) {
-        return userService.getProfile(principal.getUsername());
+        return userService.getProfile(requireLogin(principal));
     }
 
     @GetMapping("/me/mypage")
     public MyPageResponse myPage(@AuthenticationPrincipal UserDetails principal) {
-        return userService.getMyPage(principal.getUsername());
+        return userService.getMyPage(requireLogin(principal));
     }
 
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAccount(@AuthenticationPrincipal UserDetails principal) {
-        userService.deleteAccount(principal.getUsername());
+        userService.deleteAccount(requireLogin(principal));
     }
 
     @PutMapping("/me") // PUT /api/users/me -> 프로필 수정 요청
@@ -102,6 +102,13 @@ public class UserController {
         @Valid @RequestBody UserUpdateRequest request
     ) {
         // 인증된 사용자 정보를 기반으로 전달받은 수정 요청을 처리
-        return userService.updateProfile(principal.getUsername(), request);
+        return userService.updateProfile(requireLogin(principal), request);
+    }
+
+    private String requireLogin(UserDetails principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        return principal.getUsername();
     }
 }
