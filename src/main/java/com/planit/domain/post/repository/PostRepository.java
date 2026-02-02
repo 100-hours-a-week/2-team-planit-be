@@ -72,10 +72,11 @@ public interface PostRepository
                             + "and ( :pattern = '%' "
                             + "   or lower(p.title) like lower(:pattern) "
                             + "   or lower(p.content) like lower(:pattern) ) "
-                            + "order by "
-                            + " case when :sortOption = 'COMMENTS' then commentCount "
-                            + "      when :sortOption = 'LIKES' then likeCount "
-                            + "      else p.created_at end desc",
+                            + "order by case\n"
+                            + " when :sortOption = 'COMMENTS' then commentCount\n"
+                            + " when :sortOption = 'LIKES' then likeCount\n"
+                            + " else p.created_at\n"
+                            + " end desc",
             countQuery =
                     "select count(*) "
                             + "from posts p "
