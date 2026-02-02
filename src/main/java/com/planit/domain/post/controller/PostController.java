@@ -67,12 +67,12 @@ public class PostController {
         @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
         @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size
     ) {
-        if (!"FREE".equalsIgnoreCase(boardType)) {
+        BoardType resolvedBoardType = parseBoardType(boardType);
+        if (BoardType.FREE != resolvedBoardType) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "v1 미구현 기능");
         }
         validateSearch(search); // helper text 기준으로 검색어 검증
         PostService.SortOption sortOption = resolveSortOption(sort);
-        BoardType resolvedBoardType = BoardType.valueOf(boardType.trim().toUpperCase(Locale.ROOT));
         return postService.listPosts(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
     }
 
@@ -186,6 +186,14 @@ public class PostController {
                 return PostService.SortOption.LIKES;
             default:
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
+        }
+    }
+
+    private BoardType parseBoardType(String boardType) {
+        try {
+            return BoardType.valueOf(boardType.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 게시판입니다.");
         }
     }
 }
