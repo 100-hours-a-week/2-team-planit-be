@@ -9,7 +9,8 @@ public enum ErrorCode {
     TRIP_001("TRIP_001", "여행을 찾을 수 없습니다"),
     TRIP_002("TRIP_002", "이미 생성된 여행이 있습니다"),
     TRIP_003("TRIP_003", "일정을 찾을 수 없습니다"),
-    TRIP_004("TRIP_004", "장소 일정을 찾을 수 없습니다");
+    TRIP_004("TRIP_004", "장소 일정을 찾을 수 없습니다"),
+    TRIP_005("TRIP_005", "일정 생성 허용 시간이 아닙니다");
 
     private final String code;
     private final String message;
