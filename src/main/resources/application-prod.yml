@@ -1,8 +1,8 @@
 spring: # Production 환경 Spring Boot 설정 루트
   datasource: # 배포용 데이터베이스 접속 정보
-    url: ${SPRING_DATASOURCE_URL} # 환경 변수로 전달된 JDBC URL
-    username: ${SPRING_DATASOURCE_USERNAME} # 배포 DB 사용자
-    password: ${SPRING_DATASOURCE_PASSWORD} # 배포 DB 비밀번호
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/planit?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:planit}
+    password: ${SPRING_DATASOURCE_PASSWORD:planit}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -20,12 +20,15 @@ cloud:
   aws:
     enabled: true
     s3:
-      bucket: ${AWS_S3_BUCKET:planit-profile-images}
+      bucket: ${AWS_S3_BUCKET:planit-s3-bucket}
     region:
       static: ${AWS_REGION:ap-northeast-2}
     credentials:
       access-key: ${AWS_ACCESS_KEY:dummy}
       secret-key: ${AWS_SECRET_KEY:dummy}
+planit:
+  cloudfront:
+    domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}
 
 ai:
   base-url: http://localhost:8000
