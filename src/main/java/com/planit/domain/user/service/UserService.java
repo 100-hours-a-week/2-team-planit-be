@@ -1,6 +1,7 @@
 package com.planit.domain.user.service; // 사용자 도메인 비즈니스 로직을 담은 패키지입니다.
 
 import com.planit.domain.post.repository.PostRepository;
+import com.planit.domain.user.config.ProfileImageProperties;
 import com.planit.domain.user.dto.MyPageResponse;
 import com.planit.domain.user.dto.PlanPreview;
 import com.planit.domain.user.dto.SignUpRequest;
@@ -9,15 +10,24 @@ import com.planit.domain.user.dto.UserProfileResponse;
 import com.planit.domain.user.dto.UserSignupResponse;
 import com.planit.domain.user.dto.UserUpdateRequest;
 import com.planit.domain.user.entity.User;
+import com.planit.domain.user.exception.DuplicateLoginIdException;
+import com.planit.domain.user.exception.DuplicateNicknameException;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.domain.user.service.support.UserConstraintMetadata;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import com.planit.infrastructure.storage.S3Uploader;
-import com.planit.domain.user.config.ProfileImageProperties;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +41,9 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 @Slf4j
 public class UserService {
+
+    private static final Pattern KEY_PATTERN = Pattern.compile("key '(?:[^.']+\\.)?(?<constraint>[^']+)'");
+    private static final Pattern CONSTRAINT_PATTERN = Pattern.compile("constraint '(?<constraint>[^']+)'");
 
     private static final Set<Character.UnicodeBlock> EMOJI_BLOCKS =
         Set.of(
@@ -47,6 +60,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<S3Uploader> s3UploaderProvider;
     private final ProfileImageProperties imageProperties;
+    private final UserConstraintMetadata constraintMetadata;
 
     public UserSignupResponse signup(SignUpRequest request) {
         validateLoginId(request.getLoginId());
@@ -59,8 +73,70 @@ public class UserService {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         user.setDeleted(false);
-        User saved = userRepository.save(user);
+        User saved;
+        try {
+            saved = userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw resolveDuplicateException(request, ex);
+        }
         return new UserSignupResponse(saved.getId());
+    }
+
+    private RuntimeException resolveDuplicateException(SignUpRequest request, DataIntegrityViolationException ex) {
+        String constraint = findConstraintName(ex);
+        if (constraint != null) {
+            Optional<String> column = constraintMetadata.findColumnByConstraint(constraint);
+            if (column.isPresent()) {
+                RuntimeException mapped = mapColumnToException(column.get());
+                if (mapped != null) {
+                    return mapped;
+                }
+            }
+        }
+        if (userRepository.existsByNicknameAndDeletedFalse(request.getNickname())) {
+            return new DuplicateNicknameException();
+        }
+        if (userRepository.existsByLoginIdAndDeletedFalse(request.getLoginId())) {
+            return new DuplicateLoginIdException();
+        }
+        log.error("Unhandled DataIntegrityViolation during signup", ex);
+        return new BusinessException(ErrorCode.COMMON_999);
+    }
+
+    private RuntimeException mapColumnToException(String column) {
+        if ("nickname".equalsIgnoreCase(column)) {
+            return new DuplicateNicknameException();
+        }
+        if ("login_id".equalsIgnoreCase(column)) {
+            return new DuplicateLoginIdException();
+        }
+        return null;
+    }
+
+    private String findConstraintName(DataIntegrityViolationException ex) {
+        Throwable root = ex.getRootCause();
+        while (root != null && !(root instanceof SQLException)) {
+            root = root.getCause();
+        }
+        if (root instanceof SQLException sqlException) {
+            return extractConstraintName(sqlException.getMessage());
+        }
+        return null;
+    }
+
+    private String extractConstraintName(String message) {
+        if (!StringUtils.hasText(message)) {
+            return null;
+        }
+        Matcher matcher = KEY_PATTERN.matcher(message);
+        if (matcher.find()) {
+            return matcher.group("constraint");
+        }
+        matcher = CONSTRAINT_PATTERN.matcher(message);
+        if (matcher.find()) {
+            return matcher.group("constraint");
+        }
+        return null;
     }
 
     @Transactional

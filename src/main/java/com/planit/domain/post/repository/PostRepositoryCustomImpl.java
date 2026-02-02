@@ -50,7 +50,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                    (select count(1) from comments c where c.post_id = p.post_id) as comment_count,
                    case
                      when :requesterId < 0 then 0
-                     when exists(select 1 from likes l2 where l2.post_id = p.post_id and l2.user_id = :requesterId) then 1
+                     when exists(select 1 from likes l2 where l2.post_id = p.post_id and l2.author_id = :requesterId) then 1
                      else 0
                    end as liked
             from posts p

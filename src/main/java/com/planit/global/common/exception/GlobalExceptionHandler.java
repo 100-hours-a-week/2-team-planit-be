@@ -1,5 +1,7 @@
 package com.planit.global.common.exception;
 
+import com.planit.domain.user.exception.DuplicateLoginIdException;
+import com.planit.domain.user.exception.DuplicateNicknameException;
 import com.planit.global.common.response.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,18 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(DuplicateNicknameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateNickname(DuplicateNicknameException ex) {
+        logger.warn("DuplicateNickname", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.from(ex.getErrorCode()));
+    }
+
+    @ExceptionHandler(DuplicateLoginIdException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateLoginId(DuplicateLoginIdException ex) {
+        logger.warn("DuplicateLoginId", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.from(ex.getErrorCode()));
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
@@ -41,6 +55,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
         logger.warn("UnsupportedMediaType", ex);
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ErrorResponse.from(ErrorCode.COMMON_001));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        logger.warn("IllegalArgument", ex);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.from(ErrorCode.COMMON_001));
     }
 
