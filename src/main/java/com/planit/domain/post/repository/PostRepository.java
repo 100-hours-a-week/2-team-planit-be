@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -101,4 +102,19 @@ public interface PostRepository
             Long authorId,
             Pageable pageable
     );
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :postId")
+    void incrementCommentCount(@Param("postId") Long postId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+        UPDATE Post p
+        SET p.commentCount = CASE
+            WHEN p.commentCount > 0 THEN p.commentCount - 1
+            ELSE 0
+        END
+        WHERE p.id = :postId
+        """)
+    void decrementCommentCount(@Param("postId") Long postId);
 }

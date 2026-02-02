@@ -57,6 +57,9 @@ public class Post {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt; // 삭제된 시점
 
+    @Column(name = "comment_count", nullable = false)
+    private Long commentCount = 0L; // 댓글 수
+
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", referencedColumnName = "post_id", insertable = false, updatable = false)
     private List<PostedImage> postedImages = new ArrayList<>(); // 첨부된 이미지 목록

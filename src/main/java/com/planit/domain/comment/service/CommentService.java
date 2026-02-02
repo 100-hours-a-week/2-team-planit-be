@@ -41,6 +41,7 @@ public class CommentService {
         comment.setContent(request.getContent());
         comment.setCreatedAt(LocalDateTime.now());
         Comment saved = commentRepository.save(comment);
+        postRepository.incrementCommentCount(postId);
         CommentResponse response = new CommentResponse();
         response.setCommentId(saved.getId());
         response.setAuthorNickname(user.getNickname());
@@ -56,6 +57,10 @@ public class CommentService {
         if (!comment.getAuthor().getLoginId().equals(loginId)) {
             throw new IllegalStateException("작성자만 삭제할 수 있습니다.");
         }
-        comment.setDeletedAt(LocalDateTime.now());
+        if (comment.getDeletedAt() != null) {
+            return;
+        }
+        comment.markDeleted();
+        postRepository.decrementCommentCount(comment.getPost().getId());
     }
 }
