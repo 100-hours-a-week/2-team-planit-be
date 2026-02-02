@@ -36,8 +36,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final List<String> ALLOWED_ORIGINS = List.of("http://localhost:5173");
-    private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
+    private static final List<String> ALLOWED_ORIGINS = List.of("http://localhost:5173", "http://127.0.0.1:5173");
+    private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     private static final List<String> ALLOWED_HEADERS = List.of("*");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -83,15 +83,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // 개발 환경용: Vite 기본 포트 허용
-        configuration.addAllowedOrigin("http://localhost:5173");
-        configuration.addAllowedOrigin("http://127.0.0.1:5173");
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
-        configuration.addAllowedMethod("*");
-        configuration.addAllowedHeader("*");
-        configuration.setAllowedOrigins(ALLOWED_ORIGINS); //변수명 config -> configuration으로 수정
+        configuration.setAllowedOrigins(ALLOWED_ORIGINS);
         configuration.setAllowedMethods(ALLOWED_METHODS);
-        configuration.setAllowedHeaders(ALLOWED_HEADERS);
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

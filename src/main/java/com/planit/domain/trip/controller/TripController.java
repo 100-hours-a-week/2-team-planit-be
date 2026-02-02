@@ -1,10 +1,12 @@
 package com.planit.domain.trip.controller;
 
 //import com.planit.domain.trip.dto.ItineraryRegenerateRequest;
+import com.planit.domain.trip.dto.ItineraryDayUpdateRequest;
 import com.planit.domain.trip.dto.ItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripCreateResponse;
 import com.planit.domain.trip.service.ItineraryQueryService;
+import com.planit.domain.trip.service.ItineraryUpdateService;
 import com.planit.domain.trip.service.TripService;
 import com.planit.global.common.exception.ErrorCode;
 import com.planit.global.common.response.ApiResponse;
@@ -12,10 +14,13 @@ import com.planit.global.common.response.ErrorResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,19 +29,37 @@ public class TripController {
 
     private final TripService tripService;
     private final ItineraryQueryService itineraryQueryService;
+    private final ItineraryUpdateService itineraryUpdateService;
 
-    public TripController(TripService tripService, ItineraryQueryService itineraryQueryService) {
+    public TripController(
+            TripService tripService,
+            ItineraryQueryService itineraryQueryService,
+            ItineraryUpdateService itineraryUpdateService
+    ) {
         this.tripService = tripService;
         this.itineraryQueryService = itineraryQueryService;
+        this.itineraryUpdateService = itineraryUpdateService;
     }
 
     @PostMapping("/trips")
-    public ResponseEntity<ApiResponse<TripCreateResponse>> createTrip(@Valid @RequestBody TripCreateRequest request) {
-        // 요청 검증 후 여행 생성 및 AI 큐 적재
-        Long tripId = tripService.createTrip(request);
+    public ResponseEntity<ApiResponse<TripCreateResponse>> createTrip(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody TripCreateRequest request
+    ) {
+        // 인증된 유저 기준으로 여행 생성 및 AI 큐 적재
+        Long tripId = tripService.createTrip(request, principal.getUsername());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(new TripCreateResponse(tripId)));
+    }
+
+    @GetMapping("/trips/itineraries")
+    public ResponseEntity<?> getUserItineraries(@AuthenticationPrincipal UserDetails principal) {
+        // 유저 기준으로 유일한 여행 일정 조회
+        return itineraryQueryService.getUserItineraries(principal.getUsername())
+                .<ResponseEntity<?>>map(response -> ResponseEntity.ok(ApiResponse.success(response)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ErrorResponse.from(ErrorCode.TRIP_001)));
     }
 
     @GetMapping("/trips/{tripId}/itineraries")
@@ -47,5 +70,20 @@ public class TripController {
                         .body(ErrorResponse.from(ErrorCode.TRIP_001)));
     }
 
+    @PatchMapping("/trips/itineraries/days")
+    public ResponseEntity<ApiResponse<Void>> updateDayPlaces(
+            @Valid @RequestBody ItineraryDayUpdateRequest request
+    ) {
+        // 특정 일자의 장소 정보만 부분 수정
+        itineraryUpdateService.updateDayPlaces(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @DeleteMapping("/trips")
+    public ResponseEntity<ApiResponse<Void>> deleteUserTrip(@AuthenticationPrincipal UserDetails principal) {
+        // 유저의 유일한 여행 삭제
+        tripService.deleteUserTrip(principal.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 
 }

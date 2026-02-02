@@ -4,7 +4,10 @@ public enum ErrorCode {
     COMMON_001("COMMON_001", "잘못된 요청입니다"),
     COMMON_999("COMMON_999", "서버 오류가 발생했습니다"),
     USER_001("USER_001", "존재하지 않는 사용자입니다"),
-    TRIP_001("TRIP_001", "여행을 찾을 수 없습니다");
+    TRIP_001("TRIP_001", "여행을 찾을 수 없습니다"),
+    TRIP_002("TRIP_002", "이미 생성된 여행이 있습니다"),
+    TRIP_003("TRIP_003", "일정을 찾을 수 없습니다"),
+    TRIP_004("TRIP_004", "장소 일정을 찾을 수 없습니다");
 
     private final String code;
     private final String message;
