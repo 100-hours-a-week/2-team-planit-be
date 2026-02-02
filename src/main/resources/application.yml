@@ -20,6 +20,9 @@ ai:
   base-url: http://localhost:8000
   mock-enabled: false
 
+trip:
+  create-window-enabled: true
+
 planit:
   profile:
     default-image-url: https://planit.local/default-profile.png

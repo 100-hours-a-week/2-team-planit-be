@@ -16,6 +16,7 @@ import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,7 @@ public class TripService {
     private final AiItineraryQueue aiItineraryQueue;
     private final AiItineraryProcessor aiItineraryProcessor;
     private final boolean aiMockEnabled;
+    private final boolean createWindowEnabled;
 
     public TripService(
             TripRepository tripRepository,
@@ -46,7 +48,8 @@ public class TripService {
             ItineraryItemTransportRepository itineraryItemTransportRepository,
             AiItineraryQueue aiItineraryQueue,
             AiItineraryProcessor aiItineraryProcessor,
-            @Value("${ai.mock-enabled:false}") boolean aiMockEnabled
+            @Value("${ai.mock-enabled:false}") boolean aiMockEnabled,
+            @Value("${trip.create-window-enabled:true}") boolean createWindowEnabled
     ) {
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
@@ -58,10 +61,16 @@ public class TripService {
         this.aiItineraryQueue = aiItineraryQueue;
         this.aiItineraryProcessor = aiItineraryProcessor;
         this.aiMockEnabled = aiMockEnabled;
+        this.createWindowEnabled = createWindowEnabled;
     }
 
     @Transactional
     public Long createTrip(TripCreateRequest request, String loginId) {
+        // 일정 생성 허용 시간(02:00 ~ 14:00) 외에는 요청 차단
+        if (createWindowEnabled && !isCreateWindowOpen(LocalTime.now())) {
+            throw new BusinessException(ErrorCode.TRIP_005);
+        }
+
         // 1) 토큰에서 추출된 loginId로 사용자 조회
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
@@ -121,6 +130,13 @@ public class TripService {
         }
 
         return trip.getId();
+    }
+
+    private boolean isCreateWindowOpen(LocalTime now) {
+        LocalTime start = LocalTime.of(2, 0);
+        LocalTime end = LocalTime.of(14, 0);
+        // 02:00 포함, 14:00 미포함
+        return !now.isBefore(start) && now.isBefore(end);
     }
 
     @Transactional

@@ -1,8 +1,8 @@
 spring: # Production 환경 Spring Boot 설정 루트
   datasource: # 배포용 데이터베이스 접속 정보
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/planit?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${SPRING_DATASOURCE_USERNAME:planit}
-    password: ${SPRING_DATASOURCE_PASSWORD:planit}
+    url: ${SPRING_DATASOURCE_URL} # 환경 변수로 전달된 JDBC URL
+    username: ${SPRING_DATASOURCE_USERNAME} # 배포 DB 사용자
+    password: ${SPRING_DATASOURCE_PASSWORD} # 배포 DB 비밀번호
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -35,3 +35,6 @@ planit:
 ai:
   base-url: http://localhost:8000
   mock-enabled: false
+
+trip:
+  create-window-enabled: true # 운영환경에서는 시간 제한 활성화
