@@ -30,7 +30,7 @@ planit:
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}
   profile:
-    default-image-url: https://planit-prod.example.com/default-profile.png
+    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
 
 ai:
   base-url: http://localhost:8000
