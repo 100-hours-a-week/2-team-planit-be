@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/posts/{postId}/comments")
@@ -38,7 +39,7 @@ public class CommentController {
         @AuthenticationPrincipal UserDetails principal,
         @Valid @RequestBody CommentRequest request
     ) {
-        String loginId = principal.getUsername();
+        String loginId = requireLogin(principal);
         return commentService.addComment(postId, loginId, request);
     }
 
@@ -49,7 +50,14 @@ public class CommentController {
         @PathVariable Long commentId,
         @AuthenticationPrincipal UserDetails principal
     ) {
-        String loginId = principal.getUsername();
+        String loginId = requireLogin(principal);
         commentService.deleteComment(commentId, loginId);
+    }
+
+    private String requireLogin(UserDetails principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        return principal.getUsername();
     }
 }
