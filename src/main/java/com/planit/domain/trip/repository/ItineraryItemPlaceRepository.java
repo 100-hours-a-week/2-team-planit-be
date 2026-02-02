@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ItineraryItemPlaceRepository extends JpaRepository<ItineraryItemPlace, Long> {
     List<ItineraryItemPlace> findByItineraryDayIdOrderByEventOrder(Long itineraryDayId);
     void deleteByItineraryDayIdIn(Collection<Long> itineraryDayIds);
+    java.util.Optional<ItineraryItemPlace> findByIdAndItineraryDayId(Long id, Long itineraryDayId);
 }

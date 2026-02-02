@@ -26,17 +26,26 @@ public class ItineraryQueryService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository placeRepository;
     private final ItineraryItemTransportRepository transportRepository;
+    private final TripService tripService;
 
     public ItineraryQueryService(
             TripRepository tripRepository,
             ItineraryDayRepository itineraryDayRepository,
             ItineraryItemPlaceRepository placeRepository,
-            ItineraryItemTransportRepository transportRepository
+            ItineraryItemTransportRepository transportRepository,
+            TripService tripService
     ) {
         this.tripRepository = tripRepository;
         this.itineraryDayRepository = itineraryDayRepository;
         this.placeRepository = placeRepository;
         this.transportRepository = transportRepository;
+        this.tripService = tripService;
+    }
+
+    public Optional<ItineraryResponse> getUserItineraries(String loginId) {
+        // 토큰 기반으로 유저의 유일한 여행을 조회 (중복 데이터는 최신 1개만 유지)
+        Optional<Trip> optionalTrip = tripService.findOrCleanupUserTrip(loginId);
+        return optionalTrip.map(trip -> buildItineraries(trip));
     }
 
     public Optional<ItineraryResponse> getTripItineraries(Long tripId) {
@@ -45,6 +54,12 @@ public class ItineraryQueryService {
             return Optional.empty();
         }
 
+        return Optional.of(buildItineraries(trip));
+    }
+
+    private ItineraryResponse buildItineraries(Trip trip) {
+        // 여행 1건에 대해 일별 일정 + 이벤트를 응답 DTO로 변환
+        Long tripId = trip.getId();
         List<ItineraryDay> itineraryDays = itineraryDayRepository.findByTripIdOrderByDayIndex(tripId);
         List<ItineraryDayResponse> dayResponses = new ArrayList<>();
 
@@ -92,7 +107,7 @@ public class ItineraryQueryService {
             dayResponses.add(new ItineraryDayResponse(day.getId(), day.getDayIndex(), date, activities));
         }
 
-        return Optional.of(new ItineraryResponse(tripId, dayResponses));
+        return new ItineraryResponse(tripId, dayResponses);
     }
 
     private Integer resolveDurationMinutes(LocalTime durationTime) {

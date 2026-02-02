@@ -116,4 +116,24 @@ public class ItineraryItemPlace {
     public String getGoogleMapUrl() {
         return googleMapUrl;
     }
+
+    public void updatePlaceName(String placeName) {
+        this.placeName = placeName;
+    }
+
+    public void updateStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+
+    public void updateDurationTime(LocalTime durationTime) {
+        this.durationTime = durationTime;
+    }
+
+    public void updateCost(BigDecimal cost) {
+        this.cost = cost;
+    }
+
+    public void updateMemo(String memo) {
+        this.memo = memo;
+    }
 }
