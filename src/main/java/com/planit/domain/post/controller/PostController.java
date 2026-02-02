@@ -31,6 +31,7 @@ import org.springframework.validation.annotation.Validated; // 검증 활성화
 import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
 import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
 import org.springframework.web.bind.annotation.ModelAttribute; // ModelAttribute 바인딩
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수
 import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
 import org.springframework.web.bind.annotation.PutMapping;
@@ -143,6 +144,21 @@ public class PostController {
         return postService.updatePost(postId, request, principal.getUsername());
     }
 
+    @PatchMapping(value = "/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public PostCreateResponse patchPost(
+        @PathVariable Long postId,
+        @RequestPart("data") String data,
+        @RequestPart(value = "images", required = false) List<MultipartFile> images,
+        @AuthenticationPrincipal UserDetails principal
+    ) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        PostUpdateRequest request = parseUpdateRequest(data);
+        request.setImages(images == null ? Collections.emptyList() : images);
+        return postService.updatePost(postId, request, principal.getUsername());
+    }
+
     @Operation(summary = "자유게시판 글 삭제",
         description = """
             작성자만 삭제 버튼을 볼 수 있으며, 모달에서 확인 후 삭제 시 해당 게시글이 논리 삭제됩니다.
@@ -185,6 +201,23 @@ public class PostController {
         try {
             PostCreateRequest request = objectMapper.readValue(data, PostCreateRequest.class);
             Set<ConstraintViolation<PostCreateRequest>> violations = validator.validate(request);
+            if (!violations.isEmpty()) {
+                String message = violations.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .findFirst()
+                    .orElse("*입력값을 다시 확인해주세요.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+            }
+            return request;
+        } catch (JsonProcessingException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*요청 JSON을 파싱할 수 없습니다.");
+        }
+    }
+
+    private PostUpdateRequest parseUpdateRequest(String data) {
+        try {
+            PostUpdateRequest request = objectMapper.readValue(data, PostUpdateRequest.class);
+            Set<ConstraintViolation<PostUpdateRequest>> violations = validator.validate(request);
             if (!violations.isEmpty()) {
                 String message = violations.stream()
                     .map(ConstraintViolation::getMessage)

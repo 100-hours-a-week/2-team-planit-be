@@ -37,7 +37,14 @@ public class SecurityConfig {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final List<String> ALLOWED_ORIGINS = List.of("http://localhost:5173", "http://127.0.0.1:5173");
-    private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+    private static final List<String> ALLOWED_METHODS = List.of(
+        HttpMethod.GET.name(),
+        HttpMethod.POST.name(),
+        HttpMethod.PUT.name(),
+        HttpMethod.PATCH.name(),
+        HttpMethod.DELETE.name(),
+        HttpMethod.OPTIONS.name()
+    );
     private static final List<String> ALLOWED_HEADERS = List.of("*");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
