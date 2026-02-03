@@ -10,6 +10,7 @@ import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,11 +39,19 @@ public class PostLikeService {
     public void addLike(Long postId, String loginId) {
         User user = resolveUser(loginId);
         Post post = postRepository.findById(postId).orElseThrow();
-        if (postLikeRepository.existsByPostIdAndAuthorId(postId, user.getId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "*이미 좋아요한 게시글입니다.");
+
+        Optional<Like> existingLike = postLikeRepository.findByPostIdAndAuthorId(postId, user.getId());
+        if (existingLike.isPresent()) {
+            postLikeRepository.delete(existingLike.get());
+            return;
         }
-        postLikeRepository.save(Like.of(post, user));
-        publishLikeNotificationIfNeeded(post, user);
+
+        try {
+            postLikeRepository.save(Like.of(post, user));
+            publishLikeNotificationIfNeeded(post, user);
+        } catch (DataIntegrityViolationException ex) {
+            // Another request already inserted the like, so skip without failing
+        }
     }
 
     @Transactional
