@@ -36,8 +36,8 @@ public class User {
     @Column(columnDefinition = "json")
     private String preferences;
 
-    @Column(name = "profile_image_url")
-    private String profileImageUrl;
+    @Column(name = "profile_image_key", length = 500)
+    private String profileImageKey;
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
 
@@ -65,8 +65,8 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void attachProfileImage(String imageUrl) {
-        this.profileImageUrl = imageUrl;
+    public void attachProfileImageKey(String imageKey) {
+        this.profileImageKey = imageKey;
         this.updatedAt = LocalDateTime.now();
     }
 }

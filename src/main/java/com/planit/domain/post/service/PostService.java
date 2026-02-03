@@ -14,6 +14,7 @@ import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ public class PostService {
     private final UserRepository userRepository; // 인증 + author 조회
     private final ImageStorageService imageStorageService; // 이미지 저장
     private final PostedImageRepository postedImageRepository; // 게시글 이미지 인서트
+    private final S3ImageUrlResolver imageUrlResolver;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -62,7 +64,7 @@ public class PostService {
                 summary.getTitle(),
                 summary.getAuthorId(),
                 summary.getAuthorNickname(),
-                summary.getAuthorProfileImageUrl(),
+                imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
                 summary.getCreatedAt(),
                 summary.getLikeCount(),
                 summary.getCommentCount(),
