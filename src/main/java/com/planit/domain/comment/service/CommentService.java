@@ -10,8 +10,10 @@ import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +29,20 @@ public class CommentService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final S3ImageUrlResolver imageUrlResolver;
 
     @Transactional(readOnly = true)
     public List<CommentDetail> listComments(Long postId) {
-        return commentRepository.findDetailsByPostId(postId);
+        return commentRepository.findDetailsByPostId(postId).stream()
+            .map(detail -> new CommentDetail(
+                detail.getCommentId(),
+                detail.getContent(),
+                detail.getCreatedAt(),
+                detail.getAuthorId(),
+                detail.getAuthorNickname(),
+                imageUrlResolver.resolve(detail.getAuthorProfileImageKey())
+            ))
+            .collect(Collectors.toList());
     }
 
     @Transactional
@@ -48,7 +60,7 @@ public class CommentService {
         CommentResponse response = new CommentResponse();
         response.setCommentId(saved.getId());
         response.setAuthorNickname(user.getNickname());
-        response.setAuthorProfileImageUrl(user.getProfileImageUrl());
+        response.setAuthorProfileImageUrl(imageUrlResolver.resolve(user.getProfileImageKey()));
         response.setContent(saved.getContent());
         response.setCreatedAt(saved.getCreatedAt().toString());
         return response;

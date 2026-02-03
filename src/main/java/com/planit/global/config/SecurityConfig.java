@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.user.security.JwtAuthenticationFilter;
 import com.planit.global.common.exception.ErrorCode;
 import com.planit.global.common.response.ErrorResponse;
+import com.planit.global.security.PlanMineAuthenticationFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class SecurityConfig {
     private static final List<String> ALLOWED_HEADERS = List.of("*");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final PlanMineAuthenticationFilter planMineAuthenticationFilter;
 
 
     @Bean
@@ -83,7 +85,8 @@ public class SecurityConfig {
                         .requestMatchers("/trips/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(planMineAuthenticationFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

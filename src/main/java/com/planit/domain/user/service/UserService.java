@@ -1,7 +1,6 @@
 package com.planit.domain.user.service; // 사용자 도메인 비즈니스 로직을 담은 패키지입니다.
 
 import com.planit.domain.post.repository.PostRepository;
-import com.planit.domain.user.config.ProfileImageProperties;
 import com.planit.domain.user.dto.MyPageResponse;
 import com.planit.domain.user.dto.PlanPreview;
 import com.planit.domain.user.dto.SignUpRequest;
@@ -16,6 +15,10 @@ import com.planit.domain.user.repository.UserRepository;
 import com.planit.domain.user.service.support.UserConstraintMetadata;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
+import com.planit.infrastructure.storage.S3ImageUrlResolver;
+import com.planit.infrastructure.storage.S3UploadResult;
+import com.planit.infrastructure.storage.S3ImageUrlResolver;
+import com.planit.infrastructure.storage.S3UploadResult;
 import com.planit.infrastructure.storage.S3Uploader;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -59,7 +62,7 @@ public class UserService {
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<S3Uploader> s3UploaderProvider;
-    private final ProfileImageProperties imageProperties;
+    private final S3ImageUrlResolver imageUrlResolver;
     private final UserConstraintMetadata constraintMetadata;
 
     public UserSignupResponse signup(SignUpRequest request) {
@@ -151,8 +154,8 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
-        String imageUrl = uploader.uploadProfileImage(file, user.getId());
-        user.setProfileImageUrl(imageUrl);
+        S3UploadResult uploadResult = uploader.uploadProfileImage(file, user.getId());
+        user.setProfileImageKey(uploadResult.getKey());
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         return buildUserProfileResponse(user);
@@ -213,7 +216,7 @@ public class UserService {
             summary.getUserId(),
             summary.getLoginId(),
             summary.getNickname(),
-            resolveProfileImageUrl(summary.getProfileImageUrl()),
+            resolveProfileImageUrl(summary.getProfileImageKey()),
             summary.getPostCount(),
             summary.getCommentCount(),
             summary.getLikeCount(),
@@ -234,7 +237,7 @@ public class UserService {
             user.getId(),
             user.getLoginId(),
             user.getNickname(),
-            resolveProfileImageUrl(user.getProfileImageUrl())
+            resolveProfileImageUrl(user.getProfileImageKey())
         );
     }
 
@@ -285,16 +288,13 @@ public class UserService {
         }
     }
 
-    private String resolveProfileImageUrl(String candidate) {
-        if (StringUtils.hasText(candidate)) {
-            return candidate;
-        }
-        return imageProperties.getDefaultImageUrl();
-    }
-
     private boolean containsEmoji(String value) {
         return value.codePoints()
             .mapToObj(Character.UnicodeBlock::of)
             .anyMatch(EMOJI_BLOCKS::contains);
+    }
+
+    private String resolveProfileImageUrl(String imageKey) {
+        return imageUrlResolver.resolve(imageKey);
     }
 }

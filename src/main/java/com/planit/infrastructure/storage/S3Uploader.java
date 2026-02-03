@@ -14,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Component
@@ -30,13 +30,7 @@ public class S3Uploader {
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
 
-    @Value("${cloud.aws.region.static}")
-    private String region;
-
-    @Value("${planit.cloudfront.domain}")
-    private String cloudfrontDomain;
-
-    public String uploadProfileImage(MultipartFile file, Long userId) {
+    public S3UploadResult uploadProfileImage(MultipartFile file, Long userId) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*프로필 이미지를 선택해주세요.");
         }
@@ -57,7 +51,6 @@ public class S3Uploader {
             PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .acl(ObjectCannedACL.PUBLIC_READ)
                 .contentType(StringUtils.hasText(file.getContentType()) ? file.getContentType() : "application/octet-stream")
                 .contentLength(file.getSize())
                 .build();
@@ -65,13 +58,11 @@ public class S3Uploader {
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "*이미지 업로드 중 오류가 발생했습니다.");
         }
-        return buildPublicUrl(key);
-    }
-
-    private String buildPublicUrl(String key) {
-        if (StringUtils.hasText(cloudfrontDomain)) {
-            return String.format("https://%s/%s", cloudfrontDomain, key);
-        }
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
+        GetUrlRequest urlRequest = GetUrlRequest.builder()
+            .bucket(bucket)
+            .key(key)
+            .build();
+        String url = s3Client.utilities().getUrl(urlRequest).toExternalForm();
+        return new S3UploadResult(key, url);
     }
 }

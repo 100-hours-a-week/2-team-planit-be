@@ -21,7 +21,7 @@ public interface PostRepository
         String getTitle();
         Long getAuthorId();
         String getAuthorNickname();
-        String getAuthorProfileImageUrl();
+        String getAuthorProfileImageKey();
         LocalDateTime getCreatedAt();
         Long getLikeCount();
         Long getCommentCount();
@@ -44,7 +44,7 @@ public interface PostRepository
                             + "p.title as title, "
                             + "u.user_id as authorId, "
                             + "u.nickname as authorNickname, "
-                            + "u.profile_image_url as authorProfileImageUrl, "
+                            + "u.profile_image_key as authorProfileImageKey, "
                             + "p.created_at as createdAt, "
                             + "(select count(1) from likes l "
                             + " where l.post_id = p.post_id "
