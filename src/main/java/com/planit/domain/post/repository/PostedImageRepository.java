@@ -9,4 +9,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * - JpaRepository를 통해 기본 저장/조회/삭제 기능을 그대로 재사용.
  */
 public interface PostedImageRepository extends JpaRepository<PostedImage, Long> {
+
+    void deleteByPostId(Long postId);
+
+    java.util.List<PostedImage> findByPostId(Long postId);
+
+    java.util.Optional<PostedImage> findByPostIdAndImageId(Long postId, Long imageId);
 }

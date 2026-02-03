@@ -2,7 +2,8 @@ package com.planit.domain.post.dto; // 게시글 생성 요청 DTO 패키지
 
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.constraints.NotBlank; // 빈 문자열 검사
-import jakarta.validation.constraints.Size; // 길이 제한
+import jakarta.validation.constraints.Size;
+import java.util.Collections;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,4 +32,12 @@ public class PostCreateRequest {
     private String content; // 게시글 본문
 
     private List<Long> placeIds; // 추후 place 연계용 ID 리스트 (현재 optional)
+
+    /** Presigned URL 업로드 완료 후 S3 key 목록 (최대 5개) */
+    @Size(max = 5, message = "*이미지는 최대 5장까지 업로드 가능합니다.")
+    private List<String> imageKeys;
+
+    public List<String> getImageKeys() {
+        return imageKeys == null ? Collections.emptyList() : imageKeys;
+    }
 }

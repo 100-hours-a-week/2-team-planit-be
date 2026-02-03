@@ -9,6 +9,14 @@ server: # 내장 서버 구성
     context-path: /api # 전체 API에 붙일 context-path
     port: 8080
 
+cloud:
+  aws:
+    enabled: true
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+    region:
+      static: ${AWS_REGION}
+
 ---
 
 # prod 환경은 실제 배포에서만 활성화하세요.
