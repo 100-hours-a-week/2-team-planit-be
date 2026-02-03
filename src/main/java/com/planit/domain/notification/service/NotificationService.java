@@ -19,4 +19,6 @@ public interface NotificationService {
     void createCommentNotification(Long targetUserId, Long postId, String actorName, String previewText);
 
     void createLikeNotification(Long targetUserId, Long postId, String actorName);
+
+    void markAllRead(String loginId);
 }

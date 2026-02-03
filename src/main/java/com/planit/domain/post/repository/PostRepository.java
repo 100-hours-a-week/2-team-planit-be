@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,7 +21,7 @@ public interface PostRepository
         String getTitle();
         Long getAuthorId();
         String getAuthorNickname();
-        String getAuthorProfileImageUrl();
+        String getAuthorProfileImageKey();
         LocalDateTime getCreatedAt();
         Long getLikeCount();
         Long getCommentCount();
@@ -43,7 +44,7 @@ public interface PostRepository
                             + "p.title as title, "
                             + "u.user_id as authorId, "
                             + "u.nickname as authorNickname, "
-                            + "u.profile_image_url as authorProfileImageUrl, "
+                            + "u.profile_image_key as authorProfileImageKey, "
                             + "p.created_at as createdAt, "
                             + "(select count(1) from likes l "
                             + " where l.post_id = p.post_id "
@@ -71,10 +72,11 @@ public interface PostRepository
                             + "and ( :pattern = '%' "
                             + "   or lower(p.title) like lower(:pattern) "
                             + "   or lower(p.content) like lower(:pattern) ) "
-                            + "order by "
-                            + " case when :sortOption = 'COMMENTS' then commentCount "
-                            + "      when :sortOption = 'LIKES' then likeCount "
-                            + "      else p.created_at end desc",
+                            + "order by case\n"
+                            + " when :sortOption = 'COMMENTS' then commentCount\n"
+                            + " when :sortOption = 'LIKES' then likeCount\n"
+                            + " else p.created_at\n"
+                            + " end desc",
             countQuery =
                     "select count(*) "
                             + "from posts p "
@@ -101,4 +103,19 @@ public interface PostRepository
             Long authorId,
             Pageable pageable
     );
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :postId")
+    void incrementCommentCount(@Param("postId") Long postId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+        UPDATE Post p
+        SET p.commentCount = CASE
+            WHEN p.commentCount > 0 THEN p.commentCount - 1
+            ELSE 0
+        END
+        WHERE p.id = :postId
+        """)
+    void decrementCommentCount(@Param("postId") Long postId);
 }

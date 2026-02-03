@@ -53,7 +53,7 @@ public class PostDetailResponse {
     public static class AuthorInfo {
         private final Long authorId; // 작성자 PK
         private final String nickname; // 작성자 닉네임
-        private final String profileImageUrl; // 프로필 이미지 (nullable)
+        private final String profileImageUrl; // 프로필 이미지 URL (nullable)
 
         public AuthorInfo(Long authorId, String nickname, String profileImageUrl) {
             this.authorId = authorId;
@@ -76,7 +76,7 @@ public class PostDetailResponse {
         private final Long commentId; // 댓글 PK
         private final Long authorId; // 댓글 작성자 PK
         private final String authorNickname; // 댓글 작성자 닉네임
-        private final String authorProfileImageUrl; // 댓글 작성자 프로필 이미지
+        private final String authorProfileImageUrl; // 댓글 작성자 프로필 이미지 URL
         private final String content; // 댓글 본문 (max 500자)
         private final LocalDateTime createdAt; // 댓글 작성 시간
         private final Boolean deletable; // 현재 요청자가 댓글 작성자인지 (삭제 버튼)

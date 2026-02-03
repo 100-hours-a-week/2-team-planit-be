@@ -14,6 +14,7 @@ import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,7 +26,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +39,7 @@ public class PostService {
     private final UserRepository userRepository; // 인증 + author 조회
     private final ImageStorageService imageStorageService; // 이미지 저장
     private final PostedImageRepository postedImageRepository; // 게시글 이미지 인서트
+    private final S3ImageUrlResolver imageUrlResolver;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -48,7 +49,7 @@ public class PostService {
         int page,
         int size
     ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sortOption.getSortProperty()).descending());
+        Pageable pageable = PageRequest.of(page, size);
         String pattern = buildSearchPattern(search);
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
             boardType.name(),
@@ -63,7 +64,7 @@ public class PostService {
                 summary.getTitle(),
                 summary.getAuthorId(),
                 summary.getAuthorNickname(),
-                summary.getAuthorProfileImageUrl(),
+                imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
                 summary.getCreatedAt(),
                 summary.getLikeCount(),
                 summary.getCommentCount(),

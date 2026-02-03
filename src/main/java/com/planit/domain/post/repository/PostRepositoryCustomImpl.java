@@ -4,6 +4,7 @@ import com.planit.domain.post.dto.PostDetailResponse; // DTO
 import com.planit.domain.post.dto.PostDetailResponse.CommentInfo;
 import com.planit.domain.post.dto.PostDetailResponse.PostImage;
 import com.planit.domain.post.entity.BoardType;
+import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,11 +13,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+@RequiredArgsConstructor
 @Repository // 커스텀 리포지토리 구현체
 public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
@@ -35,6 +40,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     @PersistenceContext
     private EntityManager entityManager; // 직접 native query 실행
 
+    private final S3ImageUrlResolver imageUrlResolver;
+
     @Override
     public Optional<PostDetailResponse> findDetailById(Long postId, Long requesterId) {
         Query baseQuery = entityManager.createNativeQuery("""
@@ -45,7 +52,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                    p.board_type,
             u.user_id,
             u.nickname,
-            u.profile_image_url,
+            u.profile_image_key,
                    (select count(1) from likes l where l.post_id = p.post_id) as like_count,
                    (select count(1) from comments c where c.post_id = p.post_id) as comment_count,
                    case
@@ -66,7 +73,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         }
         Object[] row = rows.get(0);
         Long authorId = ((Number) row[5]).longValue();
-        String profileImageUrl = (String) row[7];
+        String profileImageKey = (String) row[7];
+        String profileImageUrl = imageUrlResolver.resolve(profileImageKey);
         String boardTypeValue = (String) row[4];
         BoardType boardType = BoardType.FREE;
         if (boardTypeValue != null) {
@@ -134,7 +142,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             select c.comment_id,
                    c.author_id,
                    u.nickname,
-                   u.profile_image_url,
+                   u.profile_image_key,
                    c.content,
                    c.created_at
             from comments c
@@ -154,7 +162,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<CommentInfo> comments = new ArrayList<>();
         for (Object[] row : rows) {
             Long authorId = ((Number) row[1]).longValue();
-            String profileImageUrl = (String) row[3];
+            String profileImageKey = (String) row[3];
+            String profileImageUrl = imageUrlResolver.resolve(profileImageKey);
             boolean deletable = requesterId != null && requesterId.equals(authorId);
             Timestamp commentTimestamp = (Timestamp) row[5];
             LocalDateTime commentCreatedAt = commentTimestamp == null ? null : commentTimestamp.toLocalDateTime();

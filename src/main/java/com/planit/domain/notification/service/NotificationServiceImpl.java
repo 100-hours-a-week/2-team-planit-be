@@ -53,7 +53,8 @@ public class NotificationServiceImpl implements NotificationService {
             .filter(n -> n.getUserId().equals(userId))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "notification not found"));
         notification.markRead(LocalDateTime.now());
-        return new NotificationReadResponse(notification.getNotificationId(), notification.isRead());
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(userId);
+        return new NotificationReadResponse(notification.getNotificationId(), notification.isRead(), unreadCount);
     }
 
     @Override
@@ -103,6 +104,13 @@ public class NotificationServiceImpl implements NotificationService {
             .previewText(LIKE_PREVIEW_TEXT)
             .build();
         notificationRepository.save(notification);
+    }
+
+    @Override
+    @Transactional
+    public void markAllRead(String loginId) {
+        Long userId = resolveUserId(loginId);
+        notificationRepository.markAllRead(userId);
     }
 
     private NotificationItemResponse toItemResponse(Notification notification) {

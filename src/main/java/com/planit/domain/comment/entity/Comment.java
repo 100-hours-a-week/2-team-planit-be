@@ -51,4 +51,10 @@ public class Comment {
     public boolean isDeleted() {
         return deletedAt != null;
     }
+
+    public void markDeleted() {
+        if (this.deletedAt == null) {
+            this.deletedAt = LocalDateTime.now();
+        }
+    }
 }
