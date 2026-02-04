@@ -27,7 +27,7 @@ ai:
 
 cloud:
   aws:
-    enabled: true
+    enabled: false
     s3:
       bucket: ${AWS_S3_BUCKET}
     region:
