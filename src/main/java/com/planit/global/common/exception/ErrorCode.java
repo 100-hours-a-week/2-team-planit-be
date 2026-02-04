@@ -6,6 +6,7 @@ public enum ErrorCode {
     USER_DUPLICATE_NICKNAME("USER_DUPLICATE_NICKNAME", "이미 사용 중인 닉네임입니다."),
     USER_DUPLICATE_LOGIN_ID("USER_DUPLICATE_LOGIN_ID", "이미 사용 중인 로그인 아이디입니다."),
     USER_001("USER_001", "존재하지 않는 사용자입니다"),
+    USER_UNAUTHORIZED("USER_UNAUTHORIZED", "인증이 필요한 요청입니다"),
     TRIP_001("TRIP_001", "여행을 찾을 수 없습니다"),
     TRIP_002("TRIP_002", "이미 생성된 여행이 있습니다"),
     TRIP_003("TRIP_003", "일정을 찾을 수 없습니다"),

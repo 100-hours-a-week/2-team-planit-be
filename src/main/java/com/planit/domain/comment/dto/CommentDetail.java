@@ -26,6 +26,6 @@ public class CommentDetail {
         this.createdAt = createdAt;
         this.authorId = authorId;
         this.authorNickname = authorNickname;
-            this.authorProfileImageUrl = authorProfileImageUrl;
+        this.authorProfileImageUrl = authorProfileImageUrl;
     }
 }

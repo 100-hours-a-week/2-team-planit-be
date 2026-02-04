@@ -20,22 +20,31 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
         @Param("postId") Long postId
     );
 
-    @Query("""
-        select new com.planit.domain.comment.dto.CommentDetail(
-            c.id,
-            c.content,
-            c.createdAt,
-            c.author.id,
-            c.author.nickname,
-            c.author.profileImageUrl
-        )
-        from Comment c
-        where c.post.id = :postId
-          and c.deletedAt is null
-        order by c.createdAt asc
-    """)
-    List<com.planit.domain.comment.dto.CommentDetail> findDetailsByPostId(
+    @Query(value = """
+        select
+            c.comment_id as commentId,
+            c.content as content,
+            c.created_at as createdAt,
+            c.author_id as authorId,
+            u.nickname as authorNickname,
+            u.profile_image_key as authorProfileImageKey
+        from comments c
+        join users u on u.user_id = c.author_id and u.is_deleted = 0
+        where c.post_id = :postId
+          and c.deleted_at is null
+        order by c.created_at asc
+    """, nativeQuery = true)
+    List<CommentProjection> findDetailsByPostId(
         @Param("postId") Long postId
     );
+
+    interface CommentProjection {
+        Long getCommentId();
+        String getContent();
+        java.time.LocalDateTime getCreatedAt();
+        Long getAuthorId();
+        String getAuthorNickname();
+        String getAuthorProfileImageKey();
+    }
 
 }

@@ -1,43 +1,31 @@
 package com.planit.domain.post.controller; // 게시글 관련 컨트롤러 패키지
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
-import com.planit.domain.post.dto.PostDetailResponse; // 상세 DTO
-import com.planit.domain.post.dto.PostListResponse; // 목록 DTO
+import com.planit.domain.post.dto.PostDetailResponse;
+import com.planit.domain.post.dto.PostListResponse;
+import com.planit.infrastructure.storage.dto.PresignedUrlRequest;
 import com.planit.domain.post.dto.PostUpdateRequest;
+import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
 import com.planit.domain.post.entity.BoardType; // 게시판 타입 enum
 import com.planit.domain.post.service.PostService; // 게시판 서비스
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validator;
-import jakarta.validation.constraints.NotBlank; // 필수 입력
-import jakarta.validation.constraints.Pattern; // 정규 표현식 검증
-import jakarta.validation.constraints.Size; // 길이 제한
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale; // 로케일 기반 대소문자 처리
-import java.util.Set;
-import org.springframework.http.HttpStatus; // HTTP 상태
-import org.springframework.http.MediaType; // 멀티파트 mime
+import java.util.Locale;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증자
 import org.springframework.security.core.userdetails.UserDetails; // UserDetails 인터페이스
 import org.springframework.validation.annotation.Validated; // 검증 활성화
-import org.springframework.web.bind.annotation.DeleteMapping; // DELETE 매핑
-import org.springframework.web.bind.annotation.GetMapping; // GET 매핑
-import org.springframework.web.bind.annotation.ModelAttribute; // ModelAttribute 바인딩
-import org.springframework.web.bind.annotation.PathVariable; // 경로 변수
-import org.springframework.web.bind.annotation.PostMapping; // POST 매핑
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping; // 클래스 단위 경로
-import org.springframework.web.bind.annotation.RequestParam; // 쿼리 파라미터
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController; // REST 컨트롤러
 import org.springframework.web.server.ResponseStatusException; // 예외 처리
 
@@ -47,14 +35,10 @@ import org.springframework.web.server.ResponseStatusException; // 예외 처리
 @Tag(name = "게시물", description = "자유게시판 목록/상세/등록 API")
 public class PostController {
 
-    private final PostService postService; // 게시글 서비스 주입
-    private final ObjectMapper objectMapper;
-    private final Validator validator;
+    private final PostService postService;
 
-    public PostController(PostService postService, ObjectMapper objectMapper, Validator validator) {
+    public PostController(PostService postService) {
         this.postService = postService;
-        this.objectMapper = objectMapper;
-        this.validator = validator;
     }
 
     /**
@@ -97,58 +81,67 @@ public class PostController {
         return postService.getPostDetail(postId, loginId);
     }
 
+    /** 게시물 이미지 Presigned URL 발급 */
+    @PostMapping("/images/presigned-url")
+    public PresignedUrlResponse getPostPresignedUrl(
+        @AuthenticationPrincipal UserDetails principal,
+        @jakarta.validation.Valid @RequestBody PresignedUrlRequest request
+    ) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        return postService.getPostPresignedUrl(
+            principal.getUsername(),
+            request.getFileExtension(),
+            request.getContentType()
+        );
+    }
+
     @Operation(summary = "자유게시판 글 등록",
-        description = """
-            드롭다운에서 자유게시판을 선택하고 제목(24자) + 내용(2000자) + 최대 5장 이미지(5MB, jpg/png/webp 등)를 Multipart 형식으로 업로드하면
-            posts/users/posted_images/images/post_places/places 테이블을 조합해 게시글과 이미지/연계 데이터를 저장합니다.
-            """,
-        requestBody = @RequestBody(
-            required = true,
-            content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE)
-        ))
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+        description = "Presigned URL로 이미지 업로드 후 imageKeys와 함께 JSON으로 등록합니다.")
+    @PostMapping
     public PostCreateResponse createPost(
-        @RequestPart("data") String data,
-        @RequestPart(value = "images", required = false) List<MultipartFile> images,
+        @jakarta.validation.Valid @RequestBody PostCreateRequest request,
         @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        PostCreateRequest request = parseCreateRequest(data);
-        return postService.createPost(request, images, principal.getUsername());
+        return postService.createPost(request, principal.getUsername());
     }
 
     @Operation(summary = "자유게시판 글 수정",
-        description = """
-            기존 게시글 제목/본문/이미지를 수정합니다.
-            게시판은 변경 불가하고 최대 5장(multiform)까지 업로드 가능합니다.
-            """)
-    @PutMapping(value = "/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+        description = "제목/본문/이미지(imageKeys)를 JSON으로 수정합니다.")
+    @PatchMapping("/{postId}")
     public PostCreateResponse updatePost(
         @PathVariable Long postId,
-        @RequestPart("title") @NotBlank @Size(max = 24) String title,
-        @RequestPart("content") @NotBlank @Size(max = 2000) String content,
-        @RequestPart(value = "images", required = false) List<MultipartFile> images,
+        @jakarta.validation.Valid @RequestBody PostUpdateRequest request,
         @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        PostUpdateRequest request = new PostUpdateRequest(
-            title,
-            content,
-            images == null ? Collections.emptyList() : images
-        );
         return postService.updatePost(postId, request, principal.getUsername());
     }
 
+    @Operation(summary = "게시물 이미지 삭제")
+    @DeleteMapping("/{postId}/images/{imageId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePostImage(
+        @PathVariable Long postId,
+        @PathVariable Long imageId,
+        @AuthenticationPrincipal UserDetails principal
+    ) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        postService.deletePostImage(postId, imageId, principal.getUsername());
+    }
+
     @Operation(summary = "자유게시판 글 삭제",
-        description = """
-            작성자만 삭제 버튼을 볼 수 있으며, 모달에서 확인 후 삭제 시 해당 게시글이 논리 삭제됩니다.
-            삭제 완료 시 자유게시판 목록으로 리다이렉트되어야 하며 이미지/댓글은 그대로 유지하면서 삭제 플래그만 변경합니다.
-            """)
+        description = "작성자만 삭제 가능하며, 논리 삭제됩니다.")
     @DeleteMapping("/{postId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePost(
         @PathVariable Long postId,
         @AuthenticationPrincipal UserDetails principal
@@ -179,23 +172,6 @@ public class PostController {
 
     private String normalizeSearch(String search) {
         return search == null ? "" : search.trim();
-    }
-
-    private PostCreateRequest parseCreateRequest(String data) {
-        try {
-            PostCreateRequest request = objectMapper.readValue(data, PostCreateRequest.class);
-            Set<ConstraintViolation<PostCreateRequest>> violations = validator.validate(request);
-            if (!violations.isEmpty()) {
-                String message = violations.stream()
-                    .map(ConstraintViolation::getMessage)
-                    .findFirst()
-                    .orElse("*입력값을 다시 확인해주세요.");
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-            }
-            return request;
-        } catch (JsonProcessingException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*요청 JSON을 파싱할 수 없습니다.");
-        }
     }
 
     private PostService.SortOption resolveSortOption(String sort) {

@@ -28,7 +28,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             u.user_id as userId,
             u.login_id as loginId,
             u.nickname as nickname,
-                u.profile_image_url as profileImageUrl,
+                u.profile_image_key as profileImageKey,
             (select count(1) from posts p where p.user_id = u.user_id and p.is_deleted = 0) as postCount,
             (select count(1) from comments c where c.author_id = u.user_id and c.deleted_at is null) as commentCount,
             (select count(1) from likes l where l.author_id = u.user_id) as likeCount,
@@ -42,7 +42,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         Long getUserId();
         String getLoginId();
         String getNickname();
-        String getProfileImageUrl();
+        String getProfileImageKey();
         Long getPostCount();
         Long getCommentCount();
         Long getLikeCount();

@@ -3,6 +3,7 @@ package com.planit.global.common.exception;
 import com.planit.domain.user.exception.DuplicateLoginIdException;
 import com.planit.domain.user.exception.DuplicateNicknameException;
 import com.planit.global.common.response.ErrorResponse;
+import com.planit.global.common.exception.UnauthorizedAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import java.sql.SQLException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 
 
 @RestControllerAdvice
@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
         logger.warn("BusinessException", ex);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.from(ex.getErrorCode()));
+    }
+
+    @ExceptionHandler(UnauthorizedAccessException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedAccessException ex) {
+        logger.warn("UnauthorizedAccess", ex);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorResponse.from(ex.getErrorCode()));
     }
 
     @ExceptionHandler({

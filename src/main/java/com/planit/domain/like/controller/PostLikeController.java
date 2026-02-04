@@ -4,7 +4,6 @@ import com.planit.domain.like.dto.PostLikeResponse;
 import com.planit.domain.like.service.PostLikeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,13 +11,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/api/posts/{postId}/likes")
+@RequestMapping("/posts/{postId}/likes")
 @RequiredArgsConstructor
 public class PostLikeController {
 
@@ -40,16 +40,31 @@ public class PostLikeController {
     @PostMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
-        summary = "게시글 좋아요 토글",
-        description = "로그인한 사용자가 해당 게시글의 좋아요/좋아요 취소를 수행합니다.",
+        summary = "게시글 좋아요 등록",
+        description = "로그인한 사용자가 해당 게시글에 좋아요를 등록합니다.",
         security = @SecurityRequirement(name = "bearerAuth")
     )
-    public void toggleLike(
+    public void addLike(
         @PathVariable Long postId,
         @AuthenticationPrincipal UserDetails principal
     ) {
         String loginId = requireLogin(principal);
-        likeService.toggleLike(postId, loginId);
+        likeService.addLike(postId, loginId);
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(
+        summary = "게시글 좋아요 삭제",
+        description = "로그인한 사용자가 해당 게시글의 좋아요를 삭제합니다.",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public void removeLike(
+        @PathVariable Long postId,
+        @AuthenticationPrincipal UserDetails principal
+    ) {
+        String loginId = requireLogin(principal);
+        likeService.removeLike(postId, loginId);
     }
 
     private String requireLogin(UserDetails principal) {
