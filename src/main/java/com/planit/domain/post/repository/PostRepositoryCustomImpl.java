@@ -118,25 +118,21 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private List<PostImage> fetchImages(Long postId) {
         Query imageQuery = entityManager.createNativeQuery("""
-            select pi.image_id, i.s3_key
+            select pi.image_id
             from posted_images pi
-            left join images i on i.id = pi.image_id
             where pi.post_id = :postId
             order by pi.id asc
             limit 5
-            """);
+            """); // posted_images에서 최대 5장 이미지 조회
         imageQuery.setParameter("postId", postId);
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = imageQuery.getResultList();
-        if (rows.isEmpty()) {
+        List<Number> results = imageQuery.getResultList();
+        if (results.isEmpty()) {
             return Collections.emptyList();
         }
         List<PostImage> images = new ArrayList<>();
-        for (Object[] row : rows) {
-            Long imageId = ((Number) row[0]).longValue();
-            String s3Key = row[1] != null ? (String) row[1] : null;
-            String url = imageUrlResolver.resolveOrNull(s3Key);
-            images.add(new PostImage(imageId, s3Key, url));
+        for (Number value : results) {
+            images.add(new PostImage(value.longValue()));
         }
         return images;
     }

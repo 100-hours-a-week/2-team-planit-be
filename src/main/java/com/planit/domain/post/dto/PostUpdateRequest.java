@@ -1,4 +1,4 @@
-package com.planit.domain.post.dto;
+package com.planit.domain.post.dto; // 게시글 수정 요청 DTO 패키지
 
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.constraints.NotBlank;
@@ -9,10 +9,12 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 게시글 수정 요청 DTO
- * - Presigned URL 업로드 완료 후 imageKeys로 교체
+ * - 제목/내용/이미지까지 게시글 수정 시 제출되는 form-data 필드를 정의
+ * - posts/users 테이블 기준으로 validation 포함
  */
 @Getter
 @Setter
@@ -30,11 +32,11 @@ public class PostUpdateRequest {
     @Size(max = 2000, message = "*내용은 최대 2000자까지 작성할 수 있습니다.")
     private String content;
 
-    @Parameter(description = "Presigned URL 업로드 완료 후 S3 key 목록 (최대 5장, 기존 이미지 교체)")
+    @Parameter(description = "추가/교체할 이미지 최대 5장(jpg/png/webp)")
     @Size(max = 5, message = "*이미지는 최대 5장까지 업로드 가능합니다.")
-    private List<String> imageKeys;
+    private List<MultipartFile> images;
 
-    public List<String> getImageKeys() {
-        return imageKeys == null ? Collections.emptyList() : imageKeys;
+    public List<MultipartFile> getImages() {
+        return images == null ? Collections.emptyList() : images;
     }
 }
