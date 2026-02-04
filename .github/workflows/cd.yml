@@ -75,6 +75,12 @@ jobs:
             # 기존 8080 포트 프로세스 종료
             sudo fuser -k 8080/tcp || true
 
+            # S3(Presigned URL 등) 사용을 위해 AWS 자격증명을 프로세스에 전달
+            export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+            export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+            export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
+            export AWS_REGION=ap-northeast-2
+
             # 새 프로세스 실행 (환경 변수 주입)
             nohup java -jar -Dspring.profiles.active=prod \
               -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
