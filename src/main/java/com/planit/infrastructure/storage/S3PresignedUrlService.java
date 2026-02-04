@@ -95,7 +95,6 @@ public class S3PresignedUrlService {
         PutObjectRequest putRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(StringUtils.hasText(mimeType) ? mimeType : "image/jpeg")
                 .build();
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(URL_EXPIRY)
