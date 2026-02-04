@@ -219,6 +219,75 @@ public class PostService {
         }
     }
 
+    /** 게시글 이미지 단건 삭제 (imageId = Image.id) */
+    @Transactional
+    public void deletePostImage(Long postId, Long imageId, String loginId) {
+        User user = resolveRequester(loginId);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        Post post = postRepository.findById(postId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
+        if (!post.getAuthor().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 삭제 가능합니다.");
+        }
+        PostedImage postedImage = postedImageRepository.findByPostIdAndImageId(postId, imageId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 이미지입니다."));
+        Image image = imageRepository.findById(postedImage.getImageId()).orElse(null);
+        postedImageRepository.delete(postedImage);
+        if (image != null) {
+            imageRepository.delete(image);
+            String s3Key = image.getS3Key();
+            if (StringUtils.hasText(s3Key)) {
+                S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
+                if (deleter != null) {
+                    deleter.delete(s3Key);
+                }
+            }
+        }
+    }
+
+    private List<Long> savePostImages(Long postId, List<String> imageKeys, LocalDateTime now) {
+        List<Long> imageIds = new ArrayList<>();
+        List<String> keys = imageKeys == null ? Collections.emptyList() : imageKeys;
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys.get(i);
+            if (!StringUtils.hasText(key)) {
+                continue;
+            }
+            validatePostImageKey(key);
+            Long imageId = imageStorageService.storeByS3Key(key);
+            imageIds.add(imageId);
+            PostedImage postedImage = new PostedImage(postId, imageId, i == 0, now);
+            postedImageRepository.save(postedImage);
+        }
+        return imageIds;
+    }
+
+    private void deleteExistingPostImages(Long postId) {
+        List<PostedImage> existing = postedImageRepository.findByPostId(postId);
+        for (PostedImage pi : existing) {
+            Image image = imageRepository.findById(pi.getImageId()).orElse(null);
+            postedImageRepository.delete(pi);
+            if (image != null) {
+                String s3Key = image.getS3Key();
+                imageRepository.delete(image);
+                if (StringUtils.hasText(s3Key)) {
+                    S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
+                    if (deleter != null) {
+                        deleter.delete(s3Key);
+                    }
+                }
+            }
+        }
+    }
+
+    private void validatePostImageKey(String key) {
+        if (!key.startsWith("post/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
+        }
+    }
+
     /**
      * 게시글 삭제: 작성자만 가능하며 논리 삭제
      */
