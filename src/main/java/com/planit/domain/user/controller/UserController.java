@@ -45,6 +45,17 @@ public class UserController {
         return userService.signup(request);
     }
 
+    /** 회원가입 시 프로필 이미지 Presigned URL 발급 (비인증). 업로드 후 signup 시 profileImageKey로 전달 */
+    @PostMapping("/signup/profile-image/presigned-url")
+    public PresignedUrlResponse getSignupProfilePresignedUrl(
+            @Valid @RequestBody PresignedUrlRequest request
+    ) {
+        return userService.getSignupProfilePresignedUrl(
+                request.getFileExtension(),
+                request.getContentType()
+        );
+    }
+
     /** Presigned URL 발급 (프론트가 S3에 직접 업로드 후 key 저장) */
     @PostMapping("/profile-image/presigned-url")
     public PresignedUrlResponse getProfilePresignedUrl(

@@ -60,6 +60,20 @@ public class S3PresignedUrlService {
         return createPresignedUrl(key, mimeType);
     }
 
+    /**
+     * 회원가입 시 프로필 이미지용 Presigned PUT URL 발급 (비인증).
+     * key: signup/{uuid}.{ext} — 가입 완료 시 이 key를 profileImageKey로 저장합니다.
+     *
+     * @param fileExt  확장자 (jpg, png 등)
+     * @param mimeType Content-Type
+     */
+    public PresignedUrlResponse createSignupPresignedUrl(String fileExt, String mimeType) {
+        validateExtension(fileExt);
+        String ext = fileExt.toLowerCase().replaceFirst("^\\.", "");
+        String key = String.format("signup/%s.%s", UUID.randomUUID(), ext);
+        return createPresignedUrl(key, mimeType);
+    }
+
     private void validateExtension(String fileExt) {
         if (!StringUtils.hasText(fileExt)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 이미지 형식입니다.");

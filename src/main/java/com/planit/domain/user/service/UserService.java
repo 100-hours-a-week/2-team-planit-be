@@ -75,6 +75,9 @@ public class UserService {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         user.setDeleted(false);
+        if (StringUtils.hasText(request.getProfileImageKey())) {
+            user.setProfileImageKey(request.getProfileImageKey());
+        }
         User saved;
         try {
             saved = userRepository.save(user);
@@ -151,6 +154,17 @@ public class UserService {
                     "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
         return service.createProfilePresignedUrl(user.getId(), fileExtension,
+                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+    }
+
+    /** 회원가입 시 프로필 이미지용 Presigned URL 발급 (비인증). signup/ prefix key 반환 */
+    public PresignedUrlResponse getSignupProfilePresignedUrl(String fileExtension, String contentType) {
+        S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
+        }
+        return service.createSignupPresignedUrl(fileExtension,
                 StringUtils.hasText(contentType) ? contentType : "image/jpeg");
     }
 
