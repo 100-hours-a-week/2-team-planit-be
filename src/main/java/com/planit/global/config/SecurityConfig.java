@@ -70,6 +70,8 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/health").permitAll()
                         .requestMatchers("/users/signup").permitAll()
+                        .requestMatchers("/users/signup/profile-image/presigned-url").permitAll()
+                        .requestMatchers("/users/signup/profile-image").permitAll()
                         .requestMatchers("/users/check-login-id").permitAll()
                         .requestMatchers("/users/check-nickname").permitAll()
                         .requestMatchers("/api/notifications/**").authenticated()
