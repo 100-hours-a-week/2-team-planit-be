@@ -14,3 +14,7 @@ spring:
 
 jwt:
   secret: test-secret-key-with-minimum-length-32!!!
+
+cloud:
+  aws:
+    enabled: false  # 테스트에서는 S3 비활성화
