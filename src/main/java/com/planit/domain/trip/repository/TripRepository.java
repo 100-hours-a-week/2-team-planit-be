@@ -6,7 +6,6 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TripRepository extends JpaRepository<Trip, Long> {
-    long countByUserId(Long userId);
     List<Trip> findByUserIdOrderByIdDesc(Long userId);
-    Optional<Trip> findTopByUserIdOrderByIdDesc(Long userId);
+    Optional<Trip> findByIdAndUserId(Long tripId, Long userId);
 }

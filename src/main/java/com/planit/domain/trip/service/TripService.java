@@ -2,6 +2,7 @@ package com.planit.domain.trip.service;
 
 import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.TripCreateRequest;
+import com.planit.domain.trip.dto.TripListResponse;
 import com.planit.domain.trip.entity.ItineraryDay;
 import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.entity.TripTheme;
@@ -18,7 +19,7 @@ import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,17 +76,7 @@ public class TripService {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        // 2) 이미 여행이 있으면 생성 막기 (중복 데이터는 정리)
-        long existingTripCount = tripRepository.countByUserId(user.getId());
-        if (existingTripCount >= 1) {
-            // 이미 1개 이상 존재하면 생성은 막고, 중복 데이터가 있으면 정리
-            if (existingTripCount >= 2) {
-                cleanupDuplicateTrips(user.getId());
-            }
-            throw new BusinessException(ErrorCode.TRIP_002);
-        }
-
-        // 3) 여행 기본 정보 저장
+        // 2) 여행 기본 정보 저장
         Trip trip = tripRepository.save(new Trip(
                 user,
                 request.title(),
@@ -140,55 +131,37 @@ public class TripService {
     }
 
     @Transactional
-    public void deleteUserTrip(String loginId) {
-        // 1) 사용자 조회
+    public void deleteTrip(String loginId, Long tripId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        // 2) 유일한 여행 조회 후 삭제
-        Trip trip = tripRepository.findTopByUserIdOrderByIdDesc(user.getId())
+        Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_001));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.TRIP_006);
+        }
 
-        deleteTripData(trip.getId());
+        deleteTripData(tripId);
         tripRepository.delete(trip);
     }
 
-    @Transactional
-    public Optional<Trip> findOrCleanupUserTrip(String loginId) {
-        // 유저의 여행이 2개 이상인 경우, 최신 1개만 유지
+    @Transactional(readOnly = true)
+    public TripListResponse getUserTrips(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        List<Trip> trips = tripRepository.findByUserIdOrderByIdDesc(user.getId());
-        if (trips.isEmpty()) {
-            return Optional.empty();
-        }
+        List<TripListResponse.TripSummary> summaries = tripRepository.findByUserIdOrderByIdDesc(user.getId())
+                .stream()
+                .map(trip -> new TripListResponse.TripSummary(
+                        trip.getId(),
+                        trip.getTitle(),
+                        trip.getArrivalDate(),
+                        trip.getDepartureDate(),
+                        trip.getTravelCity()
+                ))
+                .collect(Collectors.toList());
 
-        if (trips.size() >= 2) {
-            // 최신 1개만 남기고 나머지 정리
-            Trip latest = trips.get(0);
-            for (int i = 1; i < trips.size(); i++) {
-                Trip oldTrip = trips.get(i);
-                deleteTripData(oldTrip.getId());
-                tripRepository.delete(oldTrip);
-            }
-            return Optional.of(latest);
-        }
-
-        return Optional.of(trips.get(0));
-    }
-
-    private void cleanupDuplicateTrips(Long userId) {
-        List<Trip> trips = tripRepository.findByUserIdOrderByIdDesc(userId);
-        if (trips.size() <= 1) {
-            return;
-        }
-        Trip latest = trips.get(0);
-        for (int i = 1; i < trips.size(); i++) {
-            Trip oldTrip = trips.get(i);
-            deleteTripData(oldTrip.getId());
-            tripRepository.delete(oldTrip);
-        }
+        return new TripListResponse(summaries);
     }
 
     private void deleteTripData(Long tripId) {
