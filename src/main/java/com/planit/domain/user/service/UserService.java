@@ -168,6 +168,23 @@ public class UserService {
                 StringUtils.hasText(contentType) ? contentType : "image/jpeg");
     }
 
+    /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
+    public void deleteSignupProfileImageByKey(String key) {
+        if (!StringUtils.hasText(key) || !key.startsWith("signup/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
+        }
+        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
+        if (deleter != null) {
+            try {
+                deleter.delete(key);
+                log.info("S3 signup profile image deleted: {}", key);
+            } catch (Exception e) {
+                log.warn("S3 delete failed for signup key={}", key, e);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "*이미지 삭제에 실패했습니다.");
+            }
+        }
+    }
+
     /** Presigned URL로 업로드 완료 후 key 저장 */
     @Transactional
     public UserProfileResponse saveProfileImageKey(String loginId, String key) {

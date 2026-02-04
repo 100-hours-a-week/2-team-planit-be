@@ -56,6 +56,13 @@ public class UserController {
         );
     }
 
+    /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
+    @DeleteMapping("/signup/profile-image")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSignupProfileImageByKey(@RequestParam String key) {
+        userService.deleteSignupProfileImageByKey(key);
+    }
+
     /** Presigned URL 발급 (프론트가 S3에 직접 업로드 후 key 저장) */
     @PostMapping("/profile-image/presigned-url")
     public PresignedUrlResponse getProfilePresignedUrl(
