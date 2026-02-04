@@ -21,5 +21,4 @@ public class PlanitApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(PlanitApplication.class, args); // 애플리케이션 시작
 	}
-
 }

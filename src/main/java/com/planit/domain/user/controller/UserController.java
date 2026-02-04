@@ -45,24 +45,42 @@ public class UserController {
         return userService.signup(request);
     }
 
+    /** 회원가입 시 프로필 이미지 Presigned URL 발급 (비인증). 업로드 후 signup 시 profileImageKey로 전달 */
+    @PostMapping("/signup/profile-image/presigned-url")
+    public PresignedUrlResponse getSignupProfilePresignedUrl(
+            @Valid @RequestBody PresignedUrlRequest request
+    ) {
+        return userService.getSignupProfilePresignedUrl(
+                request.getFileExtension(),
+                request.getContentType()
+        );
+    }
+
+    /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
+    @DeleteMapping("/signup/profile-image")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSignupProfileImageByKey(@RequestParam String key) {
+        userService.deleteSignupProfileImageByKey(key);
+    }
+
     /** Presigned URL 발급 (프론트가 S3에 직접 업로드 후 key 저장) */
     @PostMapping("/profile-image/presigned-url")
     public PresignedUrlResponse getProfilePresignedUrl(
-        @AuthenticationPrincipal UserDetails principal,
-        @Valid @RequestBody PresignedUrlRequest request
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody PresignedUrlRequest request
     ) {
         return userService.getProfilePresignedUrl(
-            requireLogin(principal),
-            request.getFileExtension(),
-            request.getContentType()
+                requireLogin(principal),
+                request.getFileExtension(),
+                request.getContentType()
         );
     }
 
     /** Presigned URL로 업로드 완료 후 key 저장 */
     @PutMapping("/me/profile-image")
     public UserProfileResponse saveProfileImageKey(
-        @AuthenticationPrincipal UserDetails principal,
-        @Valid @RequestBody ProfileImageKeyRequest request
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody ProfileImageKeyRequest request
     ) {
         return userService.saveProfileImageKey(requireLogin(principal), request.getKey());
     }
@@ -75,17 +93,17 @@ public class UserController {
 
     @GetMapping("/check-login-id") // GET /api/users/check-login-id?loginId=...
     public UserAvailabilityResponse checkLoginId(
-        @RequestParam
-        @NotBlank(message = "*아이디를 입력해주세요.")
-        @Size.List({
-            @Size(min = 4, message = "*아이디가 너무 짧습니다"),
-            @Size(max = 20, message = "*아이디는 최대 20자까지 작성 가능합니다.")
-        })
-        @Pattern(
-            regexp = "^[a-z0-9_]+$",
-            message = "*아이디는 영문 소문자와 숫자, _ 만 포함할 수 있습니다."
-        )
-        String loginId
+            @RequestParam
+            @NotBlank(message = "*아이디를 입력해주세요.")
+            @Size.List({
+                    @Size(min = 4, message = "*아이디가 너무 짧습니다"),
+                    @Size(max = 20, message = "*아이디는 최대 20자까지 작성 가능합니다.")
+            })
+            @Pattern(
+                    regexp = "^[a-z0-9_]+$",
+                    message = "*아이디는 영문 소문자와 숫자, _ 만 포함할 수 있습니다."
+            )
+            String loginId
     ) {
         // ID 중복 여부를 응답
         return userService.checkLoginId(loginId);
@@ -93,11 +111,11 @@ public class UserController {
 
     @GetMapping("/check-nickname") // GET /api/users/check-nickname?nickname=...
     public UserAvailabilityResponse checkNickname(
-        @RequestParam
-        @NotBlank(message = "*닉네임을 입력해주세요")
-        @Size(max = 10, message = "*닉네임은 최대 10자까지 작성 가능합니다.")
-        @Pattern(regexp = "^[^\\s]+$", message = "*띄어쓰기를 없애주세요")
-        String nickname
+            @RequestParam
+            @NotBlank(message = "*닉네임을 입력해주세요")
+            @Size(max = 10, message = "*닉네임은 최대 10자까지 작성 가능합니다.")
+            @Pattern(regexp = "^[^\\s]+$", message = "*띄어쓰기를 없애주세요")
+            String nickname
     ) {
         return userService.checkNickname(nickname);
     }
@@ -120,8 +138,8 @@ public class UserController {
 
     @PutMapping("/me") // PUT /api/users/me -> 프로필 수정 요청
     public UserProfileResponse updateProfile(
-        @AuthenticationPrincipal UserDetails principal,
-        @Valid @RequestBody UserUpdateRequest request
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody UserUpdateRequest request
     ) {
         // 인증된 사용자 정보를 기반으로 전달받은 수정 요청을 처리
         return userService.updateProfile(requireLogin(principal), request);

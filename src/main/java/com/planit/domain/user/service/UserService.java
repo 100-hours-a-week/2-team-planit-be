@@ -47,14 +47,14 @@ public class UserService {
     private static final Pattern CONSTRAINT_PATTERN = Pattern.compile("constraint '(?<constraint>[^']+)'");
 
     private static final Set<Character.UnicodeBlock> EMOJI_BLOCKS =
-        Set.of(
-            Character.UnicodeBlock.EMOTICONS,
-            Character.UnicodeBlock.MISCELLANEOUS_SYMBOLS,
-            Character.UnicodeBlock.MISCELLANEOUS_SYMBOLS_AND_PICTOGRAPHS,
-            Character.UnicodeBlock.DINGBATS,
-            Character.UnicodeBlock.TRANSPORT_AND_MAP_SYMBOLS,
-            Character.UnicodeBlock.SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS
-        );
+            Set.of(
+                    Character.UnicodeBlock.EMOTICONS,
+                    Character.UnicodeBlock.MISCELLANEOUS_SYMBOLS,
+                    Character.UnicodeBlock.MISCELLANEOUS_SYMBOLS_AND_PICTOGRAPHS,
+                    Character.UnicodeBlock.DINGBATS,
+                    Character.UnicodeBlock.TRANSPORT_AND_MAP_SYMBOLS,
+                    Character.UnicodeBlock.SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS
+            );
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
@@ -75,6 +75,9 @@ public class UserService {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         user.setDeleted(false);
+        if (StringUtils.hasText(request.getProfileImageKey())) {
+            user.setProfileImageKey(request.getProfileImageKey());
+        }
         User saved;
         try {
             saved = userRepository.save(user);
@@ -144,21 +147,49 @@ public class UserService {
     /** Presigned URL 발급 (프론트가 S3에 직접 업로드용) */
     public PresignedUrlResponse getProfilePresignedUrl(String loginId, String fileExtension, String contentType) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
         if (service == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
+                    "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
         return service.createProfilePresignedUrl(user.getId(), fileExtension,
-            StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+    }
+
+    /** 회원가입 시 프로필 이미지용 Presigned URL 발급 (비인증). signup/ prefix key 반환 */
+    public PresignedUrlResponse getSignupProfilePresignedUrl(String fileExtension, String contentType) {
+        S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
+        if (service == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
+        }
+        return service.createSignupPresignedUrl(fileExtension,
+                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+    }
+
+    /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
+    public void deleteSignupProfileImageByKey(String key) {
+        if (!StringUtils.hasText(key) || !key.startsWith("signup/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
+        }
+        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
+        if (deleter != null) {
+            try {
+                deleter.delete(key);
+                log.info("S3 signup profile image deleted: {}", key);
+            } catch (Exception e) {
+                log.warn("S3 delete failed for signup key={}", key, e);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "*이미지 삭제에 실패했습니다.");
+            }
+        }
     }
 
     /** Presigned URL로 업로드 완료 후 key 저장 */
     @Transactional
     public UserProfileResponse saveProfileImageKey(String loginId, String key) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         validateProfileImageKey(key, user.getId());
         String oldKey = user.getProfileImageKey();
         user.setProfileImageKey(key);
@@ -176,7 +207,7 @@ public class UserService {
     @Transactional
     public UserProfileResponse deleteProfileImage(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         String oldKey = user.getProfileImageKey();
         user.setProfileImageKey(null);
         user.setUpdatedAt(LocalDateTime.now());
@@ -198,7 +229,7 @@ public class UserService {
     @Transactional
     public UserProfileResponse updateProfile(String loginId, UserUpdateRequest request) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         ensureNicknameAvailable(request.getNickname(), user);
         ensurePasswordRules(request.getPassword(), request.getPasswordConfirmation());
         user.setNickname(request.getNickname());
@@ -225,53 +256,53 @@ public class UserService {
 
     public UserProfileResponse getProfile(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         log.info("Retrieved profile for loginId={}", loginId);
         return buildUserProfileResponse(user);
     }
 
     public MyPageResponse getMyPage(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         UserRepository.ProfileSummary summary = userRepository.fetchProfileSummary(user.getId())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 정보를 불러오지 못했습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 정보를 불러오지 못했습니다."));
         PageRequest pageRequest = PageRequest.of(0, 3);
         List<PlanPreview> previews = postRepository
-            .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
-            .stream()
-            .map(p -> new PlanPreview(
-                p.getId(),
-                p.getTitle(),
-                "내 계획",
-                p.getBoardType().name()
-            ))
-            .toList();
+                .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
+                .stream()
+                .map(p -> new PlanPreview(
+                        p.getId(),
+                        p.getTitle(),
+                        "내 계획",
+                        p.getBoardType().name()
+                ))
+                .toList();
         return new MyPageResponse(
-            summary.getUserId(),
-            summary.getLoginId(),
-            summary.getNickname(),
-            resolveProfileImageUrl(summary.getProfileImageKey()),
-            summary.getPostCount(),
-            summary.getCommentCount(),
-            summary.getLikeCount(),
-            summary.getNotificationCount(),
-            previews
+                summary.getUserId(),
+                summary.getLoginId(),
+                summary.getNickname(),
+                resolveProfileImageUrl(summary.getProfileImageKey()),
+                summary.getPostCount(),
+                summary.getCommentCount(),
+                summary.getLikeCount(),
+                summary.getNotificationCount(),
+                previews
         );
     }
 
     @Transactional
     public void deleteAccount(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
         userRepository.softDelete(user.getId(), LocalDateTime.now());
     }
 
     private UserProfileResponse buildUserProfileResponse(User user) {
         return new UserProfileResponse(
-            user.getId(),
-            user.getLoginId(),
-            user.getNickname(),
-            resolveProfileImageUrl(user.getProfileImageKey())
+                user.getId(),
+                user.getLoginId(),
+                user.getNickname(),
+                resolveProfileImageUrl(user.getProfileImageKey())
         );
     }
 
@@ -289,7 +320,7 @@ public class UserService {
 
     private void ensureNicknameAvailable(String candidate, User currentUser) {
         if (!candidate.equals(currentUser.getNickname()) &&
-            userRepository.existsByNicknameAndDeletedFalse(candidate)) {
+                userRepository.existsByNicknameAndDeletedFalse(candidate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*중복된 닉네임입니다.");
         }
         if (containsEmoji(candidate)) {
@@ -313,19 +344,19 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*비밀번호와 다릅니다.");
         }
         if (password.length() < 8 || password.length() > 20 ||
-            !password.matches(".*[A-Z].*") ||
-            !password.matches(".*[a-z].*") ||
-            !password.matches(".*\\d.*") ||
-            password.chars().noneMatch(ch -> !Character.isLetterOrDigit(ch))) {
+                !password.matches(".*[A-Z].*") ||
+                !password.matches(".*[a-z].*") ||
+                !password.matches(".*\\d.*") ||
+                password.chars().noneMatch(ch -> !Character.isLetterOrDigit(ch))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "*비밀번호는 8자 이상, 20자 이하이며, 대문자, 소문자, 숫자, 특수문자를 각각 최소 1개 포함해야 합니다.");
+                    "*비밀번호는 8자 이상, 20자 이하이며, 대문자, 소문자, 숫자, 특수문자를 각각 최소 1개 포함해야 합니다.");
         }
     }
 
     private boolean containsEmoji(String value) {
         return value.codePoints()
-            .mapToObj(Character.UnicodeBlock::of)
-            .anyMatch(EMOJI_BLOCKS::contains);
+                .mapToObj(Character.UnicodeBlock::of)
+                .anyMatch(EMOJI_BLOCKS::contains);
     }
 
     private String resolveProfileImageUrl(String imageKey) {

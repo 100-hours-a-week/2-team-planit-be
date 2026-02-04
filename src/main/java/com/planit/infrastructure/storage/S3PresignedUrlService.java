@@ -60,6 +60,20 @@ public class S3PresignedUrlService {
         return createPresignedUrl(key, mimeType);
     }
 
+    /**
+     * 회원가입 시 프로필 이미지용 Presigned PUT URL 발급 (비인증).
+     * key: signup/{uuid}.{ext} — 가입 완료 시 이 key를 profileImageKey로 저장합니다.
+     *
+     * @param fileExt  확장자 (jpg, png 등)
+     * @param mimeType Content-Type
+     */
+    public PresignedUrlResponse createSignupPresignedUrl(String fileExt, String mimeType) {
+        validateExtension(fileExt);
+        String ext = fileExt.toLowerCase().replaceFirst("^\\.", "");
+        String key = String.format("signup/%s.%s", UUID.randomUUID(), ext);
+        return createPresignedUrl(key, mimeType);
+    }
+
     private void validateExtension(String fileExt) {
         if (!StringUtils.hasText(fileExt)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 이미지 형식입니다.");
@@ -67,7 +81,7 @@ public class S3PresignedUrlService {
         String normalized = fileExt.toLowerCase().replaceFirst("^\\.", "");
         if (!ALLOWED_EXTENSIONS.contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "*jpg/jpeg/png/webp 형식만 업로드할 수 있습니다.");
+                    "*jpg/jpeg/png/webp 형식만 업로드할 수 있습니다.");
         }
     }
 
@@ -79,14 +93,14 @@ public class S3PresignedUrlService {
     private PresignedUrlResponse createPresignedUrl(String key, String mimeType) {
         S3Presigner presigner = this.s3Presigner;
         PutObjectRequest putRequest = PutObjectRequest.builder()
-            .bucket(bucket)
-            .key(key)
-            .contentType(StringUtils.hasText(mimeType) ? mimeType : "image/jpeg")
-            .build();
+                .bucket(bucket)
+                .key(key)
+                .contentType(StringUtils.hasText(mimeType) ? mimeType : "image/jpeg")
+                .build();
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-            .signatureDuration(URL_EXPIRY)
-            .putObjectRequest(putRequest)
-            .build();
+                .signatureDuration(URL_EXPIRY)
+                .putObjectRequest(putRequest)
+                .build();
         PresignedPutObjectRequest presigned = presigner.presignPutObject(presignRequest);
         Instant expiresAt = Instant.now().plus(URL_EXPIRY);
         return new PresignedUrlResponse(presigned.url().toString(), key, expiresAt);
