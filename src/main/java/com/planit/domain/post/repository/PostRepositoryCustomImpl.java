@@ -27,14 +27,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private static final int MAX_COMMENT_PAGE_SIZE = 20; // 20개 댓글씩 조회
     private static final Map<BoardType, String> BOARD_NAMES = Map.of(
-        BoardType.FREE, "자유게시판",
-        BoardType.PLAN_SHARE, "일정 공유",
-        BoardType.PLACE_RECOMMEND, "장소 추천"
+            BoardType.FREE, "자유게시판",
+            BoardType.PLAN_SHARE, "일정 공유",
+            BoardType.PLACE_RECOMMEND, "장소 추천"
     ); // 게시판 이름 매핑
     private static final Map<BoardType, String> BOARD_DESCRIPTIONS = Map.of(
-        BoardType.FREE, "자유롭게 이야기하는 공간",
-        BoardType.PLAN_SHARE, "함께 일정 계획을 공유",
-        BoardType.PLACE_RECOMMEND, "좋은 장소 추천하기"
+            BoardType.FREE, "자유롭게 이야기하는 공간",
+            BoardType.PLAN_SHARE, "함께 일정 계획을 공유",
+            BoardType.PLACE_RECOMMEND, "좋은 장소 추천하기"
     ); // 게시판 설명
 
     @PersistenceContext
@@ -84,9 +84,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             }
         }
         PostDetailResponse.AuthorInfo author = new PostDetailResponse.AuthorInfo(
-            authorId,
-            (String) row[6],
-            profileImageUrl
+                authorId,
+                (String) row[6],
+                profileImageUrl
         ); // 작성자 정보 구성
         Long likeCount = row[8] == null ? 0L : ((Number) row[8]).longValue();
         Long commentCount = row[9] == null ? 0L : ((Number) row[9]).longValue();
@@ -99,40 +99,44 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         Timestamp createdTimestamp = (Timestamp) row[3];
         LocalDateTime createdAt = createdTimestamp == null ? null : createdTimestamp.toLocalDateTime();
         PostDetailResponse detail = new PostDetailResponse(
-            ((Number) row[0]).longValue(),
-            boardName,
-            boardDescription,
-            (String) row[1],
-            (String) row[2],
-            createdAt,
-            author,
-            images,
-            likeCount.intValue(),
-            commentCount.intValue(),
-            liked,
-            comments,
-            editable
+                ((Number) row[0]).longValue(),
+                boardName,
+                boardDescription,
+                (String) row[1],
+                (String) row[2],
+                createdAt,
+                author,
+                images,
+                likeCount.intValue(),
+                commentCount.intValue(),
+                liked,
+                comments,
+                editable
         ); // DTO 구성하여 반환
         return Optional.of(detail);
     }
 
     private List<PostImage> fetchImages(Long postId) {
         Query imageQuery = entityManager.createNativeQuery("""
-            select pi.image_id
+            select pi.image_id, i.s3_key
             from posted_images pi
+            left join images i on i.id = pi.image_id
             where pi.post_id = :postId
             order by pi.id asc
             limit 5
-            """); // posted_images에서 최대 5장 이미지 조회
+            """);
         imageQuery.setParameter("postId", postId);
         @SuppressWarnings("unchecked")
-        List<Number> results = imageQuery.getResultList();
-        if (results.isEmpty()) {
+        List<Object[]> rows = imageQuery.getResultList();
+        if (rows.isEmpty()) {
             return Collections.emptyList();
         }
         List<PostImage> images = new ArrayList<>();
-        for (Number value : results) {
-            images.add(new PostImage(value.longValue()));
+        for (Object[] row : rows) {
+            Long imageId = ((Number) row[0]).longValue();
+            String s3Key = row[1] != null ? (String) row[1] : null;
+            String url = imageUrlResolver.resolveOrNull(s3Key);
+            images.add(new PostImage(imageId, s3Key, url));
         }
         return images;
     }
@@ -168,13 +172,13 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             Timestamp commentTimestamp = (Timestamp) row[5];
             LocalDateTime commentCreatedAt = commentTimestamp == null ? null : commentTimestamp.toLocalDateTime();
             comments.add(new CommentInfo(
-                ((Number) row[0]).longValue(),
-                authorId,
-                (String) row[2],
-                profileImageUrl,
-                (String) row[4],
-                commentCreatedAt,
-                deletable
+                    ((Number) row[0]).longValue(),
+                    authorId,
+                    (String) row[2],
+                    profileImageUrl,
+                    (String) row[4],
+                    commentCreatedAt,
+                    deletable
             ));
         }
         return comments;

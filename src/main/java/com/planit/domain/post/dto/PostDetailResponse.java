@@ -64,10 +64,14 @@ public class PostDetailResponse {
 
     @Getter
     public static class PostImage {
-        private final Long imageId; // 게시글 이미지 ID
+        private final Long imageId;
+        private final String key; // S3 object key (수정 시 기존 이미지 유지용)
+        private final String url;
 
-        public PostImage(Long imageId) {
+        public PostImage(Long imageId, String key, String url) {
             this.imageId = imageId;
+            this.key = key;
+            this.url = url;
         }
     }
 

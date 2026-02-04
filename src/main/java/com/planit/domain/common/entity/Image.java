@@ -23,15 +23,20 @@ public class Image {
     @Column(name = "file_size", nullable = false) // 바이트 단위 파일 크기
     private Long fileSize;
 
+    @Column(name = "s3_key", length = 500) // S3 객체 key (Presigned URL 업로드용)
+    private String s3Key;
+
     @Column(name = "created_at", nullable = false) // 저장 시점
     private LocalDateTime createdAt;
 
     public Image() {
     }
 
-    public Image(String fileName, Long fileSize, LocalDateTime createdAt) {
-        this.fileName = fileName;
-        this.fileSize = fileSize;
+    /** Presigned URL 업로드 후 s3_key로 생성 (fileName은 key의 마지막 경로, fileSize는 0) */
+    public Image(String s3Key, LocalDateTime createdAt) {
+        this.fileName = s3Key != null ? s3Key.substring(s3Key.lastIndexOf('/') + 1) : "";
+        this.fileSize = 0L;
+        this.s3Key = s3Key;
         this.createdAt = createdAt;
     }
 }

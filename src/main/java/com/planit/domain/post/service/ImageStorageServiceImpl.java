@@ -6,22 +6,22 @@ import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.util.StringUtils;
 
-@Service // Spring Bean으로 등록
-@RequiredArgsConstructor // 생성자 주입을 lombok으로 처리
+@Service
+@RequiredArgsConstructor
 public class ImageStorageServiceImpl implements ImageStorageService {
 
-    private final ImageRepository imageRepository; // 이미지 메타 저장소
+    private final ImageRepository imageRepository;
 
     @Override
-    @Transactional // DB 저장 시 트랜잭션
-    public Long store(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("image file is required");
+    @Transactional
+    public Long storeByS3Key(String s3Key) {
+        if (!StringUtils.hasText(s3Key)) {
+            throw new IllegalArgumentException("s3Key is required");
         }
-        LocalDateTime now = LocalDateTime.now(); // 저장 시간
-        Image image = new Image(file.getOriginalFilename(), file.getSize(), now);
-        return imageRepository.save(image).getId(); // 저장 후 PK 반환
+        LocalDateTime now = LocalDateTime.now();
+        Image image = new Image(s3Key, now);
+        return imageRepository.save(image).getId();
     }
 }
