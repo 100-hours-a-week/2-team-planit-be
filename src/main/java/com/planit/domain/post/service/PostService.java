@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +43,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class PostService {
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
+
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final ImageStorageService imageStorageService;
@@ -98,6 +102,23 @@ public class PostService {
         }
         return service.createPostPresignedUrl(user.getId(), fileExtension,
                 StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+    }
+
+    /**
+     * 업로드만 하고 게시글에 저장하지 않은 이미지(고아 객체)를 S3에서 삭제.
+     * key는 post/{userId}/... 형식이어야 하며, 현재 사용자 본인 key만 삭제 가능.
+     */
+    public void deletePostImageByKey(String key, String loginId) {
+        User user = resolveRequester(loginId);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        validatePostImageKey(key);
+        String expectedPrefix = "post/" + user.getId() + "/";
+        if (!key.startsWith(expectedPrefix)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "*본인이 업로드한 이미지만 삭제할 수 있습니다.");
+        }
+        deleteFromS3IfPresent(key);
     }
 
     /** 게시글 작성: imageKeys (Presigned URL 업로드 완료 후) */
@@ -167,14 +188,9 @@ public class PostService {
         Image image = imageRepository.findById(postedImage.getImageId()).orElse(null);
         postedImageRepository.delete(postedImage);
         if (image != null) {
-            imageRepository.delete(image);
             String s3Key = image.getS3Key();
-            if (StringUtils.hasText(s3Key)) {
-                S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-                if (deleter != null) {
-                    deleter.delete(s3Key);
-                }
-            }
+            imageRepository.delete(image);
+            deleteFromS3IfPresent(s3Key);
         }
     }
 
@@ -197,88 +213,34 @@ public class PostService {
 
     private void deleteExistingPostImages(Long postId) {
         List<PostedImage> existing = postedImageRepository.findByPostId(postId);
+        log.info("deleteExistingPostImages: postId={}, count={}", postId, existing.size());
         for (PostedImage pi : existing) {
             Image image = imageRepository.findById(pi.getImageId()).orElse(null);
             postedImageRepository.delete(pi);
             if (image != null) {
                 String s3Key = image.getS3Key();
                 imageRepository.delete(image);
-                if (StringUtils.hasText(s3Key)) {
-                    S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-                    if (deleter != null) {
-                        deleter.delete(s3Key);
-                    }
-                }
+                deleteFromS3IfPresent(s3Key);
             }
         }
     }
 
-    private void validatePostImageKey(String key) {
-        if (!key.startsWith("post/")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
+    /** S3 객체 삭제. 실패해도 트랜잭션은 커밋되도록 예외를 삼킨다. */
+    private void deleteFromS3IfPresent(String s3Key) {
+        if (!StringUtils.hasText(s3Key)) {
+            log.info("S3 delete skip: image has no s3_key");
+            return;
         }
-    }
-
-    /** 게시글 이미지 단건 삭제 (imageId = Image.id) */
-    @Transactional
-    public void deletePostImage(Long postId, Long imageId, String loginId) {
-        User user = resolveRequester(loginId);
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
+        if (deleter == null) {
+            log.info("S3 delete skip: S3ObjectDeleter not available (cloud.aws.enabled?), key={}", s3Key);
+            return;
         }
-        Post post = postRepository.findById(postId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-        if (!post.getAuthor().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 삭제 가능합니다.");
-        }
-        PostedImage postedImage = postedImageRepository.findByPostIdAndImageId(postId, imageId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 이미지입니다."));
-        Image image = imageRepository.findById(postedImage.getImageId()).orElse(null);
-        postedImageRepository.delete(postedImage);
-        if (image != null) {
-            imageRepository.delete(image);
-            String s3Key = image.getS3Key();
-            if (StringUtils.hasText(s3Key)) {
-                S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-                if (deleter != null) {
-                    deleter.delete(s3Key);
-                }
-            }
-        }
-    }
-
-    private List<Long> savePostImages(Long postId, List<String> imageKeys, LocalDateTime now) {
-        List<Long> imageIds = new ArrayList<>();
-        List<String> keys = imageKeys == null ? Collections.emptyList() : imageKeys;
-        for (int i = 0; i < keys.size(); i++) {
-            String key = keys.get(i);
-            if (!StringUtils.hasText(key)) {
-                continue;
-            }
-            validatePostImageKey(key);
-            Long imageId = imageStorageService.storeByS3Key(key);
-            imageIds.add(imageId);
-            PostedImage postedImage = new PostedImage(postId, imageId, i == 0, now);
-            postedImageRepository.save(postedImage);
-        }
-        return imageIds;
-    }
-
-    private void deleteExistingPostImages(Long postId) {
-        List<PostedImage> existing = postedImageRepository.findByPostId(postId);
-        for (PostedImage pi : existing) {
-            Image image = imageRepository.findById(pi.getImageId()).orElse(null);
-            postedImageRepository.delete(pi);
-            if (image != null) {
-                String s3Key = image.getS3Key();
-                imageRepository.delete(image);
-                if (StringUtils.hasText(s3Key)) {
-                    S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-                    if (deleter != null) {
-                        deleter.delete(s3Key);
-                    }
-                }
-            }
+        try {
+            deleter.delete(s3Key);
+            log.info("S3 object deleted: {}", s3Key);
+        } catch (Exception e) {
+            log.warn("S3 delete failed for key={}, continuing (DB already updated)", s3Key, e);
         }
     }
 
@@ -302,6 +264,7 @@ public class PostService {
         if (!post.getAuthor().getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 삭제할 수 있습니다.");
         }
+        deleteExistingPostImages(postId);
         post.markDeleted(LocalDateTime.now());
         postRepository.save(post);
     }

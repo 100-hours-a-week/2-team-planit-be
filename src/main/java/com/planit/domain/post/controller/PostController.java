@@ -124,7 +124,7 @@ public class PostController {
         return postService.updatePost(postId, request, principal.getUsername());
     }
 
-    @Operation(summary = "게시물 이미지 삭제")
+    @Operation(summary = "게시물 이미지 삭제 (DB 연동)")
     @DeleteMapping("/{postId}/images/{imageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePostImage(
@@ -136,6 +136,19 @@ public class PostController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         postService.deletePostImage(postId, imageId, principal.getUsername());
+    }
+
+    @Operation(summary = "업로드만 한 이미지 S3 삭제 (저장 전 제거 시 호출)")
+    @DeleteMapping("/images/by-key")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePostImageByKey(
+            @RequestParam String key,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        postService.deletePostImageByKey(key, principal.getUsername());
     }
 
     @Operation(summary = "자유게시판 글 삭제",
