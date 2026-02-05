@@ -12,9 +12,9 @@ spring: # Spring Boot 핵심 설정 루트
           time_zone: Asia/Seoul
 
 server: # 내장 서버 구성
+  port: 8080
   servlet: # 서블릿 관련 설정
     context-path: /api # 전체 API에 붙일 context-path
-    port: 8080
 
 cloud:
   aws:
@@ -37,6 +37,7 @@ ai:
 
 trip:
   create-window-enabled: true
+  daily-create-limit-enabled: true
 
 planit:
   profile:

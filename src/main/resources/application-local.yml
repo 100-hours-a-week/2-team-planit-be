@@ -27,7 +27,7 @@ ai:
 
 cloud:
   aws:
-    enabled: true
+    enabled: false
     s3:
       bucket: ${AWS_S3_BUCKET}
     region:
@@ -41,3 +41,4 @@ planit:
 
 trip:
   create-window-enabled: false # 로컬에서는 시간 제한 비활성화
+  daily-create-limit-enabled: true # 로컬 테스트에서 제한 해제하려면 false

@@ -5,6 +5,8 @@ import com.planit.domain.trip.entity.ItineraryDay;
 import com.planit.domain.trip.entity.ItineraryItemPlace;
 import com.planit.domain.trip.repository.ItineraryDayRepository;
 import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
+import com.planit.domain.user.entity.User;
+import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
 import java.math.BigDecimal;
@@ -17,27 +19,39 @@ public class ItineraryUpdateService {
 
     private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository placeRepository;
+    private final UserRepository userRepository;
 
     public ItineraryUpdateService(
             ItineraryDayRepository itineraryDayRepository,
-            ItineraryItemPlaceRepository placeRepository
+            ItineraryItemPlaceRepository placeRepository,
+            UserRepository userRepository
     ) {
         this.itineraryDayRepository = itineraryDayRepository;
         this.placeRepository = placeRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional
-    public void updateDayPlaces(ItineraryDayUpdateRequest request) {
-        // 1) 일자 존재 여부 확인
-        ItineraryDay day = itineraryDayRepository.findById(request.dayId())
+    public void updateDayPlaces(ItineraryDayUpdateRequest request, String loginId) {
+        // 1) 사용자 조회
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
+
+        // 2) 일자/여행 관계 확인
+        ItineraryDay day = itineraryDayRepository.findByIdAndTripId(request.dayId(), request.tripId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_003));
+
+        // 3) 소유자만 수정 가능
+        if (!day.getTrip().getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.TRIP_006);
+        }
 
         if (request.places() == null || request.places().isEmpty()) {
             // 수정할 항목이 없으면 그대로 종료
             return;
         }
 
-        // 2) 수정 요청된 장소만 업데이트
+        // 4) 수정 요청된 장소만 업데이트
         for (ItineraryDayUpdateRequest.PlaceUpdate update : request.places()) {
             ItineraryItemPlace place = placeRepository
                     .findByIdAndItineraryDayId(update.activityId(), day.getId())

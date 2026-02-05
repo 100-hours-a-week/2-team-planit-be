@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ItineraryDayRepository extends JpaRepository<ItineraryDay, Long> {
     List<ItineraryDay> findByTripIdOrderByDayIndex(Long tripId);
     List<ItineraryDay> findByTripId(Long tripId);
+    java.util.Optional<ItineraryDay> findByIdAndTripId(Long id, Long tripId);
 }

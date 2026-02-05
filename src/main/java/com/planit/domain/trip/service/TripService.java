@@ -2,6 +2,7 @@ package com.planit.domain.trip.service;
 
 import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.TripCreateRequest;
+import com.planit.domain.trip.dto.TripListResponse;
 import com.planit.domain.trip.entity.ItineraryDay;
 import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.entity.TripTheme;
@@ -16,9 +17,14 @@ import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +43,8 @@ public class TripService {
     private final AiItineraryProcessor aiItineraryProcessor;
     private final boolean aiMockEnabled;
     private final boolean createWindowEnabled;
+    private final boolean dailyCreateLimitEnabled;
+    private final Map<Long, LocalDate> lastCreateDateByUser = new ConcurrentHashMap<>();
 
     public TripService(
             TripRepository tripRepository,
@@ -49,7 +57,8 @@ public class TripService {
             AiItineraryQueue aiItineraryQueue,
             AiItineraryProcessor aiItineraryProcessor,
             @Value("${ai.mock-enabled:false}") boolean aiMockEnabled,
-            @Value("${trip.create-window-enabled:true}") boolean createWindowEnabled
+            @Value("${trip.create-window-enabled:true}") boolean createWindowEnabled,
+            @Value("${trip.daily-create-limit-enabled:true}") boolean dailyCreateLimitEnabled
     ) {
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
@@ -62,12 +71,13 @@ public class TripService {
         this.aiItineraryProcessor = aiItineraryProcessor;
         this.aiMockEnabled = aiMockEnabled;
         this.createWindowEnabled = createWindowEnabled;
+        this.dailyCreateLimitEnabled = dailyCreateLimitEnabled;
     }
 
     @Transactional
     public Long createTrip(TripCreateRequest request, String loginId) {
-        // 일정 생성 허용 시간(02:00 ~ 14:00) 외에는 요청 차단
-        if (createWindowEnabled && !isCreateWindowOpen(LocalTime.now())) {
+        // 일정 생성 허용 시간(14:00 ~ 다음날 02:00) 외에는 요청 차단
+        if (createWindowEnabled && !isCreateWindowOpen(ZonedDateTime.now(ZoneId.of("Asia/Seoul")))) {
             throw new BusinessException(ErrorCode.TRIP_005);
         }
 
@@ -75,17 +85,18 @@ public class TripService {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        // 2) 이미 여행이 있으면 생성 막기 (중복 데이터는 정리)
-        long existingTripCount = tripRepository.countByUserId(user.getId());
-        if (existingTripCount >= 1) {
-            // 이미 1개 이상 존재하면 생성은 막고, 중복 데이터가 있으면 정리
-            if (existingTripCount >= 2) {
-                cleanupDuplicateTrips(user.getId());
+        // 임시 MVP 보호 로직: 사용자당 하루 1회 생성 제한
+        if (dailyCreateLimitEnabled) {
+            LocalDate today = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).toLocalDate();
+            LocalDate lastCreateDate = lastCreateDateByUser.get(user.getId());
+            if (today.equals(lastCreateDate)) {
+                throw new BusinessException(ErrorCode.TRIP_007);
             }
-            throw new BusinessException(ErrorCode.TRIP_002);
         }
+        // 기존코드 주석화
+        // // 유저별 일일 생성 제한 없이 바로 여행 생성 저장 진행
 
-        // 3) 여행 기본 정보 저장
+        // 2) 여행 기본 정보 저장
         Trip trip = tripRepository.save(new Trip(
                 user,
                 request.title(),
@@ -129,66 +140,56 @@ public class TripService {
             aiItineraryQueue.enqueue(job);
         }
 
+        if (dailyCreateLimitEnabled) {
+            // 생성 성공 시점에만 오늘 날짜를 기록
+            lastCreateDateByUser.put(user.getId(), ZonedDateTime.now(ZoneId.of("Asia/Seoul")).toLocalDate());
+        }
+        // 기존코드 주석화
+        // // 생성 횟수 제한 로직 없음
+
         return trip.getId();
     }
 
-    private boolean isCreateWindowOpen(LocalTime now) {
-        LocalTime start = LocalTime.of(2, 0);
-        LocalTime end = LocalTime.of(14, 0);
-        // 02:00 포함, 14:00 미포함
-        return !now.isBefore(start) && now.isBefore(end);
+    private boolean isCreateWindowOpen(ZonedDateTime now) {
+        LocalTime currentTime = now.toLocalTime();
+        LocalTime start = LocalTime.of(14, 0);
+        LocalTime end = LocalTime.of(2, 0);
+        // 자정을 넘기는 허용 구간: 14:00 이상 또는 02:00 미만
+        return !currentTime.isBefore(start) || currentTime.isBefore(end);
     }
 
     @Transactional
-    public void deleteUserTrip(String loginId) {
-        // 1) 사용자 조회
+    public void deleteTrip(String loginId, Long tripId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        // 2) 유일한 여행 조회 후 삭제
-        Trip trip = tripRepository.findTopByUserIdOrderByIdDesc(user.getId())
+        Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_001));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.TRIP_006);
+        }
 
-        deleteTripData(trip.getId());
+        deleteTripData(tripId);
         tripRepository.delete(trip);
     }
 
-    @Transactional
-    public Optional<Trip> findOrCleanupUserTrip(String loginId) {
-        // 유저의 여행이 2개 이상인 경우, 최신 1개만 유지
+    @Transactional(readOnly = true)
+    public TripListResponse getUserTrips(String loginId) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        List<Trip> trips = tripRepository.findByUserIdOrderByIdDesc(user.getId());
-        if (trips.isEmpty()) {
-            return Optional.empty();
-        }
+        List<TripListResponse.TripSummary> summaries = tripRepository.findByUserIdOrderByIdDesc(user.getId())
+                .stream()
+                .map(trip -> new TripListResponse.TripSummary(
+                        trip.getId(),
+                        trip.getTitle(),
+                        trip.getArrivalDate(),
+                        trip.getDepartureDate(),
+                        trip.getTravelCity()
+                ))
+                .collect(Collectors.toList());
 
-        if (trips.size() >= 2) {
-            // 최신 1개만 남기고 나머지 정리
-            Trip latest = trips.get(0);
-            for (int i = 1; i < trips.size(); i++) {
-                Trip oldTrip = trips.get(i);
-                deleteTripData(oldTrip.getId());
-                tripRepository.delete(oldTrip);
-            }
-            return Optional.of(latest);
-        }
-
-        return Optional.of(trips.get(0));
-    }
-
-    private void cleanupDuplicateTrips(Long userId) {
-        List<Trip> trips = tripRepository.findByUserIdOrderByIdDesc(userId);
-        if (trips.size() <= 1) {
-            return;
-        }
-        Trip latest = trips.get(0);
-        for (int i = 1; i < trips.size(); i++) {
-            Trip oldTrip = trips.get(i);
-            deleteTripData(oldTrip.getId());
-            tripRepository.delete(oldTrip);
-        }
+        return new TripListResponse(summaries);
     }
 
     private void deleteTripData(Long tripId) {
