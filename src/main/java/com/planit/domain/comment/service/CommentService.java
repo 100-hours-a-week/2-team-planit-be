@@ -68,15 +68,18 @@ public class CommentService {
 
     @Transactional
     public void deleteComment(Long commentId, String loginId) {
-        Comment comment = commentRepository.findById(commentId).orElseThrow();
+        Comment comment = commentRepository.findById(commentId)
+            .orElseThrow(() -> new IllegalArgumentException("삭제할 댓글을 찾을 수 없습니다."));
         if (!comment.getAuthor().getLoginId().equals(loginId)) {
             throw new IllegalStateException("작성자만 삭제할 수 있습니다.");
         }
-        if (comment.getDeletedAt() != null) {
-            return;
+        Long postId = comment.getPost().getId();
+        LocalDateTime deletedAt = LocalDateTime.now();
+        int updatedRows = commentRepository.markAsDeleted(commentId, deletedAt);
+        if (updatedRows == 0) {
+            throw new IllegalStateException("이미 삭제된 댓글입니다.");
         }
-        comment.markDeleted();
-        postRepository.decrementCommentCount(comment.getPost().getId());
+        postRepository.decrementCommentCount(postId);
     }
 
     private void publishCommentNotification(Post post, User actor, String content) {
