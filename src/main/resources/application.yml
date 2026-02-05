@@ -30,6 +30,7 @@ ai:
 
 trip:
   create-window-enabled: true
+  daily-create-limit-enabled: true
 
 planit:
   profile:
