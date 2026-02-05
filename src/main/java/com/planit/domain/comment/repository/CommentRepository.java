@@ -3,6 +3,7 @@ package com.planit.domain.comment.repository;
 import com.planit.domain.comment.entity.Comment;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -46,5 +47,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
         String getAuthorNickname();
         String getAuthorProfileImageKey();
     }
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Comment c SET c.deletedAt = :deletedAt WHERE c.id = :commentId AND c.deletedAt IS NULL")
+    int markAsDeleted(
+        @Param("commentId") Long commentId,
+        @Param("deletedAt") java.time.LocalDateTime deletedAt
+    );
 
 }
