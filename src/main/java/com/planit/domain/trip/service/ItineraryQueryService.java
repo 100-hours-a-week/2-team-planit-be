@@ -11,6 +11,10 @@ import com.planit.domain.trip.repository.ItineraryDayRepository;
 import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
+import com.planit.domain.user.entity.User;
+import com.planit.domain.user.repository.UserRepository;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -26,38 +30,36 @@ public class ItineraryQueryService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository placeRepository;
     private final ItineraryItemTransportRepository transportRepository;
-    private final TripService tripService;
+    private final UserRepository userRepository;
 
     public ItineraryQueryService(
             TripRepository tripRepository,
             ItineraryDayRepository itineraryDayRepository,
             ItineraryItemPlaceRepository placeRepository,
             ItineraryItemTransportRepository transportRepository,
-            TripService tripService
+            UserRepository userRepository
     ) {
         this.tripRepository = tripRepository;
         this.itineraryDayRepository = itineraryDayRepository;
         this.placeRepository = placeRepository;
         this.transportRepository = transportRepository;
-        this.tripService = tripService;
+        this.userRepository = userRepository;
     }
 
-    public Optional<ItineraryResponse> getUserItineraries(String loginId) {
-        // 토큰 기반으로 유저의 유일한 여행을 조회 (중복 데이터는 최신 1개만 유지)
-        Optional<Trip> optionalTrip = tripService.findOrCleanupUserTrip(loginId);
-        return optionalTrip.map(trip -> buildItineraries(trip));
-    }
-
-    public Optional<ItineraryResponse> getTripItineraries(Long tripId) {
+    public Optional<ItineraryResponse> getTripItineraries(Long tripId, String loginId) {
         Trip trip = tripRepository.findById(tripId).orElse(null);
         if (trip == null) {
             return Optional.empty();
         }
 
-        return Optional.of(buildItineraries(trip));
+        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
+        boolean isOwner = trip.getUser() != null && trip.getUser().getId().equals(user.getId());
+
+        return Optional.of(buildItineraries(trip, isOwner));
     }
 
-    private ItineraryResponse buildItineraries(Trip trip) {
+    private ItineraryResponse buildItineraries(Trip trip, boolean isOwner) {
         // 여행 1건에 대해 일별 일정 + 이벤트를 응답 DTO로 변환
         Long tripId = trip.getId();
         List<ItineraryDay> itineraryDays = itineraryDayRepository.findByTripIdOrderByDayIndex(tripId);
@@ -107,7 +109,14 @@ public class ItineraryQueryService {
             dayResponses.add(new ItineraryDayResponse(day.getId(), day.getDayIndex(), date, activities));
         }
 
-        return new ItineraryResponse(tripId, dayResponses);
+        return new ItineraryResponse(
+                tripId,
+                trip.getTitle(),
+                trip.getArrivalDate(),
+                trip.getDepartureDate(),
+                isOwner,
+                dayResponses
+        );
     }
 
     private Integer resolveDurationMinutes(LocalTime durationTime) {

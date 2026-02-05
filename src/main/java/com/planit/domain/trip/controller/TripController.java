@@ -5,6 +5,7 @@ import com.planit.domain.trip.dto.ItineraryDayUpdateRequest;
 import com.planit.domain.trip.dto.ItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripCreateResponse;
+import com.planit.domain.trip.dto.TripListResponse;
 import com.planit.domain.trip.service.ItineraryQueryService;
 import com.planit.domain.trip.service.ItineraryUpdateService;
 import com.planit.domain.trip.service.TripService;
@@ -53,18 +54,20 @@ public class TripController {
                 .body(ApiResponse.success(new TripCreateResponse(tripId)));
     }
 
-    @GetMapping("/trips/itineraries")
-    public ResponseEntity<?> getUserItineraries(@AuthenticationPrincipal UserDetails principal) {
-        // 유저 기준으로 유일한 여행 일정 조회
-        return itineraryQueryService.getUserItineraries(principal.getUsername())
-                .<ResponseEntity<?>>map(response -> ResponseEntity.ok(ApiResponse.success(response)))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ErrorResponse.from(ErrorCode.TRIP_001)));
+    @GetMapping("/trips")
+    public ResponseEntity<ApiResponse<TripListResponse>> getTrips(
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        TripListResponse response = tripService.getUserTrips(principal.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/trips/{tripId}/itineraries")
-    public ResponseEntity<?> getItineraries(@PathVariable Long tripId) {
-        return itineraryQueryService.getTripItineraries(tripId)
+    public ResponseEntity<?> getItineraries(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable Long tripId
+    ) {
+        return itineraryQueryService.getTripItineraries(tripId, principal.getUsername())
                 .<ResponseEntity<?>>map(response -> ResponseEntity.ok(ApiResponse.success(response)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ErrorResponse.from(ErrorCode.TRIP_001)));
@@ -72,17 +75,21 @@ public class TripController {
 
     @PatchMapping("/trips/itineraries/days")
     public ResponseEntity<ApiResponse<Void>> updateDayPlaces(
+            @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody ItineraryDayUpdateRequest request
     ) {
         // 특정 일자의 장소 정보만 부분 수정
-        itineraryUpdateService.updateDayPlaces(request);
+        itineraryUpdateService.updateDayPlaces(request, principal.getUsername());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    @DeleteMapping("/trips")
-    public ResponseEntity<ApiResponse<Void>> deleteUserTrip(@AuthenticationPrincipal UserDetails principal) {
-        // 유저의 유일한 여행 삭제
-        tripService.deleteUserTrip(principal.getUsername());
+    @DeleteMapping("/trips/{tripId}")
+    public ResponseEntity<ApiResponse<Void>> deleteTrip(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable Long tripId
+    ) {
+        // 유저 소유의 여행 삭제
+        tripService.deleteTrip(principal.getUsername(), tripId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
