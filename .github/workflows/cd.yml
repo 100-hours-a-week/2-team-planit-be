@@ -81,13 +81,15 @@ jobs:
             export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
             export AWS_REGION=ap-northeast-2
 
-            # 새 프로세스 실행 (환경 변수 주입)
-            nohup java -jar -Dspring.profiles.active=prod \
+            # 새 프로세스 실행 (환경 변수 주입) - JVM 타임존을 KST로 고정
+            nohup java \
+              -Duser.timezone=Asia/Seoul \
+              -Dspring.profiles.active=prod \
               -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
               -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
               -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
               -DJWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              /var/www/planit/backend/planit-backend.jar > /var/www/planit/backend/app.log 2>&1 &
+              -jar /var/www/planit/backend/planit-backend.jar > /var/www/planit/backend/app.log 2>&1 &
 
             echo "Health Check 시작"
             for retry_count in {1..15}
