@@ -3,6 +3,13 @@ spring: # Spring Boot 핵심 설정 루트
     active: local # 기본은 로컬 개발용 프로파일
   application:
     name: travel-service
+  jackson: # JSON 직렬화/역직렬화 타임존을 KST로 고정
+    time-zone: Asia/Seoul
+  jpa: # Hibernate JDBC 타임존을 KST로 고정
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
 
 server: # 내장 서버 구성
   port: 8080
