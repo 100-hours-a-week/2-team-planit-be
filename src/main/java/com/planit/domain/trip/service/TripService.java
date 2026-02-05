@@ -18,6 +18,8 @@ import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,8 +69,8 @@ public class TripService {
 
     @Transactional
     public Long createTrip(TripCreateRequest request, String loginId) {
-        // 일정 생성 허용 시간(02:00 ~ 14:00) 외에는 요청 차단
-        if (createWindowEnabled && !isCreateWindowOpen(LocalTime.now())) {
+        // 일정 생성 허용 시간(14:00 ~ 다음날 02:00) 외에는 요청 차단
+        if (createWindowEnabled && !isCreateWindowOpen(ZonedDateTime.now(ZoneId.of("Asia/Seoul")))) {
             throw new BusinessException(ErrorCode.TRIP_005);
         }
 
@@ -123,11 +125,12 @@ public class TripService {
         return trip.getId();
     }
 
-    private boolean isCreateWindowOpen(LocalTime now) {
-        LocalTime start = LocalTime.of(2, 0);
-        LocalTime end = LocalTime.of(14, 0);
-        // 02:00 포함, 14:00 미포함
-        return !now.isBefore(start) && now.isBefore(end);
+    private boolean isCreateWindowOpen(ZonedDateTime now) {
+        LocalTime currentTime = now.toLocalTime();
+        LocalTime start = LocalTime.of(14, 0);
+        LocalTime end = LocalTime.of(2, 0);
+        // 자정을 넘기는 허용 구간: 14:00 이상 또는 02:00 미만
+        return !currentTime.isBefore(start) || currentTime.isBefore(end);
     }
 
     @Transactional
