@@ -25,8 +25,8 @@ public class S3ObjectDeleter {
             return;
         }
         s3Client.deleteObject(DeleteObjectRequest.builder()
-            .bucket(bucket)
-            .key(key)
-            .build());
+                .bucket(bucket)
+                .key(key)
+                .build());
     }
 }

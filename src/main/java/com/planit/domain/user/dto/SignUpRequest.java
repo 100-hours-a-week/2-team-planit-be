@@ -43,6 +43,10 @@ public class SignUpRequest {
     @Pattern(regexp = "^[^\\s]+$", message = "*띄어쓰기를 없애주세요")
     private String nickname; // 사용자 닉네임
 
+    /** Presigned URL로 S3 업로드 완료 후 전달하는 프로필 이미지 key (선택). signup/ prefix 사용 */
+    @Size(max = 500, message = "*프로필 이미지 key가 올바르지 않습니다.")
+    private String profileImageKey;
+
     @AssertTrue(message = "*비밀번호가 다릅니다.")
     private boolean isPasswordMatching() {
         if (password == null || passwordConfirm == null) {

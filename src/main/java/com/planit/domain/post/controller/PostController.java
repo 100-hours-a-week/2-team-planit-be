@@ -46,17 +46,17 @@ public class PostController {
      * 검색/정렬/페이징(mutable, posts/users/posted_images/comments/likes/post_ranking_snapshots 조합) 처리
      */
     @Operation(summary = "자유게시판 목록 조회",
-        description = """
+            description = """
             posts/users/posted_images/comments/likes/post_ranking_snapshots 테이블을 조합하여 제목·대표 이미지·좋아요/댓글·랭킹 점수를 반환합니다.
             검색어는 helper text 기준으로 2~24자/한글 초성·특수 문자 제한을 검증하고 최신/댓글/좋아요 정렬을 지원하며 무한 스크롤을 위해 pagesize 단위 offset을 제공합니다.
             """)
     @GetMapping
     public PostListResponse listPosts(
-        @RequestParam(defaultValue = "FREE") String boardType,
-        @Parameter(description = "검색어(히스토리/단어 길이 2~24자, 특수문자/초성 불가)") @RequestParam(required = false) String search,
-        @Parameter(description = "정렬 옵션(latest/comment/like)") @RequestParam(required = false) String sort,
-        @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
-        @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "FREE") String boardType,
+            @Parameter(description = "검색어(히스토리/단어 길이 2~24자, 특수문자/초성 불가)") @RequestParam(required = false) String search,
+            @Parameter(description = "정렬 옵션(latest/comment/like)") @RequestParam(required = false) String sort,
+            @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size
     ) {
         BoardType resolvedBoardType = parseBoardType(boardType);
         if (BoardType.FREE != resolvedBoardType) {
@@ -71,11 +71,11 @@ public class PostController {
      * 게시글 상세: 작성자 정보, 최대 5장 이미지, 좋아요·댓글 상태/카운트, 댓글 리스트/삭제 권한 제공
      */
     @Operation(summary = "게시글 상세 조회",
-        description = "게시판 정보·작성자 프로필·최대 5장 이미지·좋아요/댓글 상태·댓글 목록(최대 20개) 등 상세 콘텐츠를 반환합니다.")
+            description = "게시판 정보·작성자 프로필·최대 5장 이미지·좋아요/댓글 상태·댓글 목록(최대 20개) 등 상세 콘텐츠를 반환합니다.")
     @GetMapping("/{postId}")
     public PostDetailResponse getPostDetail(
-        @PathVariable Long postId,
-        @AuthenticationPrincipal UserDetails principal
+            @PathVariable Long postId,
+            @AuthenticationPrincipal UserDetails principal
     ) {
         String loginId = principal == null ? null : principal.getUsername();
         return postService.getPostDetail(postId, loginId);
@@ -84,25 +84,25 @@ public class PostController {
     /** 게시물 이미지 Presigned URL 발급 */
     @PostMapping("/images/presigned-url")
     public PresignedUrlResponse getPostPresignedUrl(
-        @AuthenticationPrincipal UserDetails principal,
-        @jakarta.validation.Valid @RequestBody PresignedUrlRequest request
+            @AuthenticationPrincipal UserDetails principal,
+            @jakarta.validation.Valid @RequestBody PresignedUrlRequest request
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         return postService.getPostPresignedUrl(
-            principal.getUsername(),
-            request.getFileExtension(),
-            request.getContentType()
+                principal.getUsername(),
+                request.getFileExtension(),
+                request.getContentType()
         );
     }
 
     @Operation(summary = "자유게시판 글 등록",
-        description = "Presigned URL로 이미지 업로드 후 imageKeys와 함께 JSON으로 등록합니다.")
+            description = "Presigned URL로 이미지 업로드 후 imageKeys와 함께 JSON으로 등록합니다.")
     @PostMapping
     public PostCreateResponse createPost(
-        @jakarta.validation.Valid @RequestBody PostCreateRequest request,
-        @AuthenticationPrincipal UserDetails principal
+            @jakarta.validation.Valid @RequestBody PostCreateRequest request,
+            @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
@@ -111,12 +111,12 @@ public class PostController {
     }
 
     @Operation(summary = "자유게시판 글 수정",
-        description = "제목/본문/이미지(imageKeys)를 JSON으로 수정합니다.")
+            description = "제목/본문/이미지(imageKeys)를 JSON으로 수정합니다.")
     @PatchMapping("/{postId}")
     public PostCreateResponse updatePost(
-        @PathVariable Long postId,
-        @jakarta.validation.Valid @RequestBody PostUpdateRequest request,
-        @AuthenticationPrincipal UserDetails principal
+            @PathVariable Long postId,
+            @jakarta.validation.Valid @RequestBody PostUpdateRequest request,
+            @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
@@ -124,13 +124,13 @@ public class PostController {
         return postService.updatePost(postId, request, principal.getUsername());
     }
 
-    @Operation(summary = "게시물 이미지 삭제")
+    @Operation(summary = "게시물 이미지 삭제 (DB 연동)")
     @DeleteMapping("/{postId}/images/{imageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePostImage(
-        @PathVariable Long postId,
-        @PathVariable Long imageId,
-        @AuthenticationPrincipal UserDetails principal
+            @PathVariable Long postId,
+            @PathVariable Long imageId,
+            @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
@@ -138,13 +138,26 @@ public class PostController {
         postService.deletePostImage(postId, imageId, principal.getUsername());
     }
 
+    @Operation(summary = "업로드만 한 이미지 S3 삭제 (저장 전 제거 시 호출)")
+    @DeleteMapping("/images/by-key")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePostImageByKey(
+            @RequestParam String key,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
+        postService.deletePostImageByKey(key, principal.getUsername());
+    }
+
     @Operation(summary = "자유게시판 글 삭제",
-        description = "작성자만 삭제 가능하며, 논리 삭제됩니다.")
+            description = "작성자만 삭제 가능하며, 논리 삭제됩니다.")
     @DeleteMapping("/{postId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePost(
-        @PathVariable Long postId,
-        @AuthenticationPrincipal UserDetails principal
+            @PathVariable Long postId,
+            @AuthenticationPrincipal UserDetails principal
     ) {
         if (principal == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
