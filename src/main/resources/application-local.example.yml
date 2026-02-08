@@ -7,6 +7,10 @@ spring: # Spring Boot 설정 루트
 jwt: # JWT 관련 설정
   secret: YOUR_JWT_SECRET # 32자 이상 시크릿으로 변경 (예: 랜덤 문자열)
 
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY} # 로컬/배포에서 사용하는 Google Places API Key
+
 # S3 테스트 시 환경변수 설정:
 # export AWS_S3_BUCKET=your-bucket-name
 # export AWS_ACCESS_KEY_ID=your-access-key
