@@ -13,7 +13,11 @@ public enum ErrorCode {
     TRIP_004("TRIP_004", "장소 일정을 찾을 수 없습니다"),
     TRIP_005("TRIP_005", "일정 생성 허용 시간이 아닙니다"),
     TRIP_006("TRIP_006", "여행 소유자가 아닙니다"),
-    TRIP_007("TRIP_007", "하루에 한 번만 일정 생성이 가능합니다");
+    TRIP_007("TRIP_007", "하루에 한 번만 일정 생성이 가능합니다"),
+    PLACE_001("PLACE_001", "지원하지 않는 destinationCode 입니다"),
+    PLACE_002("PLACE_002", "검색어가 올바르지 않습니다"),
+    PLACE_003("PLACE_003", "장소 검색 호출에 실패했습니다"),
+    PLACE_004("PLACE_004", "장소 검색 요청이 시간 초과되었습니다");
 
     private final String code;
     private final String message;
