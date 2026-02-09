@@ -49,21 +49,13 @@ public class CommentService {
     public CommentResponse addComment(Long postId, String loginId, CommentRequest request) {
         Post post = postRepository.findById(postId).orElseThrow();
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId).orElseThrow();
-        Comment comment = new Comment();
-        comment.setPost(post);
-        comment.setAuthor(user);
-        comment.setContent(request.getContent());
-        comment.setCreatedAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        Comment comment = Comment.create(post, user, request.getContent(), now);
         Comment saved = commentRepository.save(comment);
         postRepository.incrementCommentCount(postId);
         publishCommentNotification(post, user, request.getContent());
-        CommentResponse response = new CommentResponse();
-        response.setCommentId(saved.getId());
-        response.setAuthorNickname(user.getNickname());
-        response.setAuthorProfileImageUrl(imageUrlResolver.resolve(user.getProfileImageKey()));
-        response.setContent(saved.getContent());
-        response.setCreatedAt(saved.getCreatedAt().toString());
-        return response;
+        String profileImageUrl = imageUrlResolver.resolve(user.getProfileImageKey());
+        return CommentResponse.from(saved, profileImageUrl);
     }
 
     @Transactional
