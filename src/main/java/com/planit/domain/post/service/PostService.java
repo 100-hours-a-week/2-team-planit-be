@@ -72,27 +72,20 @@ public class PostService {
         );
         List<PostSummaryResponse> items = result.getContent()
                 .stream()
-                .map(summary -> {
-                    String thumbnailUrl = null;
-                    if (summary.getRepresentativeImageKey() != null) {
-                        thumbnailUrl = imageUrlResolver.resolve(summary.getRepresentativeImageKey());
-                    }
-                    return new PostSummaryResponse(
-                            summary.getPostId(),
-                            summary.getTitle(),
-                            summary.getAuthorId(),
-                            summary.getAuthorNickname(),
-                            imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
-                            summary.getCreatedAt(),
-                            summary.getLikeCount(),
-                            summary.getCommentCount(),
-                            summary.getRepresentativeImageId(),
-                            thumbnailUrl,
-                            summary.getRankingScore(),
-                            summary.getPlaceName(),
-                            summary.getTripTitle()
-                    );
-                })
+                .map(summary -> new PostSummaryResponse(
+                        summary.getPostId(),
+                        summary.getTitle(),
+                        summary.getAuthorId(),
+                        summary.getAuthorNickname(),
+                        imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
+                        summary.getCreatedAt(),
+                        summary.getLikeCount(),
+                        summary.getCommentCount(),
+                        summary.getRepresentativeImageId(),
+                        summary.getRankingScore(),
+                        summary.getPlaceName(),
+                        summary.getTripTitle()
+                ))
                 .collect(Collectors.toList());
         return new PostListResponse(items, result.hasNext());
     }
