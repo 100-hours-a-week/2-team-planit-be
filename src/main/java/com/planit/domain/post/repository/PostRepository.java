@@ -26,6 +26,7 @@ public interface PostRepository
         Long getLikeCount();
         Long getCommentCount();
         Long getRepresentativeImageId();
+        String getRepresentativeImageKey();
         Double getRankingScore();
         String getPlaceName();
         String getTripTitle();
@@ -52,7 +53,15 @@ public interface PostRepository
                             + "(select count(1) from comments c "
                             + " where c.post_id = p.post_id "
                             + "   and c.created_at >= date_sub(current_date(), interval 1 year)) as commentCount, "
-                            + "null as representativeImageId, "
+                            + "(select pi.image_id from posted_images pi "
+                            + " where pi.post_id = p.post_id "
+                            + "   and pi.is_main_image = 1 "
+                            + " order by pi.created_at asc limit 1) as representativeImageId, "
+                            + "(select i.s3_key from posted_images pi "
+                            + " join images i on i.id = pi.image_id "
+                            + " where pi.post_id = p.post_id "
+                            + "   and pi.is_main_image = 1 "
+                            + " order by pi.created_at asc limit 1) as representativeImageKey, "
                             + "(select pr.score from post_ranking_snapshots pr "
                             + " where pr.post_id = p.post_id "
                             + " order by pr.snapshot_date desc limit 1) as rankingScore, "
