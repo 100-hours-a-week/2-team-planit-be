@@ -105,7 +105,8 @@ public class TripService {
                 request.arrivalTime(),
                 request.departureTime(),
                 request.travelCity(),
-                request.totalBudget()
+                request.totalBudget(),
+                request.destinationCode() == null ? null : request.destinationCode().name()
         ));
 
         // 테마 저장 (Trip 1 : Theme N)

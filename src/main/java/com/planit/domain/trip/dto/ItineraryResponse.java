@@ -12,6 +12,7 @@ public record ItineraryResponse(
         LocalDate startDate,
         @JsonFormat(pattern = "yyyy-MM-dd")
         LocalDate endDate,
+        String destinationCode,
         Boolean isOwner,
         List<ItineraryDayResponse> itineraries
 ) {

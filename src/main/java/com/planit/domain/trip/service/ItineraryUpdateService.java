@@ -60,6 +60,12 @@ public class ItineraryUpdateService {
             if (update.placeName() != null) {
                 place.updatePlaceName(update.placeName());
             }
+            if (update.placeId() != null) {
+                place.updatePlaceId(update.placeId());
+            }
+            if (update.googleMapUrl() != null) {
+                place.updateGoogleMapUrl(update.googleMapUrl());
+            }
             if (update.startTime() != null) {
                 place.updateStartTime(update.startTime());
             }

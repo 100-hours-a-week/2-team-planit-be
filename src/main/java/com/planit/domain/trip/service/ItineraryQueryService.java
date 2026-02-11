@@ -114,6 +114,7 @@ public class ItineraryQueryService {
                 trip.getTitle(),
                 trip.getArrivalDate(),
                 trip.getDepartureDate(),
+                trip.getDestinationCode(),
                 isOwner,
                 dayResponses
         );

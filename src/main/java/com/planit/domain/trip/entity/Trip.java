@@ -52,6 +52,9 @@ public class Trip {
     @Column(name = "total_budget")
     private Integer totalBudget;
 
+    @Column(name = "destination_code", length = 30)
+    private String destinationCode;
+
     @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<TripTheme> themes = new ArrayList<>();
 
@@ -66,7 +69,8 @@ public class Trip {
             LocalTime arrivalTime,
             LocalTime departureTime,
             String travelCity,
-            Integer totalBudget
+            Integer totalBudget,
+            String destinationCode
     ) {
         this.user = user;
         this.title = title;
@@ -76,6 +80,7 @@ public class Trip {
         this.departureTime = departureTime;
         this.travelCity = travelCity;
         this.totalBudget = totalBudget;
+        this.destinationCode = destinationCode;
     }
 
     public Long getId() {
@@ -116,6 +121,10 @@ public class Trip {
 
     public Integer getTotalBudget() {
         return totalBudget;
+    }
+
+    public String getDestinationCode() {
+        return destinationCode;
     }
 
     public List<TripTheme> getThemes() {
