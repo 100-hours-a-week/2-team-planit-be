@@ -16,6 +16,8 @@ public record ItineraryDayUpdateRequest(
     public record PlaceUpdate(
             Long activityId,
             String placeName,
+            String placeId,
+            String googleMapUrl,
             @JsonFormat(pattern = "HH:mm")
             LocalTime startTime,
             Integer durationMinutes,

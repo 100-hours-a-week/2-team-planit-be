@@ -121,6 +121,14 @@ public class ItineraryItemPlace {
         this.placeName = placeName;
     }
 
+    public void updatePlaceId(String placeId) {
+        this.placeId = placeId;
+    }
+
+    public void updateGoogleMapUrl(String googleMapUrl) {
+        this.googleMapUrl = googleMapUrl;
+    }
+
     public void updateStartTime(LocalTime startTime) {
         this.startTime = startTime;
     }
