@@ -11,9 +11,13 @@ import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedImage;
+import com.planit.domain.post.entity.PostedPlan;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
+import com.planit.domain.post.repository.PostedPlanRepository;
 import com.planit.domain.post.service.ImageStorageService;
+import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
@@ -53,6 +57,8 @@ public class PostService {
     private final ObjectProvider<S3PresignedUrlService> presignedUrlServiceProvider;
     private final ObjectProvider<S3ObjectDeleter> s3ObjectDeleterProvider;
     private final S3ImageUrlResolver imageUrlResolver;
+    private final TripRepository tripRepository;
+    private final PostedPlanRepository postedPlanRepository;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -136,9 +142,22 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         LocalDateTime now = LocalDateTime.now();
-        Post post = Post.create(user, request.getTitle(), request.getContent(), BoardType.FREE, now);
+        BoardType boardType = request.getBoardType(); // API에서 전달된 게시판 유형
+        Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
         Post saved = postRepository.save(post);
         List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
+        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유는 점검 로직 추가
+            if (postedPlanRepository.existsByPostId(saved.getId())) { // 이미 매핑이 존재하면 conflict
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "*이미 일정이 연결된 게시글입니다.");
+            }
+            Long tripId = request.getTripId(); // 요청에서 tripId 획득
+            if (tripId == null) { // tripId는 필수
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*일정을 선택해주세요.");
+            }
+            Trip referencedTrip = tripRepository.findByIdAndUserId(tripId, user.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "*선택한 일정이 존재하지 않습니다."));
+            postedPlanRepository.save(new PostedPlan(saved, referencedTrip)); // 매핑 생성
+        }
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
                 saved.getTitle(),
