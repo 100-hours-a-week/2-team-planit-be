@@ -5,23 +5,23 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
- * PostedPlan 엔티티에 대한 레포지토리 인터페이스
+ * PostedPlan 저장소 정의
  */
 public interface PostedPlanRepository extends JpaRepository<PostedPlan, Long> {
 
     /**
-     * 특정 게시글 ID에 대한 매핑이 존재하는지 확인
+     * 특정 게시글에 연결된 일정 존재 여부
      *
      * @param postId 게시글 ID
-     * @return 존재 여부(boolean)
+     * @return boolean
      */
     boolean existsByPostId(Long postId);
 
     /**
-     * 게시글 ID를 통해 연결된 PostedPlan을 조회
+     * 게시글 ID로 계획 조회
      *
      * @param postId 게시글 ID
-     * @return Optional로 감싼 PostedPlan
+     * @return Optional<PostedPlan>
      */
     Optional<PostedPlan> findByPostId(Long postId);
 }
