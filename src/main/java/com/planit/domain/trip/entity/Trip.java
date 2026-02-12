@@ -118,6 +118,7 @@ public class Trip {
         return totalBudget;
     }
 
+
     public List<TripTheme> getThemes() {
         return themes;
     }
