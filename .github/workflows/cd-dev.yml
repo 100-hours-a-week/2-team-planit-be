@@ -1,14 +1,14 @@
-name: CD - Backend
+name: CD - Backend (Dev)
 
 on:
   workflow_run:
     workflows: ["CI - Backend"]
     types:
       - completed
-    branches: [main]
+    branches: [develop]
 
 jobs:
-  backend-cd:
+  backend-cd-dev:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }} # CI가 성공했을 때만 실행
 
@@ -22,7 +22,7 @@ jobs:
         with:
           name: backend-jar
           path: build/libs
-          run-id: ${{ github.event.workflow_run.id }}  # 버전 관리용 ID
+          run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # GitHub Actions IP를 AWS SG에 일시적으로 등록하기
@@ -40,76 +40,75 @@ jobs:
       - name: Add IP to SG
         run: |
           aws ec2 authorize-security-group-ingress \
-            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
+            --group-id ${{ secrets.SECURITY_GROUP_ID_DEV }} \
             --protocol tcp \
             --port 22 \
             --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
             || echo "IP may already be in security group"
           sleep 10
 
-      # JAR 파일을 EC2 서버로 전송
-      - name: Copy JAR to EC2
+      # JAR 파일을 Dev EC2 서버로 전송
+      - name: Copy JAR to Dev EC2
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST_DEV }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/*.jar"  # 다운로드 받은 경로
+          source: "build/libs/*.jar"
           target: "/home/ubuntu/temp_backend"
           strip_components: 2
 
       # 서버 접속 후 기존 프로세스 종료 및 새 JAR 실행
-      - name: Deploy to EC2
+      - name: Deploy to Dev EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST_DEV }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 폴더 이동 및 정리
-            sudo mkdir -p /var/www/planit/backend
-            sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit/backend/planit-backend.jar
-            sudo chown ubuntu:ubuntu /var/www/planit/backend/planit-backend.jar
+            # 폴더 이동 및 정리 (dev 전용 경로)
+            sudo mkdir -p /var/www/planit-dev/backend
+            sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit-dev/backend/planit-backend.jar
+            sudo chown ubuntu:ubuntu /var/www/planit-dev/backend/planit-backend.jar
             rm -rf /home/ubuntu/temp_backend/*
 
             # 기존 8080 포트 프로세스 종료
             sudo fuser -k 8080/tcp || true
 
-            # S3(Presigned URL 등) 사용을 위해 AWS 자격증명을 프로세스에 전달
+            # S3 사용을 위해 AWS 자격증명을 프로세스에 전달
             export AWS_ACCESS_KEY_ID="${{ secrets.AWS_S3_ACCESS_KEY_ID }}"
             export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}"
-            export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
+            export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET_DEV }}"
             export AWS_REGION=ap-northeast-2
-            export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN }}"
+            export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN_DEV }}"
 
-            echo "==================================================" >> /var/www/planit/backend/app.log 
-            echo "[DEPLOY] $(date '+%F %T %Z') start" >> /var/www/planit/backend/app.log 
-            echo "==================================================" >> /var/www/planit/backend/app.log 
-            # 새 프로세스 실행 (환경 변수 주입) - JVM 타임존을 KST로 고정
+            echo "==================================================" >> /var/www/planit-dev/backend/app.log
+            echo "[DEPLOY-DEV] $(date '+%F %T %Z') start" >> /var/www/planit-dev/backend/app.log
+            echo "==================================================" >> /var/www/planit-dev/backend/app.log
+            # 새 프로세스 실행 (dev 프로파일) - JVM 타임존을 KST로 고정
             nohup java \
               -Duser.timezone=Asia/Seoul \
-              -Dspring.profiles.active=prod \
-              -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
-              -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
-              -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
-              -DJWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -jar /var/www/planit/backend/planit-backend.jar >> /var/www/planit/backend/app.log 2>&1 &
+              -Dspring.profiles.active=dev \
+              -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL_DEV }}" \
+              -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME_DEV }}" \
+              -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD_DEV }}" \
+              -DJWT_SECRET="${{ secrets.JWT_SECRET_DEV }}" \
+              -jar /var/www/planit-dev/backend/planit-backend.jar >> /var/www/planit-dev/backend/app.log 2>&1 &
 
             echo "Health Check 시작"
             for retry_count in {1..15}
             do
-              # localhost:8080/api/health로 요청
               response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health || true)
               if [ "$response" -eq 200 ] || [ "$response" -eq 401 ]; then
                 echo "Server is up (HTTP $response)"
-                exit 0 # 성공 종료
+                exit 0
               fi
-            
+
               echo "Waiting for server... (Attempt $retry_count/15)"
               sleep 10
             done
             echo "Server failed to start."
-            exit 1 # 실패 종료
+            exit 1
 
       # AWS SG에서 IP 제거
       - name: Configure AWS credentials for cleanup
@@ -124,7 +123,7 @@ jobs:
         if: always()
         run: |
           aws ec2 revoke-security-group-ingress \
-            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
+            --group-id ${{ secrets.SECURITY_GROUP_ID_DEV }} \
             --protocol tcp \
             --port 22 \
             --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
@@ -133,7 +132,7 @@ jobs:
       - name: Send Discord Notification
         if: failure()
         run: |
-          MSG="CD - Backend 실패!"
+          MSG="CD - Backend (Dev) 실패!"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
                -X POST \
