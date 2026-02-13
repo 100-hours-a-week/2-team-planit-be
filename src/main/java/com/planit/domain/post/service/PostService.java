@@ -20,6 +20,8 @@ import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;
@@ -146,17 +148,23 @@ public class PostService {
         Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
         Post saved = postRepository.save(post);
         List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
-        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유는 점검 로직 추가
-            if (postedPlanRepository.existsByPostId(saved.getId())) { // 이미 매핑이 존재하면 conflict
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "*이미 일정이 연결된 게시글입니다.");
+        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유 전용 검증 로직
+            if (postedPlanRepository.existsByPostId(saved.getId())) { // 동일 게시글에 이미 연결된 일정 존재
+                throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
             }
-            Long tripId = request.getTripId(); // 요청에서 tripId 획득
-            if (tripId == null) { // tripId는 필수
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*일정을 선택해주세요.");
+            Long tripId = request.getTripId(); // 요청에서 전달된 일정 ID
+            if (tripId == null) { // 필수 값 누락 시 예외
+                throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
             }
-            Trip referencedTrip = tripRepository.findByIdAndUserId(tripId, user.getId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "*선택한 일정이 존재하지 않습니다."));
-            postedPlanRepository.save(new PostedPlan(saved, referencedTrip)); // 매핑 생성
+            Trip referencedTrip = tripRepository.findById(tripId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND)); // 일정 존재 여부 체크
+            if (!referencedTrip.getUser().getId().equals(user.getId())) { // 소유자 검증
+                throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+            }
+            if (postedPlanRepository.existsByTripId(tripId)) { // 동일 일정이 이미 공유된 경우
+                throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+            }
+            postedPlanRepository.save(new PostedPlan(saved, referencedTrip)); // 정상적인 매핑 저장
         }
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
