@@ -9,8 +9,8 @@ spring: # Production 환경 Spring Boot 설정 루트
       ddl-auto: update
     properties:
       hibernate:
-        format_sql: true
-    show-sql: true
+        format_sql: false
+    show-sql: false
 
 jwt: # cd.yml에서 secrets.JWT_SECRET 주입
   secret: ${JWT_SECRET}
