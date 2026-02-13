@@ -133,7 +133,7 @@ jobs:
       - name: Send Discord Notification
         if: failure()
         run: |
-          MSG="CD - Backend 실패!"
+          MSG="🔴 CD - Backend 실패!"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
                -X POST \
