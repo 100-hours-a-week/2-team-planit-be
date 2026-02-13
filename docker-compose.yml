@@ -1,4 +1,3 @@
-version: "3.8" # Compose file format version
 
 services:
   redis:
@@ -16,5 +15,4 @@ services:
       - planit-redis-data:/data
 
 volumes:
-  planit-mysql-data: # MySQL 데이터퍼시스턴스 볼륨
   planit-redis-data:

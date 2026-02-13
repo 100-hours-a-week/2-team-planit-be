@@ -11,6 +11,21 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: localpass
+      timeout: 2s
+
+  cache:
+    type: redis
+
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
 
 jwt:
   secret: ${JWT_SECRET:QmFzZTY0RW5jb2RlZFNhbXBsZVNlY3JldEtleUo3VjI5bQ==}
