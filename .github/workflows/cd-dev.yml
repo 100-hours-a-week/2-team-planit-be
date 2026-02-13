@@ -69,7 +69,7 @@ jobs:
             # 폴더 이동 및 정리 (dev 전용 경로)
             sudo mkdir -p /var/www/planit-dev/backend
             sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit-dev/backend/planit-backend.jar
-            sudo chown ubuntu:ubuntu /var/www/planit-dev/backend/planit-backend.jar
+            sudo chown -R ubuntu:ubuntu /var/www/planit-dev/backend
             rm -rf /home/ubuntu/temp_backend/*
 
             # 기존 8080 포트 프로세스 종료

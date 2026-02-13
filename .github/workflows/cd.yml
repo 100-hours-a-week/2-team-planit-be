@@ -69,7 +69,7 @@ jobs:
             # 폴더 이동 및 정리
             sudo mkdir -p /var/www/planit/backend
             sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit/backend/planit-backend.jar
-            sudo chown ubuntu:ubuntu /var/www/planit/backend/planit-backend.jar
+            sudo chown -R ubuntu:ubuntu /var/www/planit/backend
             rm -rf /home/ubuntu/temp_backend/*
 
             # 기존 8080 포트 프로세스 종료
@@ -133,7 +133,7 @@ jobs:
       - name: Send Discord Notification
         if: failure()
         run: |
-          MSG="CD - Backend 실패!"
+          MSG="🔴 CD - Backend 실패!"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
                -X POST \
