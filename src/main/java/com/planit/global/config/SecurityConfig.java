@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers("/users/signup").permitAll()
                         .requestMatchers("/users/signup/profile-image/presigned-url").permitAll()
                         .requestMatchers("/users/signup/profile-image").permitAll()
+                        .requestMatchers("/stub-upload").permitAll()
+                        .requestMatchers("/stub-files/**").permitAll()
                         .requestMatchers("/users/check-login-id").permitAll()
                         .requestMatchers("/users/check-nickname").permitAll()
                         .requestMatchers("/api/notifications/**").authenticated()

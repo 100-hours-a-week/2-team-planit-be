@@ -23,6 +23,9 @@ cloud:
       bucket: ${AWS_S3_BUCKET}
     region:
       static: ${AWS_REGION:ap-northeast-2}
+
+storage:
+  mode: s3
 planit:
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}

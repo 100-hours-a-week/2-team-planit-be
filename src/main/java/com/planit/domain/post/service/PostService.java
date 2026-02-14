@@ -17,8 +17,8 @@ import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
-import com.planit.infrastructure.storage.S3ObjectDeleter;
-import com.planit.infrastructure.storage.S3PresignedUrlService;
+import com.planit.infrastructure.storage.UploadContext;
+import com.planit.infrastructure.storage.UploadUrlProvider;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
@@ -50,8 +50,7 @@ public class PostService {
     private final ImageStorageService imageStorageService;
     private final PostedImageRepository postedImageRepository;
     private final ImageRepository imageRepository;
-    private final ObjectProvider<S3PresignedUrlService> presignedUrlServiceProvider;
-    private final ObjectProvider<S3ObjectDeleter> s3ObjectDeleterProvider;
+    private final ObjectProvider<UploadUrlProvider> uploadUrlProvider;
     private final S3ImageUrlResolver imageUrlResolver;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
@@ -96,12 +95,13 @@ public class PostService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
-        if (service == null) {
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "*이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
-        return service.createPostPresignedUrl(user.getId(), fileExtension,
-                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+        return provider.issuePresignedPutUrl(
+                UploadContext.post(user.getId(), fileExtension, contentType)
+        );
     }
 
     /**
@@ -231,16 +231,16 @@ public class PostService {
             log.info("S3 delete skip: image has no s3_key");
             return;
         }
-        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-        if (deleter == null) {
-            log.info("S3 delete skip: S3ObjectDeleter not available (cloud.aws.enabled?), key={}", s3Key);
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider == null) {
+            log.info("image delete skip: UploadUrlProvider not available (storage.mode?), key={}", s3Key);
             return;
         }
         try {
-            deleter.delete(s3Key);
-            log.info("S3 object deleted: {}", s3Key);
+            provider.deleteByKey(s3Key);
+            log.info("image deleted: {}", s3Key);
         } catch (Exception e) {
-            log.warn("S3 delete failed for key={}, continuing (DB already updated)", s3Key, e);
+            log.warn("image delete failed for key={}, continuing (DB already updated)", s3Key, e);
         }
     }
 

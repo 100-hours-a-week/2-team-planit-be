@@ -52,6 +52,11 @@ cloud:
     region:
       static: ${AWS_REGION:ap-northeast-2}
 
+storage:
+  mode: stub
+  stub-base-url: http://localhost:${server.port:8080}/api
+  stub-upload-dir: ./tmp/uploads
+
 planit:
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}
