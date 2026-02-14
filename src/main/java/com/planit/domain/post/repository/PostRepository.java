@@ -62,6 +62,11 @@ public interface PostRepository
                             + " where pi.post_id = p.post_id "
                             + "   and pi.is_main_image = 1 "
                             + " order by pi.created_at asc limit 1) as representativeImageKey, "
+                            //없는 테이블 참조 문제 해결
+                            + "null as rankingScore, "
+                            + "null as placeName, "
+                            + "null as tripTitle "
+                            /*
                             + "(select pr.score from post_ranking_snapshots pr "
                             + " where pr.post_id = p.post_id "
                             + " order by pr.snapshot_date desc limit 1) as rankingScore, "
@@ -73,6 +78,7 @@ public interface PostRepository
                             + " join trips tr on tr.id = pt.trip_id "
                             + " where pt.post_id = p.post_id "
                             + " limit 1) as tripTitle "
+                             */
                             + "from posts p "
                             + "join users u on u.user_id = p.user_id "
                             + " and u.is_deleted = 0 "
