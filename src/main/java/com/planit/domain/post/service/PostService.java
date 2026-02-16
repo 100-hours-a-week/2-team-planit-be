@@ -20,6 +20,8 @@ import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;

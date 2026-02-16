@@ -13,10 +13,13 @@ import com.planit.domain.post.entity.PostedPlan;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.repository.PostedPlanRepository;
+import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;
@@ -32,8 +35,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class) // Mockito 확장으로 모의 객체 주입
 class PostServiceUnitTest {
@@ -77,8 +78,8 @@ class PostServiceUnitTest {
         when(userRepository.findByLoginIdAndDeletedFalse("tester")).thenReturn(Optional.of(user)); // resolveRequester에서 반환
     }
 
-    @Test // PLAN_SHARE 정상 저장 시 동작 검증
-    void PLAN_SHARE_포스트_정상저장() {
+    @Test // PLAN_SHARE 정상 저장 시
+    void PLAN_SHARE_정상저장() {
         PostCreateRequest request = new PostCreateRequest(
                 "title",
                 "content",
@@ -86,37 +87,85 @@ class PostServiceUnitTest {
                 BoardType.PLAN_SHARE,
                 99L,
                 Collections.emptyList()
-        ); // 포스트 요청 구성
+        );
         Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
-        savedPost.setId(50L); // 저장 후 ID 설정
-        when(postRepository.save(any(Post.class))).thenReturn(savedPost); // 저장 시 반환
-        when(postedPlanRepository.existsByPostId(50L)).thenReturn(false); // 중복 없음
+        savedPost.setId(50L);
+        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
+        when(postedPlanRepository.existsByPostId(50L)).thenReturn(false);
+        when(postedPlanRepository.existsByTripId(99L)).thenReturn(false);
         Trip trip = new Trip(user, "trip", LocalDate.now(), LocalDate.now(), null, null, "city", 0);
-        when(tripRepository.findByIdAndUserId(99L, 1L)).thenReturn(Optional.of(trip)); // 일정 존재
+        when(tripRepository.findById(99L)).thenReturn(Optional.of(trip));
 
-        postService.createPost(request, "tester"); // 호출
+        postService.createPost(request, "tester");
 
-        verify(postedPlanRepository).save(any(PostedPlan.class)); // 일정 매핑 저장 검증
+        verify(postedPlanRepository).save(any(PostedPlan.class));
     }
 
-    @Test // 이미 연결됐을 경우 409 예외 발생
-    void PLAN_SHARE_postId_이미존재하면_CONFLICT() {
+    @Test // 일정이 없으면 TRIP_NOT_FOUND
+    void 존재하지않는_trip_예외() {
         PostCreateRequest request = new PostCreateRequest(
                 "title",
                 "content",
                 Collections.emptyList(),
                 BoardType.PLAN_SHARE,
-                55L,
+                11L,
                 Collections.emptyList()
         );
         Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
-        savedPost.setId(60L);
+        savedPost.setId(61L);
         when(postRepository.save(any(Post.class))).thenReturn(savedPost);
-        when(postedPlanRepository.existsByPostId(60L)).thenReturn(true); // 중복 존재
+        when(postedPlanRepository.existsByPostId(61L)).thenReturn(false);
+        when(tripRepository.findById(11L)).thenReturn(Optional.empty());
 
-        ResponseStatusException exception = Assertions.assertThrows(ResponseStatusException.class,
+        BusinessException exception = Assertions.assertThrows(BusinessException.class,
                 () -> postService.createPost(request, "tester"));
-        Assertions.assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
-        verify(postedPlanRepository, never()).save(any(PostedPlan.class)); // 저장이 호출되지 않음
+        Assertions.assertEquals(ErrorCode.TRIP_NOT_FOUND, exception.getErrorCode());
+        verify(postedPlanRepository, never()).save(any(PostedPlan.class));
+    }
+
+    @Test // 타인 여행 접근 시 FORBIDDEN_TRIP_ACCESS
+    void 타인이_소유한_trip_예외() {
+        PostCreateRequest request = new PostCreateRequest(
+                "title",
+                "content",
+                Collections.emptyList(),
+                BoardType.PLAN_SHARE,
+                22L,
+                Collections.emptyList()
+        );
+        Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
+        savedPost.setId(62L);
+        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
+        when(postedPlanRepository.existsByPostId(62L)).thenReturn(false);
+        Trip trip = new Trip(new User(), "foreign", LocalDate.now(), LocalDate.now(), null, null, "city", 0);
+        trip.getUser().setId(999L);
+        when(tripRepository.findById(22L)).thenReturn(Optional.of(trip));
+
+        BusinessException exception = Assertions.assertThrows(BusinessException.class,
+                () -> postService.createPost(request, "tester"));
+        Assertions.assertEquals(ErrorCode.FORBIDDEN_TRIP_ACCESS, exception.getErrorCode());
+    }
+
+    @Test // 이미 공유된 trip일 경우 TRIP_ALREADY_SHARED
+    void 이미_공유된_trip_예외() {
+        PostCreateRequest request = new PostCreateRequest(
+                "title",
+                "content",
+                Collections.emptyList(),
+                BoardType.PLAN_SHARE,
+                33L,
+                Collections.emptyList()
+        );
+        Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
+        savedPost.setId(63L);
+        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
+        when(postedPlanRepository.existsByPostId(63L)).thenReturn(false);
+        Trip trip = new Trip(user, "trip", LocalDate.now(), LocalDate.now(), null, null, "city", 0);
+        when(tripRepository.findById(33L)).thenReturn(Optional.of(trip));
+        when(postedPlanRepository.existsByTripId(33L)).thenReturn(true);
+
+        BusinessException exception = Assertions.assertThrows(BusinessException.class,
+                () -> postService.createPost(request, "tester"));
+        Assertions.assertEquals(ErrorCode.TRIP_ALREADY_SHARED, exception.getErrorCode());
     }
 }
