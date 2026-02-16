@@ -88,8 +88,8 @@ public interface PostRepository
                             + "   or lower(p.title) like lower(:pattern) "
                             + "   or lower(p.content) like lower(:pattern) ) "
                             + "order by case\n"
-                            + " when :sortOption = 'COMMENTS' then commentCount\n"
-                            + " when :sortOption = 'LIKES' then likeCount\n"
+                            + " when :sortOption in ('COMMENTS', 'COMMENTS_1Y') then commentCount\n"
+                            + " when :sortOption in ('LIKES', 'LIKES_1Y') then likeCount\n"
                             + " else p.created_at\n"
                             + " end desc",
             countQuery =

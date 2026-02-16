@@ -188,16 +188,14 @@ public class PostController {
         if (sort == null || sort.isBlank()) {
             return PostService.SortOption.LATEST;
         }
-        switch (sort.trim().toLowerCase(Locale.ROOT)) {
-            case "latest":
-                return PostService.SortOption.LATEST;
-            case "comment":
-                return PostService.SortOption.COMMENTS;
-            case "like":
-                return PostService.SortOption.LIKES;
-            default:
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
-        }
+
+        return switch (sort.trim().toLowerCase(Locale.ROOT)) {
+            case "latest" -> PostService.SortOption.LATEST;
+            case "comments_1y", "comment" -> PostService.SortOption.COMMENTS_1Y;
+            case "likes_1y", "like" -> PostService.SortOption.LIKES_1Y;
+            default -> throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
+        };
     }
 
     private BoardType parseBoardType(String boardType) {

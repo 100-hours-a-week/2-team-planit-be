@@ -328,19 +328,9 @@ public class PostService {
 
     /** 리스트 정렬 옵션 */
     public enum SortOption {
-        LATEST("createdAt"),
-        COMMENTS("commentCount"),
-        LIKES("likeCount");
-
-        private final String sortProperty;
-
-        SortOption(String sortProperty) {
-            this.sortProperty = sortProperty;
-        }
-
-        public String getSortProperty() {
-            return sortProperty;
-        }
+        LATEST,
+        COMMENTS_1Y,
+        LIKES_1Y
     }
 
     private String buildSearchPattern(String search) {
