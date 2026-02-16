@@ -26,8 +26,6 @@ import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
-import com.planit.global.common.exception.BusinessException;
-import com.planit.global.common.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
