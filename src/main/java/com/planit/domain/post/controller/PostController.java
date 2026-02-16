@@ -59,9 +59,6 @@ public class PostController {
             @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size
     ) {
         BoardType resolvedBoardType = parseBoardType(boardType);
-        if (BoardType.FREE != resolvedBoardType) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "v1 미구현 기능");
-        }
         validateSearch(search); // helper text 기준으로 검색어 검증
         PostService.SortOption sortOption = resolveSortOption(sort);
         return postService.listPosts(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
@@ -207,9 +204,13 @@ public class PostController {
         if (boardType == null || boardType.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 게시판입니다.");
         }
+
         String normalized = boardType.trim().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+
         return switch (normalized) {
-            case "freely" , "free" , "자유게시판" , "자유" -> BoardType.FREE;
+            case "free", "freely", "자유게시판", "자유" -> BoardType.FREE;
+            case "plan_share", "일정공유" -> BoardType.PLAN_SHARE;
+            case "place_recommend", "장소추천" -> BoardType.PLACE_RECOMMEND;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*지원하지 않는 게시판입니다.");
         };
     }

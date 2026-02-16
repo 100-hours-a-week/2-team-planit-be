@@ -26,6 +26,8 @@ import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -145,26 +147,15 @@ public class PostService {
         }
         LocalDateTime now = LocalDateTime.now();
         BoardType boardType = request.getBoardType(); // API에서 전달된 게시판 유형
+        Trip referencedTrip = null; // PLAN_SHARE인 경우에만 채워질 참조 일정
+        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유는 저장 전에 검증
+            referencedTrip = validateTrip(request.getTripId(), user);
+        }
         Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
         Post saved = postRepository.save(post);
         List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
-        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유 전용 검증 로직
-            if (postedPlanRepository.existsByPostId(saved.getId())) { // 동일 게시글에 이미 연결된 일정 존재
-                throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
-            }
-            Long tripId = request.getTripId(); // 요청에서 전달된 일정 ID
-            if (tripId == null) { // 필수 값 누락 시 예외
-                throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
-            }
-            Trip referencedTrip = tripRepository.findById(tripId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND)); // 일정 존재 여부 체크
-            if (!referencedTrip.getUser().getId().equals(user.getId())) { // 소유자 검증
-                throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
-            }
-            if (postedPlanRepository.existsByTripId(tripId)) { // 동일 일정이 이미 공유된 경우
-                throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
-            }
-            postedPlanRepository.save(new PostedPlan(saved, referencedTrip)); // 정상적인 매핑 저장
+        if (referencedTrip != null) { // 검증된 일정이 있다면 매핑
+            postedPlanRepository.save(new PostedPlan(saved, referencedTrip));
         }
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
@@ -282,6 +273,21 @@ public class PostService {
         if (!key.startsWith("post/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
+    }
+
+    private Trip validateTrip(Long tripId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        if (postedPlanRepository.existsByTripId(tripId)) {
+            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+        }
+        return trip;
     }
 
     /**
