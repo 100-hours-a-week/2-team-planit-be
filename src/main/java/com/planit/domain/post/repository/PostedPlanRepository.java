@@ -24,4 +24,12 @@ public interface PostedPlanRepository extends JpaRepository<PostedPlan, Long> {
      * @return Optional<PostedPlan>
      */
     Optional<PostedPlan> findByPostId(Long postId);
+
+    /**
+     * 일정 ID로 공유 여부 확인
+     *
+     * @param tripId 일정 ID
+     * @return boolean
+     */
+    boolean existsByTripId(Long tripId);
 }

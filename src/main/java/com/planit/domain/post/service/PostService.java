@@ -24,6 +24,8 @@ import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -143,20 +145,15 @@ public class PostService {
         }
         LocalDateTime now = LocalDateTime.now();
         BoardType boardType = request.getBoardType(); // API에서 전달된 게시판 유형
+        Trip referencedTrip = null; // PLAN_SHARE인 경우에만 채워질 참조 일정
+        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유는 저장 전에 검증
+            referencedTrip = validateTrip(request.getTripId(), user);
+        }
         Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
         Post saved = postRepository.save(post);
         List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
-        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유는 점검 로직 추가
-            if (postedPlanRepository.existsByPostId(saved.getId())) { // 이미 매핑이 존재하면 conflict
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "*이미 일정이 연결된 게시글입니다.");
-            }
-            Long tripId = request.getTripId(); // 요청에서 tripId 획득
-            if (tripId == null) { // tripId는 필수
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*일정을 선택해주세요.");
-            }
-            Trip referencedTrip = tripRepository.findByIdAndUserId(tripId, user.getId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "*선택한 일정이 존재하지 않습니다."));
-            postedPlanRepository.save(new PostedPlan(saved, referencedTrip)); // 매핑 생성
+        if (referencedTrip != null) { // 검증된 일정이 있다면 매핑
+            postedPlanRepository.save(new PostedPlan(saved, referencedTrip));
         }
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
@@ -274,6 +271,21 @@ public class PostService {
         if (!key.startsWith("post/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
+    }
+
+    private Trip validateTrip(Long tripId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        if (postedPlanRepository.existsByTripId(tripId)) {
+            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+        }
+        return trip;
     }
 
     /**
