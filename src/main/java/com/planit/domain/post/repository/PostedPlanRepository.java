@@ -1,8 +1,11 @@
 package com.planit.domain.post.repository;
 
 import com.planit.domain.post.entity.PostedPlan;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * PostedPlan 저장소 정의
