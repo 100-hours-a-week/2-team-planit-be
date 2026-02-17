@@ -1,28 +1,23 @@
-version: "3.8" # Compose file format version
-
 services:
-  mysql: # MySQL 데이터베이스 서비스 정의
-    image: mysql:8.0 # MySQL 8.0 공식 이미지 사용
-    container_name: planit-mysql # 생성 컨테이너 명
-    restart: unless-stopped
+  app:
+    # 운영 배포 시 레지스트리 이미지 태그를 명시하세요.
+    image: ${APP_IMAGE:-planit-be:latest}
+    container_name: planit-app
     ports:
-      - "3306:3306" # 호스트 <-> 컨테이너 포트 매핑
+      - "8080:8080"
+    env_file:
+      - path: .env.prod
+        required: false
     environment:
-      MYSQL_ROOT_PASSWORD: root # 루트 비밀번호
-      MYSQL_DATABASE: planit # 초기 생성할 DB
-      MYSQL_USER: planit # 애플리케이션 연결용 유저
-      MYSQL_PASSWORD: planit # 해당 유저 비밀번호
-      TZ: Asia/Seoul # 컨테이너 timezone 설정
-    command:
-      - --character-set-server=utf8mb4 # 문자셋 UTF-8 확장
-      - --collation-server=utf8mb4_unicode_ci # 정렬 규칙
-    volumes:
-      - planit-mysql-data:/var/lib/mysql # 데이터를 호스트 볼륨에 유지
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"] # 헬스 체크 명령
-      interval: 10s # 헬스 체크 주기
-      timeout: 5s # 명령 타임아웃
-      retries: 5 # 실패 시 재시도 횟수
-
-volumes:
-  planit-mysql-data: # MySQL 데이터퍼시스턴스 볼륨
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Seoul
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN}
+    restart: unless-stopped
