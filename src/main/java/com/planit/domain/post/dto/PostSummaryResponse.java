@@ -14,7 +14,7 @@ public class PostSummaryResponse {
     private final Long likeCount;
     private final Long commentCount;
     private final Long representativeImageId;
-    private final String representativeImageUrl;
+    private String representativeImageUrl;
     private final Double rankingScore;
     private final String placeName;
     private final String tripTitle;
@@ -47,5 +47,9 @@ public class PostSummaryResponse {
         this.rankingScore = rankingScore;
         this.placeName = placeName;
         this.tripTitle = tripTitle;
+    }
+
+    public void setRepresentativeImageUrl(String representativeImageUrl) {
+        this.representativeImageUrl = representativeImageUrl;
     }
 }

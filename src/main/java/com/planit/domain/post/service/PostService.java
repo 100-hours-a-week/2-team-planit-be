@@ -12,11 +12,14 @@ import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedImage;
 import com.planit.domain.post.entity.PostedPlan;
+import com.planit.domain.post.entity.PostedPlace;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.repository.PostedPlanRepository;
+import com.planit.domain.post.repository.PostedPlaceRepository;
 import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
@@ -30,8 +33,10 @@ import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -50,6 +55,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PostService {
     private static final Logger log = LoggerFactory.getLogger(PostService.class);
+    private static final String PLAN_SHARE_PLACEHOLDER_IMAGE = "/images/plan-share-default.png";
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -61,6 +67,8 @@ public class PostService {
     private final S3ImageUrlResolver imageUrlResolver;
     private final TripRepository tripRepository;
     private final PostedPlanRepository postedPlanRepository;
+    private final PostedPlaceRepository postedPlaceRepository;
+    private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -71,10 +79,10 @@ public class PostService {
             int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        String pattern = buildSearchPattern(search);
+        String normalizedSearch = search == null ? "" : search;
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
                 boardType.name(),
-                pattern,
+                normalizedSearch,
                 sortOption.name(),
                 pageable
         );
@@ -102,7 +110,10 @@ public class PostService {
                     );
                 })
                 .collect(Collectors.toList());
-        return new PostListResponse(items, result.hasNext());
+        if (boardType == BoardType.PLAN_SHARE) {
+            overridePlanShareImages(items);
+        }
+        return new PostListResponse(items, result.hasNext(), page, size);
     }
 
     /** Presigned URL 발급 (게시물 이미지) */
@@ -155,6 +166,13 @@ public class PostService {
         if (referencedTrip != null) { // 검증된 일정이 있다면 매핑
             postedPlanRepository.save(new PostedPlan(saved, referencedTrip));
         }
+        if (BoardType.PLACE_RECOMMEND == boardType) {
+            List<Long> placeIds = request.getPlaceIds();
+            if (placeIds == null || placeIds.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소를 하나 이상 선택해주세요.");
+            }
+            savePostedPlaces(saved, placeIds);
+        }
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
                 saved.getTitle(),
@@ -162,6 +180,57 @@ public class PostService {
                 saved.getCreatedAt(),
                 saved.getAuthor().getId(),
                 imageIds);
+    }
+
+    private void savePostedPlaces(Post post, List<Long> placeIds) {
+        for (Long placeId : placeIds) {
+            if (placeId == null) {
+                continue;
+            }
+            postedPlaceRepository.save(new PostedPlace(post, placeId));
+        }
+    }
+
+    private void overridePlanShareImages(List<PostSummaryResponse> items) {
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Long> postIds = items.stream()
+                .map(PostSummaryResponse::getPostId)
+                .collect(Collectors.toList());
+        List<PostedPlanRepository.PostTripIdInfo> mappings = postedPlanRepository.findTripIdsByPostIds(postIds);
+        if (mappings.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> postToTrip = mappings.stream()
+                .collect(Collectors.toMap(
+                        PostedPlanRepository.PostTripIdInfo::getPostId,
+                        PostedPlanRepository.PostTripIdInfo::getTripId
+                ));
+        if (postToTrip.isEmpty()) {
+            return;
+        }
+        LinkedHashSet<Long> tripIdOrder = new LinkedHashSet<>(postToTrip.values());
+        List<Long> tripIds = new ArrayList<>(tripIdOrder);
+        List<ItineraryItemPlaceRepository.TripPlaceInfo> tripPlaces =
+                itineraryItemPlaceRepository.findFirstPlacesByTripIds(tripIds);
+        if (tripPlaces.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> tripToPlace = new LinkedHashMap<>();
+        for (ItineraryItemPlaceRepository.TripPlaceInfo info : tripPlaces) {
+            tripToPlace.putIfAbsent(info.getTripId(), info.getPlaceId());
+        }
+        for (PostSummaryResponse item : items) {
+            if (item.getRepresentativeImageUrl() != null) {
+                continue;
+            }
+            Long tripId = postToTrip.get(item.getPostId());
+            if (tripId == null || !tripToPlace.containsKey(tripId)) {
+                continue;
+            }
+            item.setRepresentativeImageUrl(PLAN_SHARE_PLACEHOLDER_IMAGE);
+        }
     }
 
     /**
@@ -331,10 +400,4 @@ public class PostService {
         LIKES_1Y
     }
 
-    private String buildSearchPattern(String search) {
-        if (search == null || search.isBlank()) {
-            return "%";
-        }
-        return "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
-    }
 }
