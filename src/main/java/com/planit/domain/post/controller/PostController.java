@@ -48,7 +48,7 @@ public class PostController {
     @Operation(summary = "자유게시판 목록 조회",
             description = """
             posts/users/posted_images/comments/likes/post_ranking_snapshots 테이블을 조합하여 제목·대표 이미지·좋아요/댓글·랭킹 점수를 반환합니다.
-            검색어는 helper text 기준으로 2~24자/한글 초성·특수 문자 제한을 검증하고 최신/댓글/좋아요 정렬을 지원하며 무한 스크롤을 위해 pagesize 단위 offset을 제공합니다.
+            검색어는 helper text 기준(2~24자, 한글 초성·특수 문자 제한)으로 검증하며 정렬은 최신/댓글·좋아요(최근 1년)로 지원하고, 응답은 items(카드 리스트)/hasNext/ page/ size/ isEmpty를 포함해 무한 스크롤을 위한 페이징 상태를 제공합니다.
             """)
     @GetMapping
     public PostListResponse listPosts(

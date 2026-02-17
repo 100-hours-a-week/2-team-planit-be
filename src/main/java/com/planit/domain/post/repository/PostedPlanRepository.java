@@ -35,4 +35,18 @@ public interface PostedPlanRepository extends JpaRepository<PostedPlan, Long> {
      * @return boolean
      */
     boolean existsByTripId(Long tripId);
+
+    /**
+     * 게시글 ID 목록으로 연결된 trip ID 조회
+     *
+     * @param postIds 게시글 ID 목록
+     * @return List<PostTripIdInfo>
+     */
+    @Query("select p.post.id as postId, p.trip.id as tripId from PostedPlan p where p.post.id in :postIds")
+    List<PostTripIdInfo> findTripIdsByPostIds(@Param("postIds") List<Long> postIds);
+
+    interface PostTripIdInfo {
+        Long getPostId();
+        Long getTripId();
+    }
 }
