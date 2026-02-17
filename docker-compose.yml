@@ -21,7 +21,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN}
     volumes:
-      - ./logs:/var/log/planit
+      - ./logs/was:/var/log/planit/was
     logging:
       driver: json-file
       options:
