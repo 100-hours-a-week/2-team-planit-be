@@ -51,7 +51,9 @@ WORKDIR /app
 
 # Run as a non-root user in production.
 RUN addgroup --system app \
-    && adduser --system --ingroup app app
+    && adduser --system --ingroup app app \
+    && mkdir -p /var/log/planit \
+    && chown -R app:app /app /var/log/planit
 
 COPY --from=builder /opt/corretto-jre /opt/corretto-jre
 ENV JAVA_HOME=/opt/corretto-jre
@@ -59,7 +61,9 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 COPY --from=builder /app/build/libs/*.jar /app/app.jar
 
+VOLUME ["/var/log/planit"]
+
 USER app
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+CMD ["sh", "-c", "java -jar /app/app.jar 2>&1 | tee -a /var/log/planit/app.log"]
