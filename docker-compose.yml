@@ -20,4 +20,11 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN}
+    volumes:
+      - ./logs:/var/log/planit
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "10"
     restart: unless-stopped
