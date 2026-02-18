@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -155,40 +156,106 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         LocalDateTime now = LocalDateTime.now();
-        BoardType boardType = request.getBoardType(); // API에서 전달된 게시판 유형
-        Trip referencedTrip = null; // PLAN_SHARE인 경우에만 채워질 참조 일정
-        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유는 저장 전에 검증
-            referencedTrip = validateTrip(request.getTripId(), user);
-        }
+        BoardType boardType = request.getBoardType();
+        validateText(request.getTitle(), request.getContent());
         Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
-        Post saved = postRepository.save(post);
-        List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
-        if (referencedTrip != null) { // 검증된 일정이 있다면 매핑
-            postedPlanRepository.save(new PostedPlan(saved, referencedTrip));
-        }
-        if (BoardType.PLACE_RECOMMEND == boardType) {
-            List<Long> placeIds = request.getPlaceIds();
-            if (placeIds == null || placeIds.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소를 하나 이상 선택해주세요.");
+        switch (boardType) {
+            case FREE -> {
+                Post saved = postRepository.save(post);
+                List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
+                return buildCreateResponse(saved, imageIds);
             }
-            savePostedPlaces(saved, placeIds);
+            case PLAN_SHARE -> {
+                Long planId = resolvePlanId(request);
+                Trip plan = validateTrip(planId, user);
+                post.setPlanInfo(planId);
+                Post saved = postRepository.save(post);
+                postedPlanRepository.save(new PostedPlan(saved, plan));
+                return buildCreateResponse(saved, Collections.emptyList());
+            }
+            case PLACE_RECOMMEND -> {
+                PlaceRecommendationPayload payload = validatePlaceRecommendation(request);
+                post.setPlaceRecommendation(payload.placeName(), payload.rating());
+                Post saved = postRepository.save(post);
+                saveRecommendedPlace(saved, payload);
+                return buildCreateResponse(saved, Collections.emptyList());
+            }
+            default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
         }
-        return new PostCreateResponse(saved.getId(),
+    }
+
+    private PostCreateResponse buildCreateResponse(Post saved, List<Long> imageIds) {
+        return new PostCreateResponse(
+                saved.getId(),
                 saved.getBoardType(),
                 saved.getTitle(),
                 saved.getContent(),
                 saved.getCreatedAt(),
                 saved.getAuthor().getId(),
-                imageIds);
+                imageIds
+        );
     }
 
-    private void savePostedPlaces(Post post, List<Long> placeIds) {
-        for (Long placeId : placeIds) {
-            if (placeId == null) {
-                continue;
-            }
-            postedPlaceRepository.save(new PostedPlace(post, placeId));
+    private void saveRecommendedPlace(Post post, PlaceRecommendationPayload payload) {
+        postedPlaceRepository.save(
+                new PostedPlace(post, payload.placeId(), payload.googlePlaceId(), payload.rating()));
+    }
+
+    private PlaceRecommendationPayload validatePlaceRecommendation(PostCreateRequest request) {
+        Long placeId = request.getPlaceId();
+        Integer rating = request.getRating();
+        String placeName = request.getPlaceName();
+        if (placeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소를 선택해주세요.");
         }
+        if (placeName == null || placeName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
+        }
+        if (rating == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
+        }
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
+        }
+        return new PlaceRecommendationPayload(placeId, request.getGooglePlaceId(), placeName, rating);
+    }
+
+    private PlaceRecommendationPayload validatePlaceRecommendationForUpdate(PostUpdateRequest request) {
+        Long placeId = request.getPlaceId();
+        Integer rating = request.getRating();
+        String placeName = request.getPlaceName();
+        if (placeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소를 선택해주세요.");
+        }
+        if (placeName == null || placeName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
+        }
+        if (rating == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
+        }
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
+        }
+        return new PlaceRecommendationPayload(placeId, request.getGooglePlaceId(), placeName, rating);
+    }
+
+    private record PlaceRecommendationPayload(Long placeId, String googlePlaceId, String placeName, Integer rating) {
+    }
+
+    private Long resolvePlanId(PostCreateRequest request) {
+        Long resolved = request.getPlanId() != null ? request.getPlanId() : request.getTripId();
+        if (resolved == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*연결할 일정을 선택해주세요.");
+        }
+        return resolved;
+    }
+
+    private Long resolvePlanIdForUpdate(PostUpdateRequest request) {
+        Long resolved = request.getPlanId() != null ? request.getPlanId() : request.getTripId();
+        if (resolved == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*연결할 일정을 선택해주세요.");
+        }
+        return resolved;
     }
 
     private void overridePlanShareImages(List<PostSummaryResponse> items) {
@@ -251,8 +318,45 @@ public class PostService {
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.touchUpdatedAt(now);
-        deleteExistingPostImages(postId);
-        List<Long> imageIds = savePostImages(postId, request.getImageKeys(), now);
+        List<Long> imageIds = Collections.emptyList();
+        BoardType requestedBoardType = request.getBoardType();
+        if (requestedBoardType != post.getBoardType()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*게시판 유형을 변경할 수 없습니다.");
+        }
+        switch (requestedBoardType) {
+            case FREE -> {
+                deleteExistingPostImages(postId);
+                imageIds = savePostImages(postId, request.getImageKeys(), now);
+                post.setPlanInfo(null);
+                post.setPlaceRecommendation(null, null);
+                postedPlaceRepository.deleteByPostId(postId);
+                postedPlanRepository.findByPostId(postId)
+                        .ifPresent(postedPlanRepository::delete);
+            }
+            case PLAN_SHARE -> {
+                Long planId = resolvePlanIdForUpdate(request);
+                Trip plan = validateTripForUpdate(planId, postId, user);
+                post.setPlanInfo(planId);
+                post.setPlaceRecommendation(null, null);
+                postedPlaceRepository.deleteByPostId(postId);
+                Optional<PostedPlan> existingPlan = postedPlanRepository.findByPostId(postId);
+                if (existingPlan.isPresent()) {
+                    existingPlan.get().setTrip(plan);
+                } else {
+                    postedPlanRepository.save(new PostedPlan(post, plan));
+                }
+            }
+            case PLACE_RECOMMEND -> {
+                PlaceRecommendationPayload payload = validatePlaceRecommendationForUpdate(request);
+                post.setPlanInfo(null);
+                post.setPlaceRecommendation(payload.placeName(), payload.rating());
+                postedPlanRepository.findByPostId(postId)
+                        .ifPresent(postedPlanRepository::delete);
+                postedPlaceRepository.deleteByPostId(postId);
+                saveRecommendedPlace(post, payload);
+            }
+            default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
+        }
         Post saved = postRepository.save(post);
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
@@ -342,6 +446,15 @@ public class PostService {
         }
     }
 
+    private void validateText(String title, String content) {
+        if (!StringUtils.hasText(title)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*제목을 입력해주세요.");
+        }
+        if (!StringUtils.hasText(content)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*내용을 입력해주세요.");
+        }
+    }
+
     private Trip validateTrip(Long tripId, User user) {
         if (tripId == null) {
             throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
@@ -352,6 +465,25 @@ public class PostService {
             throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
         }
         if (postedPlanRepository.existsByTripId(tripId)) {
+            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+        }
+        return trip;
+    }
+
+    private Trip validateTripForUpdate(Long tripId, Long postId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        Optional<PostedPlan> existing = postedPlanRepository.findByPostId(postId);
+        Long existingTripId = existing.map(p -> p.getTrip().getId()).orElse(null);
+        boolean usedByOthers = postedPlanRepository.existsByTripId(tripId)
+                && (existingTripId == null || !existingTripId.equals(tripId));
+        if (usedByOthers) {
             throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
         }
         return trip;
