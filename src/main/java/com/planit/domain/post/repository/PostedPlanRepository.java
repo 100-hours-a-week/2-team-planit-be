@@ -4,6 +4,7 @@ import com.planit.domain.post.entity.PostedPlan;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,6 +28,12 @@ public interface PostedPlanRepository extends JpaRepository<PostedPlan, Long> {
      * @return Optional<PostedPlan>
      */
     Optional<PostedPlan> findByPostId(Long postId);
+
+    /**
+     * 주어진 일정이 다른 게시물에 연결됐는지 확인
+     */
+    @Query("select count(p) > 0 from PostedPlan p where p.trip.id = :tripId and p.post.id <> :postId")
+    boolean existsByTripIdAndPostIdNot(@Param("tripId") Long tripId, @Param("postId") Long postId);
 
     /**
      * 일정 ID로 공유 여부 확인
