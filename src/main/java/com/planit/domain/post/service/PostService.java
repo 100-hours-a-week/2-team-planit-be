@@ -463,9 +463,6 @@ public class PostService {
         if (!trip.getUser().getId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
         }
-        if (postedPlanRepository.existsByTripId(tripId)) {
-            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
-        }
         return trip;
     }
 
@@ -477,13 +474,6 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
         if (!trip.getUser().getId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
-        }
-        Optional<PostedPlan> existing = postedPlanRepository.findByPostId(postId);
-        Long existingTripId = existing.map(p -> p.getTrip().getId()).orElse(null);
-        boolean usedByOthers = postedPlanRepository.existsByTripId(tripId)
-                && (existingTripId == null || !existingTripId.equals(tripId));
-        if (usedByOthers) {
-            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
         }
         return trip;
     }

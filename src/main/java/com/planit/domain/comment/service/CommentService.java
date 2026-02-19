@@ -54,9 +54,8 @@ public class CommentService {
             Post post = postRepository.findById(postId).orElseThrow();
             User user = userRepository.findByLoginIdAndDeletedFalse(loginId).orElseThrow();
             LocalDateTime now = LocalDateTime.now();
-            Comment comment = Comment.create(post, user, request.getContent(), now);
-            Comment saved = commentRepository.save(comment);
-            post.incrementCommentCount();
+        Comment comment = Comment.create(post, user, request.getContent(), now);
+        Comment saved = commentRepository.save(comment);
             publishCommentNotification(post, user, request.getContent());
             String profileImageUrl = imageUrlResolver.resolve(user.getProfileImageKey());
             return CommentResponse.from(saved, profileImageUrl);
@@ -77,7 +76,6 @@ public class CommentService {
             if (updatedRows == 0) {
                 throw new IllegalStateException("이미 삭제된 댓글입니다.");
             }
-            post.decrementCommentCount();
             return null;
         });
     }

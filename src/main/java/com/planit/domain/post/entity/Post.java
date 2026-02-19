@@ -67,7 +67,7 @@ public class Post {
     private LocalDateTime deletedAt; // 삭제된 시점
 
     @Column(name = "comment_count", nullable = false)
-    private Long commentCount = 0L; // 댓글 수
+    private Integer commentCount = 0;
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", referencedColumnName = "post_id", insertable = false, updatable = false)
@@ -90,15 +90,6 @@ public class Post {
         this.title = title;
         this.content = content;
         touchUpdatedAt(now);
-    }
-
-    public void incrementCommentCount() {
-        this.commentCount = (this.commentCount == null ? 0 : this.commentCount) + 1;
-    }
-
-    public void decrementCommentCount() {
-        long current = this.commentCount == null ? 0L : this.commentCount;
-        this.commentCount = Math.max(current - 1, 0L);
     }
 
     public static Post create(User author, String title, String content, BoardType boardType, LocalDateTime now) {
