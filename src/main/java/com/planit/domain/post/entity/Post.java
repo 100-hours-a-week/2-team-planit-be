@@ -92,6 +92,15 @@ public class Post {
         touchUpdatedAt(now);
     }
 
+    public void incrementCommentCount() {
+        this.commentCount = (this.commentCount == null ? 0 : this.commentCount) + 1;
+    }
+
+    public void decrementCommentCount() {
+        long current = this.commentCount == null ? 0L : this.commentCount;
+        this.commentCount = Math.max(current - 1, 0L);
+    }
+
     public static Post create(User author, String title, String content, BoardType boardType, LocalDateTime now) {
         Post post = new Post();
         post.author = author;
