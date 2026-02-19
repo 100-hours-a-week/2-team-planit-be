@@ -19,6 +19,7 @@ public class PostedPlace {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "posted_place_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -28,12 +29,20 @@ public class PostedPlace {
     @Column(name = "place_id", nullable = false)
     private Long placeId;
 
+    @Column(name = "google_place_id", length = 255)
+    private String googlePlaceId;
+
+    @Column(name = "rating", nullable = false)
+    private Integer rating;
+
     protected PostedPlace() {
     }
 
-    public PostedPlace(Post post, Long placeId) {
+    public PostedPlace(Post post, Long placeId, String googlePlaceId, Integer rating) {
         this.post = post;
         this.placeId = placeId;
+        this.googlePlaceId = googlePlaceId;
+        this.rating = rating;
     }
 
     public Long getId() {
@@ -46,5 +55,13 @@ public class PostedPlace {
 
     public Long getPlaceId() {
         return placeId;
+    }
+
+    public String getGooglePlaceId() {
+        return googlePlaceId;
+    }
+
+    public Integer getRating() {
+        return rating;
     }
 }

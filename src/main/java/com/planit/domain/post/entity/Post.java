@@ -51,6 +51,15 @@ public class Post {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt; // 수정 시각 (audit)
 
+    @Column(name = "plan_id")
+    private Long planId;
+
+    @Column(name = "place_name", length = 255)
+    private String placeName;
+
+    @Column(name = "rating")
+    private Integer rating;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean deleted = false; // 논리 삭제 플래그
 
@@ -83,6 +92,15 @@ public class Post {
         touchUpdatedAt(now);
     }
 
+    public void incrementCommentCount() {
+        this.commentCount = (this.commentCount == null ? 0 : this.commentCount) + 1;
+    }
+
+    public void decrementCommentCount() {
+        long current = this.commentCount == null ? 0L : this.commentCount;
+        this.commentCount = Math.max(current - 1, 0L);
+    }
+
     public static Post create(User author, String title, String content, BoardType boardType, LocalDateTime now) {
         Post post = new Post();
         post.author = author;
@@ -91,6 +109,30 @@ public class Post {
         post.boardType = boardType;
         post.createdAt = now;
         post.updatedAt = now;
+        post.planId = null;
+        post.placeName = null;
+        post.rating = null;
         return post;
+    }
+
+    public void setPlanInfo(Long planId) {
+        this.planId = planId;
+    }
+
+    public void setPlaceRecommendation(String placeName, Integer rating) {
+        this.placeName = placeName;
+        this.rating = rating;
+    }
+
+    public Long getPlanId() {
+        return planId;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public Integer getRating() {
+        return rating;
     }
 }

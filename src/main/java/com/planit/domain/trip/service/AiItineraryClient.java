@@ -1,10 +1,11 @@
 package com.planit.domain.trip.service;
 
+import com.planit.domain.ai.config.AiProperties;
 import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.AiItineraryResponse;
 import com.planit.domain.trip.dto.AiItineraryActivityResponse;
 import com.planit.domain.trip.dto.AiItineraryDayResponse;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,25 +16,27 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
+/**
+ * AI 여행 일정 생성 서버와 통신하는 클라이언트.
+ * @RefreshScope: Actuator의 /actuator/refresh 호출 시 재시작 없이 설정 갱신 가능
+ */
+@RefreshScope
 @Component
 public class AiItineraryClient {
 
     private final RestTemplate restTemplate;
-    private final String baseUrl;
-    private final boolean mockEnabled;
+    private final AiProperties aiProperties;
 
     // 생성자로 client 클래스 필드 주입
     public AiItineraryClient(RestTemplate restTemplate,
-                             @Value("${ai.base-url:http://localhost:8000}") String baseUrl,
-                             @Value("${ai.mock-enabled:false}") boolean mockEnabled) {
+                             AiProperties aiProperties) {
         this.restTemplate = restTemplate;
-        this.baseUrl = baseUrl;
-        this.mockEnabled = mockEnabled;
+        this.aiProperties = aiProperties;
     }
 
     // AI 서버 요청 메서드
     public AiItineraryResponse requestItinerary(AiItineraryRequest request) {
-        if (mockEnabled) {
+        if (aiProperties.isMockEnabled()) {
             //throw new RestClientException("ai서버요청 에러응답 테스트용");
             return createDummyResponse(request);
         }
@@ -41,7 +44,7 @@ public class AiItineraryClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<AiItineraryRequest> entity = new HttpEntity<>(request, headers);
-        return restTemplate.postForObject(baseUrl + "/api/v1/itinerary", entity, AiItineraryResponse.class);
+        return restTemplate.postForObject(aiProperties.getBaseUrl() + "/api/v1/itinerary", entity, AiItineraryResponse.class);
         // postForObject = throws RestClientException
     }
 

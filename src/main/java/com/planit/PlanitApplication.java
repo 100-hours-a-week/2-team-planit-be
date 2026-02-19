@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServic
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import com.planit.domain.user.config.JwtProperties;
 import com.planit.domain.user.config.ProfileImageProperties;
+import com.planit.domain.ai.config.AiProperties;
 
 @SpringBootApplication(exclude = {
     SecurityAutoConfiguration.class,
@@ -14,7 +15,8 @@ import com.planit.domain.user.config.ProfileImageProperties;
 }) // Spring Boot 자동 설정 활성화 + 기본 Security 제거
 @EnableConfigurationProperties({
     ProfileImageProperties.class,
-    JwtProperties.class
+    JwtProperties.class,
+    AiProperties.class // AI 서버 설정 (재시작 없이 refresh 가능)
 })
 public class PlanitApplication {
 
