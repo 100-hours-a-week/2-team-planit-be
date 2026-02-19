@@ -1,11 +1,9 @@
 package com.planit.domain.post.dto;
 
-import com.planit.domain.post.entity.BoardType;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.Collections;
@@ -34,10 +32,6 @@ public class PostUpdateRequest {
     @NotBlank(message = "*내용을 입력해주세요.")
     @Size(max = 2000, message = "*내용은 최대 2000자까지 작성할 수 있습니다.")
     private String content;
-
-    @Parameter(description = "게시판 유형")
-    @NotNull(message = "*게시판 유형을 선택해주세요.")
-    private BoardType boardType;
 
     @Parameter(description = "PLAN_SHARE일 때 연결할 plan ID")
     private Long planId;

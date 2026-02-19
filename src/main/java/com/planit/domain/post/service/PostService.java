@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -197,8 +198,9 @@ public class PostService {
     }
 
     private void saveRecommendedPlace(Post post, PlaceRecommendationPayload payload) {
+        Long placeId = Objects.requireNonNull(payload.placeId(), "*장소를 선택해주세요.");
         postedPlaceRepository.save(
-                new PostedPlace(post, payload.placeId(), payload.googlePlaceId(), payload.rating()));
+                new PostedPlace(post, placeId, payload.googlePlaceId(), payload.rating()));
     }
 
     private PlaceRecommendationPayload validatePlaceRecommendation(PostCreateRequest request) {
@@ -319,11 +321,8 @@ public class PostService {
         post.setContent(request.getContent());
         post.touchUpdatedAt(now);
         List<Long> imageIds = Collections.emptyList();
-        BoardType requestedBoardType = request.getBoardType();
-        if (requestedBoardType != post.getBoardType()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*게시판 유형을 변경할 수 없습니다.");
-        }
-        switch (requestedBoardType) {
+        BoardType currentBoardType = post.getBoardType();
+        switch (currentBoardType) {
             case FREE -> {
                 deleteExistingPostImages(postId);
                 imageIds = savePostImages(postId, request.getImageKeys(), now);

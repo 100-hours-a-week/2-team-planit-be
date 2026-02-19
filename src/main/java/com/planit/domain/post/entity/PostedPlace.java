@@ -19,13 +19,14 @@ public class PostedPlace {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "posted_place_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "post_id", nullable = false)
     private Post post;
 
-    @Column(name = "place_id")
+    @Column(name = "place_id", nullable = false)
     private Long placeId;
 
     @Column(name = "google_place_id", length = 255)
