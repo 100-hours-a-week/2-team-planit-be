@@ -15,6 +15,10 @@ server: # 내장 서버 구성
   port: 8080
   servlet: # 서블릿 관련 설정
     context-path: /api # 전체 API에 붙일 context-path
+  tomcat: # Tomcat 스레드 풀 설정 (재시도 로직 고려 - 마이그레이션 기간 동안 증가)
+    threads:
+      max: 400 # 최대 스레드 수 (재시도 중 최대 69.3초 대기 고려하여 증가, 마이그레이션 완료 후 200으로 복원 권장)
+      min-spare: 20 # 최소 유휴 스레드 수 (재시도 시나리오 고려하여 증가)
 
 cloud:
   aws:
@@ -44,4 +48,15 @@ planit:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}
+
+  # DB 마이그레이션 중 쓰기 요청 재시도 설정
+  db:
+    retry:
+      enabled: true # 재시도 기능 활성화 여부 (마이그레이션 완료 후 false로 변경 가능)
+      max-attempts: 5 # 최대 재시도 횟수
+      initial-interval: 300 # 초기 재시도 간격 (ms) - 0.3초
+      multiplier: 5.0 # 재시도 간격 배수 (지수 백오프)
+      max-interval: 30000 # 최대 재시도 간격 (ms) - 30초
+      # 재시도 간격: 0.3초 → 1.5초 → 7.5초 → 30초 → 30초
+      # 총 대기 시간: 약 69.3초 (1.15분)
 
