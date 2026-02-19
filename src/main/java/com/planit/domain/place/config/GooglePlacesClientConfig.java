@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class GooglePlacesClientConfig {
 
+
     @Bean
     public RestClient googlePlacesRestClient() {
         HttpClient httpClient = HttpClient.newBuilder()

@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClientResponseException;
 @Component
 public class GooglePlacesClient {
 
+
     private static final Logger logger = LoggerFactory.getLogger(GooglePlacesClient.class);
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri";

@@ -9,6 +9,7 @@ import java.util.Optional;
 
 public class PlaceSearchMapper {
 
+
     private PlaceSearchMapper() {
     }
 

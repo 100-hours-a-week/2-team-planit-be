@@ -1,6 +1,7 @@
 package com.planit.domain.place.dto;
 
 public record PlaceSearchItem(
+
         String googlePlaceId,
         String googleMapUrl,
         String name,

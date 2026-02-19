@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class PlaceSearchService {
 
+
     private static final Logger logger = LoggerFactory.getLogger(PlaceSearchService.class);
 
     private final GooglePlacesClient googlePlacesClient;

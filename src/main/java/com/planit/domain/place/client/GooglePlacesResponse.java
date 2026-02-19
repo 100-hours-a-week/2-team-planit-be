@@ -3,6 +3,7 @@ package com.planit.domain.place.client;
 import java.util.List;
 
 public record GooglePlacesResponse(
+
         List<Place> places
 ) {
     public record Place(

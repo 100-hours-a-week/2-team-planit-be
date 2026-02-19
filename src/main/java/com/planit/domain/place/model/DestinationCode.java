@@ -1,6 +1,7 @@
 package com.planit.domain.place.model;
 
 public enum DestinationCode {
+
     KAOHSIUNG_TW(new GeoRectangle(new GeoPoint(22.4656, 120.0581), new GeoPoint(22.7890, 120.5447))),
     GUAM_US(new GeoRectangle(new GeoPoint(13.3006, 144.5905), new GeoPoint(13.5880, 144.9969))),
     NAGOYA_JP(new GeoRectangle(new GeoPoint(35.0198, 136.6318), new GeoPoint(35.3432, 137.1814))),

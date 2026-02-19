@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class PlaceSearchExceptionHandler {
 
+
     private static final Logger logger = LoggerFactory.getLogger(PlaceSearchExceptionHandler.class);
 
     @ExceptionHandler(PlaceSearchException.class)

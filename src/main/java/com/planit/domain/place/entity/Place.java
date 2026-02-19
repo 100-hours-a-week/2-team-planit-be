@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class Place {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "place_id")

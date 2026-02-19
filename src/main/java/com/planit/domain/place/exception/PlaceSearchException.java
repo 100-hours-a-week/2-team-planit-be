@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 
 public class PlaceSearchException extends RuntimeException {
 
+
     private final ErrorCode errorCode;
     private final HttpStatus httpStatus;
 

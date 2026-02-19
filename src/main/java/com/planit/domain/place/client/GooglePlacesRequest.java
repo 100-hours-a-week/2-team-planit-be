@@ -1,6 +1,7 @@
 package com.planit.domain.place.client;
 
 public record GooglePlacesRequest(
+
         String textQuery,
         LocationRestriction locationRestriction
 ) {
