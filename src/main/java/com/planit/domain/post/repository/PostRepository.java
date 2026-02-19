@@ -26,6 +26,7 @@ public interface PostRepository
         Long getLikeCount();
         Long getCommentCount();
         Long getRepresentativeImageId();
+        String getRepresentativeImageKey();
         Double getRankingScore();
         String getPlaceName();
         String getTripTitle();
@@ -52,10 +53,21 @@ public interface PostRepository
                             + "(select count(1) from comments c "
                             + " where c.post_id = p.post_id "
                             + "   and c.created_at >= date_sub(current_date(), interval 1 year)) as commentCount, "
-                            + "null as representativeImageId, "
+                            + "(select pi.image_id from posted_images pi "
+                            + " where pi.post_id = p.post_id "
+                            + "   and pi.is_main_image = 1 "
+                            + " order by pi.created_at asc limit 1) as representativeImageId, "
+                            + "(select i.s3_key from posted_images pi "
+                            + " join images i on i.id = pi.image_id "
+                            + " where pi.post_id = p.post_id "
+                            + "   and pi.is_main_image = 1 "
+                            + " order by pi.created_at asc limit 1) as representativeImageKey, "
                             //없는 테이블 참조 문제 해결
                             + "null as rankingScore, "
-                            + "null as placeName, "
+                            + "(select pl.name from posted_places pp "
+                            + " join places pl on pl.place_id = pp.place_id "
+                            + " where pp.post_id = p.post_id "
+                            + " limit 1) as placeName, "
                             + "null as tripTitle "
                             /*
                             + "(select pr.score from post_ranking_snapshots pr "
@@ -70,17 +82,24 @@ public interface PostRepository
                             + " where pt.post_id = p.post_id "
                             + " limit 1) as tripTitle "
                              */
-                            + "from posts p "
-                            + "join users u on u.user_id = p.user_id "
-                            + " and u.is_deleted = 0 "
-                            + "where p.board_type = :boardType "
-                            + "and p.is_deleted = 0 "
-                            + "and ( :pattern = '%' "
-                            + "   or lower(p.title) like lower(:pattern) "
-                            + "   or lower(p.content) like lower(:pattern) ) "
-                            + "order by case\n"
-                            + " when :sortOption = 'COMMENTS' then commentCount\n"
-                            + " when :sortOption = 'LIKES' then likeCount\n"
+                    + "from posts p "
+                    + "join users u on u.user_id = p.user_id "
+                    + " and u.is_deleted = 0 "
+                    + "where p.board_type = :boardType "
+                    + "and p.is_deleted = 0 "
+                    + "and ( :search = '' "
+                    + "   or p.title like concat('%', :search, '%') "
+                    + "   or p.content like concat('%', :search, '%') "
+                    + "   or exists ("
+                    + "       select 1 from posted_places pp "
+                    + "       join places pl on pl.place_id = pp.place_id "
+                    + "       where pp.post_id = p.post_id "
+                    + "         and pl.name like concat('%', :search, '%')"
+                    + "   )"
+                    + ") "
+                    + "order by case\n"
+                            + " when :sortOption in ('COMMENTS', 'COMMENTS_1Y') then commentCount\n"
+                            + " when :sortOption in ('LIKES', 'LIKES_1Y') then likeCount\n"
                             + " else p.created_at\n"
                             + " end desc",
             countQuery =
@@ -90,16 +109,23 @@ public interface PostRepository
                             + " and u.is_deleted = 0 "
                             + "where p.board_type = :boardType "
                             + "and p.is_deleted = 0 "
-                            + "and ( :pattern = '%' "
-                            + "   or lower(p.title) like lower(:pattern) "
-                            + "   or lower(p.content) like lower(:pattern) )",
+                            + "and ( :search = '' "
+                            + "   or p.title like concat('%', :search, '%') "
+                            + "   or p.content like concat('%', :search, '%') "
+                            + "   or exists ("
+                            + "       select 1 from posted_places pp "
+                            + "       join places pl on pl.place_id = pp.place_id "
+                            + "       where pp.post_id = p.post_id "
+                            + "         and pl.name like concat('%', :search, '%')"
+                            + "   )"
+                            + ")",
             nativeQuery = true
     )
     Page<PostSummary> searchByBoardType(
-            @Param("boardType") String boardType,
-            @Param("pattern") String pattern,
-            @Param("sortOption") String sortOption,
-            Pageable pageable
+        @Param("boardType") String boardType,
+        @Param("search") String search,
+        @Param("sortOption") String sortOption,
+        Pageable pageable
     );
 
     /**

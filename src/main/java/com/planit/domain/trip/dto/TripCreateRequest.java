@@ -1,7 +1,6 @@
 package com.planit.domain.trip.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.planit.domain.place.model.DestinationCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -34,9 +33,6 @@ public record TripCreateRequest(
         @NotNull
         @Positive
         Integer totalBudget,
-
-        @NotNull
-        DestinationCode destinationCode,
 
         @NotEmpty
         List<@NotBlank String> travelTheme,

@@ -11,21 +11,33 @@ import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedImage;
+import com.planit.domain.post.entity.PostedPlan;
+import com.planit.domain.post.entity.PostedPlace;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
+import com.planit.domain.post.repository.PostedPlanRepository;
+import com.planit.domain.post.repository.PostedPlaceRepository;
 import com.planit.domain.post.service.ImageStorageService;
+import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
+import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.global.common.exception.BusinessException;
+import com.planit.global.common.exception.ErrorCode;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
-import com.planit.infrastructure.storage.UploadContext;
-import com.planit.infrastructure.storage.UploadUrlProvider;
+import com.planit.infrastructure.storage.S3ObjectDeleter;
+import com.planit.infrastructure.storage.S3PresignedUrlService;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -44,14 +56,20 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PostService {
     private static final Logger log = LoggerFactory.getLogger(PostService.class);
+    private static final String PLAN_SHARE_PLACEHOLDER_IMAGE = "/images/plan-share-default.png";
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final ImageStorageService imageStorageService;
     private final PostedImageRepository postedImageRepository;
     private final ImageRepository imageRepository;
-    private final ObjectProvider<UploadUrlProvider> uploadUrlProvider;
+    private final ObjectProvider<S3PresignedUrlService> presignedUrlServiceProvider;
+    private final ObjectProvider<S3ObjectDeleter> s3ObjectDeleterProvider;
     private final S3ImageUrlResolver imageUrlResolver;
+    private final TripRepository tripRepository;
+    private final PostedPlanRepository postedPlanRepository;
+    private final PostedPlaceRepository postedPlaceRepository;
+    private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -62,31 +80,41 @@ public class PostService {
             int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        String pattern = buildSearchPattern(search);
+        String normalizedSearch = search == null ? "" : search;
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
                 boardType.name(),
-                pattern,
+                normalizedSearch,
                 sortOption.name(),
                 pageable
         );
         List<PostSummaryResponse> items = result.getContent()
                 .stream()
-                .map(summary -> new PostSummaryResponse(
-                        summary.getPostId(),
-                        summary.getTitle(),
-                        summary.getAuthorId(),
-                        summary.getAuthorNickname(),
-                        imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
-                        summary.getCreatedAt(),
-                        summary.getLikeCount(),
-                        summary.getCommentCount(),
-                        summary.getRepresentativeImageId(),
-                        summary.getRankingScore(),
-                        summary.getPlaceName(),
-                        summary.getTripTitle()
-                ))
+                .map(summary -> {
+                    String thumbnailUrl = null;
+                    if (summary.getRepresentativeImageKey() != null) {
+                        thumbnailUrl = imageUrlResolver.resolve(summary.getRepresentativeImageKey());
+                    }
+                    return new PostSummaryResponse(
+                            summary.getPostId(),
+                            summary.getTitle(),
+                            summary.getAuthorId(),
+                            summary.getAuthorNickname(),
+                            imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
+                            summary.getCreatedAt(),
+                            summary.getLikeCount(),
+                            summary.getCommentCount(),
+                            summary.getRepresentativeImageId(),
+                            thumbnailUrl,
+                            summary.getRankingScore(),
+                            summary.getPlaceName(),
+                            summary.getTripTitle()
+                    );
+                })
                 .collect(Collectors.toList());
-        return new PostListResponse(items, result.hasNext());
+        if (boardType == BoardType.PLAN_SHARE) {
+            overridePlanShareImages(items);
+        }
+        return new PostListResponse(items, result.hasNext(), page, size);
     }
 
     /** Presigned URL 발급 (게시물 이미지) */
@@ -95,13 +123,12 @@ public class PostService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
-        if (provider == null) {
+        S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
+        if (service == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "*이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
-        return provider.issuePresignedPutUrl(
-                UploadContext.post(user.getId(), fileExtension, contentType)
-        );
+        return service.createPostPresignedUrl(user.getId(), fileExtension,
+                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
     }
 
     /**
@@ -129,16 +156,148 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         LocalDateTime now = LocalDateTime.now();
-        Post post = Post.create(user, request.getTitle(), request.getContent(), BoardType.FREE, now);
-        Post saved = postRepository.save(post);
-        List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
-        return new PostCreateResponse(saved.getId(),
+        BoardType boardType = request.getBoardType();
+        validateText(request.getTitle(), request.getContent());
+        Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
+        switch (boardType) {
+            case FREE -> {
+                Post saved = postRepository.save(post);
+                List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
+                return buildCreateResponse(saved, imageIds);
+            }
+            case PLAN_SHARE -> {
+                Long planId = resolvePlanId(request);
+                Trip plan = validateTrip(planId, user);
+                post.setPlanInfo(planId);
+                Post saved = postRepository.save(post);
+                postedPlanRepository.save(new PostedPlan(saved, plan));
+                return buildCreateResponse(saved, Collections.emptyList());
+            }
+            case PLACE_RECOMMEND -> {
+                PlaceRecommendationPayload payload = validatePlaceRecommendation(request);
+                post.setPlaceRecommendation(payload.placeName(), payload.rating());
+                Post saved = postRepository.save(post);
+                saveRecommendedPlace(saved, payload);
+                return buildCreateResponse(saved, Collections.emptyList());
+            }
+            default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
+        }
+    }
+
+    private PostCreateResponse buildCreateResponse(Post saved, List<Long> imageIds) {
+        return new PostCreateResponse(
+                saved.getId(),
                 saved.getBoardType(),
                 saved.getTitle(),
                 saved.getContent(),
                 saved.getCreatedAt(),
                 saved.getAuthor().getId(),
-                imageIds);
+                imageIds
+        );
+    }
+
+    private void saveRecommendedPlace(Post post, PlaceRecommendationPayload payload) {
+        postedPlaceRepository.save(
+                new PostedPlace(post, payload.placeId(), payload.googlePlaceId(), payload.rating()));
+    }
+
+    private PlaceRecommendationPayload validatePlaceRecommendation(PostCreateRequest request) {
+        Long placeId = request.getPlaceId();
+        Integer rating = request.getRating();
+        String placeName = request.getPlaceName();
+        if (placeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소를 선택해주세요.");
+        }
+        if (placeName == null || placeName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
+        }
+        if (rating == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
+        }
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
+        }
+        return new PlaceRecommendationPayload(placeId, request.getGooglePlaceId(), placeName, rating);
+    }
+
+    private PlaceRecommendationPayload validatePlaceRecommendationForUpdate(PostUpdateRequest request) {
+        Long placeId = request.getPlaceId();
+        Integer rating = request.getRating();
+        String placeName = request.getPlaceName();
+        if (placeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소를 선택해주세요.");
+        }
+        if (placeName == null || placeName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
+        }
+        if (rating == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
+        }
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
+        }
+        return new PlaceRecommendationPayload(placeId, request.getGooglePlaceId(), placeName, rating);
+    }
+
+    private record PlaceRecommendationPayload(Long placeId, String googlePlaceId, String placeName, Integer rating) {
+    }
+
+    private Long resolvePlanId(PostCreateRequest request) {
+        Long resolved = request.getPlanId() != null ? request.getPlanId() : request.getTripId();
+        if (resolved == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*연결할 일정을 선택해주세요.");
+        }
+        return resolved;
+    }
+
+    private Long resolvePlanIdForUpdate(PostUpdateRequest request) {
+        Long resolved = request.getPlanId() != null ? request.getPlanId() : request.getTripId();
+        if (resolved == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*연결할 일정을 선택해주세요.");
+        }
+        return resolved;
+    }
+
+    private void overridePlanShareImages(List<PostSummaryResponse> items) {
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Long> postIds = items.stream()
+                .map(PostSummaryResponse::getPostId)
+                .collect(Collectors.toList());
+        List<PostedPlanRepository.PostTripIdInfo> mappings = postedPlanRepository.findTripIdsByPostIds(postIds);
+        if (mappings.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> postToTrip = mappings.stream()
+                .collect(Collectors.toMap(
+                        PostedPlanRepository.PostTripIdInfo::getPostId,
+                        PostedPlanRepository.PostTripIdInfo::getTripId
+                ));
+        if (postToTrip.isEmpty()) {
+            return;
+        }
+        LinkedHashSet<Long> tripIdOrder = new LinkedHashSet<>(postToTrip.values());
+        List<Long> tripIds = new ArrayList<>(tripIdOrder);
+        List<ItineraryItemPlaceRepository.TripPlaceInfo> tripPlaces =
+                itineraryItemPlaceRepository.findFirstPlacesByTripIds(tripIds);
+        if (tripPlaces.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> tripToPlace = new LinkedHashMap<>();
+        for (ItineraryItemPlaceRepository.TripPlaceInfo info : tripPlaces) {
+            tripToPlace.putIfAbsent(info.getTripId(), info.getPlaceId());
+        }
+        for (PostSummaryResponse item : items) {
+            if (item.getRepresentativeImageUrl() != null) {
+                continue;
+            }
+            Long tripId = postToTrip.get(item.getPostId());
+            if (tripId == null || !tripToPlace.containsKey(tripId)) {
+                continue;
+            }
+            item.setRepresentativeImageUrl(PLAN_SHARE_PLACEHOLDER_IMAGE);
+        }
     }
 
     /**
@@ -159,8 +318,45 @@ public class PostService {
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.touchUpdatedAt(now);
-        deleteExistingPostImages(postId);
-        List<Long> imageIds = savePostImages(postId, request.getImageKeys(), now);
+        List<Long> imageIds = Collections.emptyList();
+        BoardType requestedBoardType = request.getBoardType();
+        if (requestedBoardType != post.getBoardType()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*게시판 유형을 변경할 수 없습니다.");
+        }
+        switch (requestedBoardType) {
+            case FREE -> {
+                deleteExistingPostImages(postId);
+                imageIds = savePostImages(postId, request.getImageKeys(), now);
+                post.setPlanInfo(null);
+                post.setPlaceRecommendation(null, null);
+                postedPlaceRepository.deleteByPostId(postId);
+                postedPlanRepository.findByPostId(postId)
+                        .ifPresent(postedPlanRepository::delete);
+            }
+            case PLAN_SHARE -> {
+                Long planId = resolvePlanIdForUpdate(request);
+                Trip plan = validateTripForUpdate(planId, postId, user);
+                post.setPlanInfo(planId);
+                post.setPlaceRecommendation(null, null);
+                postedPlaceRepository.deleteByPostId(postId);
+                Optional<PostedPlan> existingPlan = postedPlanRepository.findByPostId(postId);
+                if (existingPlan.isPresent()) {
+                    existingPlan.get().setTrip(plan);
+                } else {
+                    postedPlanRepository.save(new PostedPlan(post, plan));
+                }
+            }
+            case PLACE_RECOMMEND -> {
+                PlaceRecommendationPayload payload = validatePlaceRecommendationForUpdate(request);
+                post.setPlanInfo(null);
+                post.setPlaceRecommendation(payload.placeName(), payload.rating());
+                postedPlanRepository.findByPostId(postId)
+                        .ifPresent(postedPlanRepository::delete);
+                postedPlaceRepository.deleteByPostId(postId);
+                saveRecommendedPlace(post, payload);
+            }
+            default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
+        }
         Post saved = postRepository.save(post);
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
@@ -231,16 +427,16 @@ public class PostService {
             log.info("S3 delete skip: image has no s3_key");
             return;
         }
-        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
-        if (provider == null) {
-            log.info("image delete skip: UploadUrlProvider not available (storage.mode?), key={}", s3Key);
+        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
+        if (deleter == null) {
+            log.info("S3 delete skip: S3ObjectDeleter not available (cloud.aws.enabled?), key={}", s3Key);
             return;
         }
         try {
-            provider.deleteByKey(s3Key);
-            log.info("image deleted: {}", s3Key);
+            deleter.delete(s3Key);
+            log.info("S3 object deleted: {}", s3Key);
         } catch (Exception e) {
-            log.warn("image delete failed for key={}, continuing (DB already updated)", s3Key, e);
+            log.warn("S3 delete failed for key={}, continuing (DB already updated)", s3Key, e);
         }
     }
 
@@ -248,6 +444,49 @@ public class PostService {
         if (!key.startsWith("post/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
+    }
+
+    private void validateText(String title, String content) {
+        if (!StringUtils.hasText(title)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*제목을 입력해주세요.");
+        }
+        if (!StringUtils.hasText(content)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*내용을 입력해주세요.");
+        }
+    }
+
+    private Trip validateTrip(Long tripId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        if (postedPlanRepository.existsByTripId(tripId)) {
+            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+        }
+        return trip;
+    }
+
+    private Trip validateTripForUpdate(Long tripId, Long postId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        Optional<PostedPlan> existing = postedPlanRepository.findByPostId(postId);
+        Long existingTripId = existing.map(p -> p.getTrip().getId()).orElse(null);
+        boolean usedByOthers = postedPlanRepository.existsByTripId(tripId)
+                && (existingTripId == null || !existingTripId.equals(tripId));
+        if (usedByOthers) {
+            throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+        }
+        return trip;
     }
 
     /**
@@ -288,25 +527,9 @@ public class PostService {
 
     /** 리스트 정렬 옵션 */
     public enum SortOption {
-        LATEST("createdAt"),
-        COMMENTS("commentCount"),
-        LIKES("likeCount");
-
-        private final String sortProperty;
-
-        SortOption(String sortProperty) {
-            this.sortProperty = sortProperty;
-        }
-
-        public String getSortProperty() {
-            return sortProperty;
-        }
+        LATEST,
+        COMMENTS_1Y,
+        LIKES_1Y
     }
 
-    private String buildSearchPattern(String search) {
-        if (search == null || search.isBlank()) {
-            return "%";
-        }
-        return "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
-    }
 }

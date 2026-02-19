@@ -1,5 +1,5 @@
-spring: # Production 환경 Spring Boot 설정 루트
-  datasource: # 배포용 데이터베이스 접속 정보 (cd.yml에서 secrets.SPRING_DATASOURCE_* 주입)
+spring:
+  datasource: # cd-dev.yml에서 secrets.SPRING_DATASOURCE_*_DEV 주입
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
@@ -9,25 +9,23 @@ spring: # Production 환경 Spring Boot 설정 루트
       ddl-auto: update
     properties:
       hibernate:
-        format_sql: false
-    show-sql: false
+        format_sql: true
+    show-sql: true
 
-jwt: # cd.yml에서 secrets.JWT_SECRET 주입
+jwt: # cd-dev.yml에서 secrets.JWT_SECRET_DEV 주입
   secret: ${JWT_SECRET}
   access-token-expiration-ms: 3600000
 
 cloud:
-  aws: # cd.yml에서 secrets.AWS_S3_*, secrets.CLOUDFRONT_DOMAIN 주입
+  aws: # cd-dev.yml에서 secrets.AWS_S3_BUCKET_DEV, secrets.CLOUDFRONT_DOMAIN_DEV 주입
     enabled: true
     s3:
       bucket: ${AWS_S3_BUCKET}
     region:
       static: ${AWS_REGION:ap-northeast-2}
 
-storage:
-  mode: s3
 planit:
-  cloudfront: # cd.yml에서 secrets.CLOUDFRONT_DOMAIN 주입
+  cloudfront: # cd-dev.yml에서 secrets.CLOUDFRONT_DOMAIN_DEV 주입
     domain: ${CLOUDFRONT_DOMAIN}
   profile:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
@@ -37,4 +35,4 @@ ai:
   mock-enabled: false
 
 trip:
-  create-window-enabled: true # 운영환경에서는 시간 제한 활성화
+  create-window-enabled: true

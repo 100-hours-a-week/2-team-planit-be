@@ -57,4 +57,13 @@ public class Comment {
             this.deletedAt = LocalDateTime.now();
         }
     }
+
+    public static Comment create(Post post, User author, String content, LocalDateTime createdAt) {
+        Comment comment = new Comment();
+        comment.post = post;
+        comment.author = author;
+        comment.content = content;
+        comment.createdAt = createdAt;
+        return comment;
+    }
 }
