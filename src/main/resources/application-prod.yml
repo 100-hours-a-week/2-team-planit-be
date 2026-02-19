@@ -29,8 +29,9 @@ planit:
   profile:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
 
+# v1: 단일 인스턴스 → localhost:8000. v2: AI 전용 인스턴스 → 배포 시 AI_BASE_URL 설정 필요
 ai:
-  base-url: http://localhost:8000
+  base-url: ${AI_BASE_URL:http://localhost:8000}
   mock-enabled: false
 
 trip:
