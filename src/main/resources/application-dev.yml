@@ -24,6 +24,8 @@ cloud:
     region:
       static: ${AWS_REGION:ap-northeast-2}
 
+storage:
+  mode: s3
 planit:
   cloudfront: # cd-dev.yml에서 secrets.CLOUDFRONT_DOMAIN_DEV 주입
     domain: ${CLOUDFRONT_DOMAIN}
@@ -34,5 +36,9 @@ ai:
   base-url: http://localhost:8000
   mock-enabled: false
 
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY}
+
 trip:
-  create-window-enabled: true
+  create-window-enabled: false

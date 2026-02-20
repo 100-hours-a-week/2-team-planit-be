@@ -24,6 +24,9 @@ cloud:
     region:
       static: ${AWS_REGION}
 
+storage:
+  mode: s3
+
 ---
 
 # prod 환경은 실제 배포에서만 활성화하세요.
@@ -35,6 +38,11 @@ ai:
   base-url: http://localhost:8000
   mock-enabled: false
 
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY}
+
+
 trip:
   create-window-enabled: true
   daily-create-limit-enabled: true
@@ -44,4 +52,3 @@ planit:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}
-

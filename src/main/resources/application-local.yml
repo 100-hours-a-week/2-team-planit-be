@@ -11,6 +11,21 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: localpass
+      timeout: 2s
+
+  cache:
+    type: redis
+
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
 
 jwt:
   secret: ${JWT_SECRET:QmFzZTY0RW5jb2RlZFNhbXBsZVNlY3JldEtleUo3VjI5bQ==}
@@ -19,6 +34,10 @@ jwt:
 ai:
   base-url: http://localhost:8000
   mock-enabled: true
+
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY}
 
 # S3 테스트 시 환경변수 설정:
 # export AWS_S3_BUCKET=your-bucket-name
@@ -33,6 +52,11 @@ cloud:
     region:
       static: ${AWS_REGION:ap-northeast-2}
 
+storage:
+  mode: stub
+  stub-base-url: http://localhost:${server.port:8080}/api
+  stub-upload-dir: ./tmp/uploads
+
 planit:
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}
@@ -41,4 +65,4 @@ planit:
 
 trip:
   create-window-enabled: false # 로컬에서는 시간 제한 비활성화
-  daily-create-limit-enabled: true # 로컬 테스트에서 제한 해제하려면 false
+  daily-create-limit-enabled: false # 로컬에서는 일별 개수제한 비활성화

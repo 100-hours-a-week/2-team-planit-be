@@ -23,6 +23,9 @@ cloud:
       bucket: ${AWS_S3_BUCKET}
     region:
       static: ${AWS_REGION:ap-northeast-2}
+
+storage:
+  mode: s3
 planit:
   cloudfront: # cd.yml에서 secrets.CLOUDFRONT_DOMAIN 주입
     domain: ${CLOUDFRONT_DOMAIN}
@@ -32,6 +35,10 @@ planit:
 ai:
   base-url: http://localhost:8000
   mock-enabled: false
+
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY}
 
 trip:
   create-window-enabled: true # 운영환경에서는 시간 제한 활성화

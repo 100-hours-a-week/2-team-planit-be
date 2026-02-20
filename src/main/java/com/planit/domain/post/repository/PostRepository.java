@@ -30,8 +30,8 @@ public interface PostRepository
         Double getRankingScore();
         String getPlaceName();
         String getTripTitle();
-    }
 
+    }
     /**
      * 자유게시판 목록 조회
      * - Soft Delete 제외
