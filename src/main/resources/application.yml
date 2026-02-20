@@ -24,6 +24,9 @@ cloud:
     region:
       static: ${AWS_REGION}
 
+storage:
+  mode: s3
+
 ---
 
 # prod 환경은 실제 배포에서만 활성화하세요.
@@ -49,4 +52,3 @@ planit:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}
-
