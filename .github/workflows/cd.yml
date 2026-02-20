@@ -89,6 +89,7 @@ jobs:
             nohup java \
               -Duser.timezone=Asia/Seoul \
               -Dspring.profiles.active=prod \
+              -Dspring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect \
               -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
               -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
               -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
