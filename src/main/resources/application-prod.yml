@@ -30,7 +30,7 @@ planit:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
 
 ai:
-  base-url: http://localhost:8000
+  base-url: ${AI_BASE_URL:http://10.0.1.92:8000}
   mock-enabled: false
 
 trip:
