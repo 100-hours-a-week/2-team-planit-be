@@ -52,3 +52,4 @@ planit:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}
+
