@@ -92,6 +92,7 @@ jobs:
               -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
               -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
               -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
+              -DGOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
               -DJWT_SECRET="${{ secrets.JWT_SECRET }}" \
               -jar /var/www/planit/backend/planit-backend.jar >> /var/www/planit/backend/app.log 2>&1 &
 

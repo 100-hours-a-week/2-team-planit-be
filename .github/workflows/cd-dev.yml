@@ -81,7 +81,7 @@ jobs:
             export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET_DEV }}"
             export AWS_REGION=ap-northeast-2
             export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN_DEV }}"
-
+            
             echo "==================================================" >> /var/www/planit-dev/backend/app.log
             echo "[DEPLOY-DEV] $(date '+%F %T %Z') start" >> /var/www/planit-dev/backend/app.log
             echo "==================================================" >> /var/www/planit-dev/backend/app.log
@@ -92,6 +92,7 @@ jobs:
               -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL_DEV }}" \
               -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME_DEV }}" \
               -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD_DEV }}" \
+              -DGOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
               -DJWT_SECRET="${{ secrets.JWT_SECRET_DEV }}" \
               -jar /var/www/planit-dev/backend/planit-backend.jar >> /var/www/planit-dev/backend/app.log 2>&1 &
 
