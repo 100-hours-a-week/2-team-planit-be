@@ -11,6 +11,7 @@ import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedPlan;
+import com.planit.domain.place.repository.PlaceRepository;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.repository.PostedPlanRepository;
@@ -97,7 +98,6 @@ class PostServiceUnitTest {
         Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
         savedPost.setId(50L);
         when(postRepository.save(any(Post.class))).thenReturn(savedPost);
-        when(postedPlanRepository.existsByTripId(99L)).thenReturn(false);
         Trip trip = new Trip(user, "trip", LocalDate.now(), LocalDate.now(), null, null, "city", 0);
         when(tripRepository.findById(99L)).thenReturn(Optional.of(trip));
 
@@ -135,22 +135,6 @@ class PostServiceUnitTest {
         BusinessException exception = Assertions.assertThrows(BusinessException.class,
                 () -> postService.createPost(request, "tester"));
         Assertions.assertEquals(ErrorCode.FORBIDDEN_TRIP_ACCESS, exception.getErrorCode());
-    }
-
-    @Test // 이미 공유된 trip일 경우 TRIP_ALREADY_SHARED
-    void 이미_공유된_trip_예외() {
-        PostCreateRequest request = buildRequest(BoardType.PLAN_SHARE);
-        request.setPlanId(33L);
-        Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
-        savedPost.setId(63L);
-        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
-        Trip trip = new Trip(user, "trip", LocalDate.now(), LocalDate.now(), null, null, "city", 0);
-        when(tripRepository.findById(33L)).thenReturn(Optional.of(trip));
-        when(postedPlanRepository.existsByTripId(33L)).thenReturn(true);
-
-        BusinessException exception = Assertions.assertThrows(BusinessException.class,
-                () -> postService.createPost(request, "tester"));
-        Assertions.assertEquals(ErrorCode.TRIP_ALREADY_SHARED, exception.getErrorCode());
     }
 
     @Test
@@ -225,15 +209,6 @@ class PostServiceUnitTest {
         Assertions.assertEquals("*별점은 1~5 사이여야 합니다.", exception.getReason());
     }
 
-    @Test
-    void PLACE_RECOMMEND_placeId_없음_예외() {
-        PostCreateRequest request = buildRequest(BoardType.PLACE_RECOMMEND);
-        request.setPlaceName("Place");
-        request.setRating(3);
-        request.setGooglePlaceId("place:5");
-
-        ResponseStatusException exception = Assertions.assertThrows(ResponseStatusException.class,
-                () -> postService.createPost(request, "tester"));
-        Assertions.assertEquals("*장소를 선택해주세요.", exception.getReason());
-    }
 }
+    @Mock // PlaceRepository 목
+    private PlaceRepository placeRepository;

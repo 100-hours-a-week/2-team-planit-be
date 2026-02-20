@@ -22,4 +22,8 @@ public class Place {
 
     @Column(name = "name", nullable = false, length = 100)
     private String name; // 장소 이름
+
+    public Place(String name) {
+        this.name = name;
+    }
 }
