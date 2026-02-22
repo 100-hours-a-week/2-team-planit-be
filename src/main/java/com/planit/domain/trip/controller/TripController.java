@@ -58,6 +58,9 @@ public class TripController {
     public ResponseEntity<ApiResponse<TripListResponse>> getTrips(
             @AuthenticationPrincipal UserDetails principal
     ) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
+        }
         TripListResponse response = tripService.getUserTrips(principal.getUsername());
         return ResponseEntity.ok(ApiResponse.success(response));
     }

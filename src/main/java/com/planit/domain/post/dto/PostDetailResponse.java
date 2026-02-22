@@ -27,6 +27,9 @@ public class PostDetailResponse {
     private final String city;
     private final String country;
     private final Integer rating;
+    private final Long tripId;
+    private final String tripTitle;
+    private final String planThumbnailUrl;
 
     public PostDetailResponse(Long postId,
                               String boardName,
@@ -60,6 +63,9 @@ public class PostDetailResponse {
         this.city = null;
         this.country = null;
         this.rating = null;
+        this.tripId = null;
+        this.tripTitle = null;
+        this.planThumbnailUrl = null;
     }
 
     public PostDetailResponse(Long postId,
@@ -80,7 +86,10 @@ public class PostDetailResponse {
                               String placeImageUrl,
                               String city,
                               String country,
-                              Integer rating) {
+                              Integer rating,
+                              Long tripId,
+                              String tripTitle,
+                              String planThumbnailUrl) {
         this.postId = postId;
         this.boardName = boardName;
         this.boardDescription = boardDescription;
@@ -100,6 +109,9 @@ public class PostDetailResponse {
         this.city = city;
         this.country = country;
         this.rating = rating;
+        this.tripId = tripId;
+        this.tripTitle = tripTitle;
+        this.planThumbnailUrl = planThumbnailUrl;
     }
 
     @Getter

@@ -128,8 +128,12 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         String placeGooglePlaceId = (String) row[18];
         String placeImageUrl = null;
         String placeCity = (String) row[19];
+        String planThumbnailKey = (String) row[15];
         String placeCountry = (String) row[20];
         Integer placeRating = row[21] == null ? null : ((Number) row[21]).intValue();
+        Long tripIdValue = row[11] == null ? null : ((Number) row[11]).longValue();
+        String tripTitleValue = (String) row[12];
+        String planThumbnailUrl = imageUrlResolver.resolveOrNull(planThumbnailKey);
         PostDetailResponse detail = new PostDetailResponse(
                 ((Number) row[0]).longValue(),
                 boardName,
@@ -149,7 +153,10 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 placeImageUrl,
                 placeCity,
                 placeCountry,
-                placeRating
+                placeRating,
+                tripIdValue,
+                tripTitleValue,
+                planThumbnailUrl
         ); // DTO 구성하여 반환
         return Optional.of(detail);
     }
