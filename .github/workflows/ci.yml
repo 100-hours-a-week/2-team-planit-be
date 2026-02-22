@@ -26,15 +26,6 @@ jobs:
       - name: Build
         run: ./gradlew bootJar --no-daemon -x test  # test 제외하고 빌드
 
-      - name: Upload Build file
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-jar
-          path: |
-            build/libs/*.jar
-          retention-days: 7          
-          
       - name: Send Discord Notification
         if: failure()
         run: |
