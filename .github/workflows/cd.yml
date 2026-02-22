@@ -16,14 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # CI에서 빌드한 JAR 파일 다운로드
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-jar
-          path: build/libs
-          run-id: ${{ github.event.workflow_run.id }}  # 버전 관리용 ID
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare image tags
+        id: tags
+        run: |
+          TIMESTAMP=$(date -u +%Y%m%d-%H%M)
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "timestamp=${TIMESTAMP}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "timestamp_tag=${TIMESTAMP}" >> "$GITHUB_OUTPUT"
+          echo "commit_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       # GitHub Actions IP를 AWS SG에 일시적으로 등록하기
       - name: Get GitHub Actions IP
@@ -37,7 +38,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      - name: Add IP to SG
+      - name: Add IP to Security Group
         run: |
           aws ec2 authorize-security-group-ingress \
             --group-id ${{ secrets.SECURITY_GROUP_ID }} \
@@ -47,73 +48,78 @@ jobs:
             || echo "IP may already be in security group"
           sleep 10
 
-      # JAR 파일을 EC2 서버로 전송
-      - name: Copy JAR to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/*.jar"  # 다운로드 받은 경로
-          target: "/home/ubuntu/temp_backend"
-          strip_components: 2
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr create-repository --repository-name planit-was --region ap-northeast-2 \
+            || echo "Repository planit-was already exists"
 
-      # 서버 접속 후 기존 프로세스 종료 및 새 JAR 실행
-      - name: Deploy to EC2
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/planit-was:${{ steps.tags.outputs.timestamp_tag }}
+            ${{ steps.ecr-login.outputs.registry }}/planit-was:${{ steps.tags.outputs.commit_tag }}
+            ${{ steps.ecr-login.outputs.registry }}/planit-was:prod
+
+      - name: Deploy to EC2 (SSH)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 폴더 이동 및 정리
-            sudo mkdir -p /var/www/planit/backend
-            sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit/backend/planit-backend.jar
-            sudo chown -R ubuntu:ubuntu /var/www/planit/backend
-            rm -rf /home/ubuntu/temp_backend/*
+            set -e
+            REGION="ap-northeast-2"
+            ACCOUNT_ID="713881824287"
+            REPO_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
+            APP_DIR="/opt/planit"
 
-            # 기존 8080 포트 프로세스 종료
-            sudo fuser -k 8080/tcp || true
+            cd "${APP_DIR}"
 
-            # S3(Presigned URL 등) 사용을 위해 AWS 자격증명을 프로세스에 전달
+            # S3(Presigned URL 등)를 위한 AWS 자격증명 export (compose의 ${VAR} 치환에 사용)
             export AWS_ACCESS_KEY_ID="${{ secrets.AWS_S3_ACCESS_KEY_ID }}"
             export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}"
             export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
-            export AWS_REGION=ap-northeast-2
+            export AWS_REGION="ap-northeast-2"
             export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN }}"
 
-            echo "==================================================" >> /var/www/planit/backend/app.log 
-            echo "[DEPLOY] $(date '+%F %T %Z') start" >> /var/www/planit/backend/app.log 
-            echo "==================================================" >> /var/www/planit/backend/app.log 
-            # 새 프로세스 실행 (환경 변수 주입) - JVM 타임존을 KST로 고정
-            nohup java \
-              -Duser.timezone=Asia/Seoul \
-              -Dspring.profiles.active=prod \
-              -Dspring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect \
-              -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
-              -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
-              -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
-              -DGOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
-              -DJWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -jar /var/www/planit/backend/planit-backend.jar >> /var/www/planit/backend/app.log 2>&1 &
+            # ECR 로그인 (인스턴스 IAM 역할 사용)
+            aws ecr get-login-password --region "${REGION}" \
+              | docker login --username AWS --password-stdin "${REPO_URI}"
+
+            # docker-compose.yml의 이미지 태그를 prod로 통일 (latest → prod)
+            sudo sed -i "s|planit-was:latest|planit-was:prod|g" docker-compose.yml
+
+            # 앱 이미지만 pull 후 재기동
+            docker compose pull app
+            docker compose up -d app
 
             echo "Health Check 시작"
-            for retry_count in {1..15}
-            do
-              # localhost:8080/api/health로 요청
+            for retry in $(seq 1 15); do
               response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health || true)
-              if [ "$response" -eq 200 ] || [ "$response" -eq 401 ]; then
+              if [ "$response" = "200" ] || [ "$response" = "401" ]; then
                 echo "Server is up (HTTP $response)"
                 exit 0 # 성공 종료
               fi
             
-              echo "Waiting for server... (Attempt $retry_count/15)"
+              echo "Waiting for server... (Attempt $retry/15)"
               sleep 10
             done
             echo "Server failed to start."
             exit 1 # 실패 종료
 
-      # AWS SG에서 IP 제거
       - name: Configure AWS credentials for cleanup
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
