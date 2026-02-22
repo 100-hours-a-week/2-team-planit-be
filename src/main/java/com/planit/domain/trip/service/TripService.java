@@ -1,6 +1,7 @@
 package com.planit.domain.trip.service;
 
 import com.planit.domain.trip.dto.AiItineraryRequest;
+import com.planit.domain.trip.dto.AiItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripListResponse;
 import com.planit.domain.trip.entity.ItineraryDay;
@@ -25,12 +26,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TripService {
+    private static final Logger log = LoggerFactory.getLogger(TripService.class);
 
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
@@ -41,9 +45,13 @@ public class TripService {
     private final ItineraryItemTransportRepository itineraryItemTransportRepository;
     private final AiItineraryQueue aiItineraryQueue;
     private final AiItineraryProcessor aiItineraryProcessor;
+    private final AiItineraryClient aiItineraryClient;
+    private final ItineraryJobService itineraryJobService;
+    private final ItineraryJobStreamService itineraryJobStreamService;
     private final boolean aiMockEnabled;
     private final boolean createWindowEnabled;
     private final boolean dailyCreateLimitEnabled;
+    private final boolean streamEnabled;
     private final Map<Long, LocalDate> lastCreateDateByUser = new ConcurrentHashMap<>();
 
     public TripService(
@@ -56,9 +64,13 @@ public class TripService {
             ItineraryItemTransportRepository itineraryItemTransportRepository,
             AiItineraryQueue aiItineraryQueue,
             AiItineraryProcessor aiItineraryProcessor,
+            AiItineraryClient aiItineraryClient,
+            ItineraryJobService itineraryJobService,
+            ItineraryJobStreamService itineraryJobStreamService,
             @Value("${ai.mock-enabled:false}") boolean aiMockEnabled,
             @Value("${trip.create-window-enabled:true}") boolean createWindowEnabled,
-            @Value("${trip.daily-create-limit-enabled:true}") boolean dailyCreateLimitEnabled
+            @Value("${trip.daily-create-limit-enabled:true}") boolean dailyCreateLimitEnabled,
+            @Value("${app.itinerary.stream-enabled:true}") boolean streamEnabled
     ) {
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
@@ -69,27 +81,35 @@ public class TripService {
         this.itineraryItemTransportRepository = itineraryItemTransportRepository;
         this.aiItineraryQueue = aiItineraryQueue;
         this.aiItineraryProcessor = aiItineraryProcessor;
+        this.aiItineraryClient = aiItineraryClient;
+        this.itineraryJobService = itineraryJobService;
+        this.itineraryJobStreamService = itineraryJobStreamService;
         this.aiMockEnabled = aiMockEnabled;
         this.createWindowEnabled = createWindowEnabled;
         this.dailyCreateLimitEnabled = dailyCreateLimitEnabled;
+        this.streamEnabled = streamEnabled;
     }
 
     @Transactional
     public Long createTrip(TripCreateRequest request, String loginId) {
+        log.info("[TRIP_CREATE] start loginId={}, title={}", loginId, request.title());
         // 일정 생성 허용 시간(14:00 ~ 다음날 02:00) 외에는 요청 차단
         if (createWindowEnabled && !isCreateWindowOpen(ZonedDateTime.now(ZoneId.of("Asia/Seoul")))) {
+            log.warn("[TRIP_CREATE] blocked by create window loginId={}", loginId);
             throw new BusinessException(ErrorCode.TRIP_005);
         }
 
         // 1) 토큰에서 추출된 loginId로 사용자 조회
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
+        log.info("[TRIP_CREATE] user resolved userId={}", user.getId());
 
         // 임시 MVP 보호 로직: 사용자당 하루 1회 생성 제한
         if (dailyCreateLimitEnabled) {
             LocalDate today = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).toLocalDate();
             LocalDate lastCreateDate = lastCreateDateByUser.get(user.getId());
             if (today.equals(lastCreateDate)) {
+                log.warn("[TRIP_CREATE] daily limit hit userId={}", user.getId());
                 throw new BusinessException(ErrorCode.TRIP_007);
             }
         }
@@ -107,21 +127,24 @@ public class TripService {
                 request.travelCity(),
                 request.totalBudget()
         ));
+        log.info("[TRIP_CREATE] trip saved tripId={}", trip.getId());
 
         // 테마 저장 (Trip 1 : Theme N)
         for (String theme : request.travelTheme()) {
             trip.addTheme(new TripTheme(trip, theme));
         }
         tripRepository.save(trip);
+        log.info("[TRIP_CREATE] themes saved tripId={}, count={}", trip.getId(), trip.getThemes().size());
 
         // 희망 장소 저장
         if (request.wantedPlace() != null) {
             for (String placeId : request.wantedPlace()) {
                 wantedPlaceRepository.save(new WantedPlace(trip, placeId));
             }
+            log.info("[TRIP_CREATE] wanted places saved tripId={}, count={}", trip.getId(), request.wantedPlace().size());
         }
 
-        // 4) AI 요청을 큐에 적재 (mock 모드면 즉시 처리)
+        // 4) AI 요청을 Redis Streams에 적재 + Job 상태 초기화
         AiItineraryJob job = new AiItineraryJob(new AiItineraryRequest(
                 trip.getId(),
                 trip.getArrivalDate(),
@@ -133,20 +156,40 @@ public class TripService {
                 request.travelTheme(),
                 request.wantedPlace()
         ));
-        if (aiMockEnabled) {
-            System.out.println("AI mock 모드: 즉시 일정 생성 처리");
-            aiItineraryProcessor.process(job);
+        log.info("[TRIP_CREATE] job built tripId={}, streamEnabled={}, mockEnabled={}", trip.getId(), streamEnabled, aiMockEnabled);
+        if (streamEnabled) {
+            itineraryJobService.initPending(trip.getId());
+            log.info("[TRIP_CREATE] job status initialized PENDING tripId={}", trip.getId());
+            itineraryJobStreamService.enqueueJob(trip.getId(), job.request());
+            log.info("[TRIP_CREATE] job enqueued to stream tripId={}", trip.getId());
+            if (aiMockEnabled) {
+                // mock 모드: 즉시 결과 생성 -> results stream publish
+                AiItineraryResponse response = aiItineraryClient.requestItinerary(job.request());
+                log.info("[TRIP_CREATE] mock response generated tripId={}, itineraries={}",
+                        trip.getId(), response == null ? 0 : (response.itineraries() == null ? 0 : response.itineraries().size()));
+                itineraryJobStreamService.publishResult(trip.getId(), ItineraryJobStatus.SUCCESS.name(), response, null);
+                log.info("[TRIP_CREATE] mock result published tripId={}", trip.getId());
+            }
         } else {
-            aiItineraryQueue.enqueue(job);
+            // stream 비활성화 환경에서는 기존 흐름 유지
+            if (aiMockEnabled) {
+                log.info("[TRIP_CREATE] stream disabled, mock direct processing tripId={}", trip.getId());
+                aiItineraryProcessor.process(job);
+            } else {
+                log.info("[TRIP_CREATE] stream disabled, enqueue in-memory tripId={}", trip.getId());
+                aiItineraryQueue.enqueue(job);
+            }
         }
 
         if (dailyCreateLimitEnabled) {
             // 생성 성공 시점에만 오늘 날짜를 기록
             lastCreateDateByUser.put(user.getId(), ZonedDateTime.now(ZoneId.of("Asia/Seoul")).toLocalDate());
+            log.info("[TRIP_CREATE] daily limit timestamp stored userId={}", user.getId());
         }
         // 기존코드 주석화
         // // 생성 횟수 제한 로직 없음
 
+        log.info("[TRIP_CREATE] end tripId={}", trip.getId());
         return trip.getId();
     }
 

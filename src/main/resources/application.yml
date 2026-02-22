@@ -40,7 +40,19 @@ ai:
 
 google:
   maps:
-    api-key: ${GOOGLE_MAPS_API_KEY}
+    api-key: ${GOOGLE_MAPS_API_KEY:}
+
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
+      aiResultsKey: stream:itinerary-results
+  itinerary:
+    jobTtlSeconds: 86400
+    consumerGroup: travel-service
+    consumerName: ${HOSTNAME:local}-${random.uuid}
+    streamEnabled: true
 
 
 trip:
@@ -52,5 +64,3 @@ planit:
     default-image-url: https://${planit.cloudfront.domain}/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}
-
-
