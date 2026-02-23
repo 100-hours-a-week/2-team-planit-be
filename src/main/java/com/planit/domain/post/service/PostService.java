@@ -4,6 +4,9 @@ import com.planit.domain.common.entity.Image;
 import com.planit.domain.common.repository.ImageRepository;
 import com.planit.domain.place.entity.Place;
 import com.planit.domain.place.repository.PlaceRepository;
+import com.planit.domain.place.exception.PlaceSearchException;
+import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
+import com.planit.domain.placeRecommendation.service.PlaceRecommendationService;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse;
@@ -74,6 +77,7 @@ public class PostService {
     private final PostedPlaceRepository postedPlaceRepository;
     private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
     private final PlaceRepository placeRepository;
+    private final PlaceRecommendationService placeRecommendationService;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -179,7 +183,7 @@ public class PostService {
             }
             case PLACE_RECOMMEND -> {
                 PlaceRecommendationPayload payload = validatePlaceRecommendation(request);
-                post.setPlaceRecommendation(payload.placeName(), payload.rating());
+                post.setPlaceRecommendation(payload.placeName(), payload.userRating());
                 Post saved = postRepository.save(post);
                 saveRecommendedPlace(saved, payload);
                 return buildCreateResponse(saved, Collections.emptyList());
@@ -201,19 +205,31 @@ public class PostService {
     }
 
     private void saveRecommendedPlace(Post post, PlaceRecommendationPayload payload) {
-        Long placeId = payload.placeId();
-        if (placeId == null) {
-            placeId = placeRepository.findByName(payload.placeName())
-                    .map(Place::getId)
-                    .orElseGet(() -> placeRepository.save(new Place(payload.placeName())).getId());
-        }
+        Place place = findOrCreatePlace(payload);
         postedPlaceRepository.save(
-                new PostedPlace(post, placeId, payload.googlePlaceId(), payload.rating()));
+                new PostedPlace(post, place.getId(), payload.googlePlaceId(), payload.userRating()));
+    }
+
+    private Place findOrCreatePlace(PlaceRecommendationPayload payload) {
+        return placeRepository.findByGooglePlaceId(payload.googlePlaceId())
+                .orElseGet(() -> {
+                    PlaceRecommendationDetailResponse detail =
+                            placeRecommendationService.getPlaceDetail(payload.googlePlaceId());
+                    Place place = new Place(
+                            detail.getName(),
+                            detail.getPlaceId(),
+                            detail.getCity(),
+                            detail.getCountry(),
+                            detail.getLatitude(),
+                            detail.getLongitude()
+                    );
+                    return placeRepository.save(place);
+                });
     }
 
     private PlaceRecommendationPayload validatePlaceRecommendation(PostCreateRequest request) {
         Long placeId = request.getPlaceId();
-        Integer rating = request.getRating();
+        Integer rating = request.getUserRating();
         String placeName = request.getPlaceName();
         if (placeName == null || placeName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
@@ -224,14 +240,18 @@ public class PostService {
         if (rating < 1 || rating > 5) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
         }
-        return new PlaceRecommendationPayload(placeId, request.getGooglePlaceId(), placeName, rating);
+        String googlePlaceId = request.getGooglePlaceId();
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*Google place ID를 입력해주세요.");
+        }
+        return new PlaceRecommendationPayload(placeId, googlePlaceId, placeName, rating);
     }
 
     private PlaceRecommendationPayload validatePlaceRecommendationForUpdate(PostUpdateRequest request,
                                                                            Post post,
                                                                            Optional<PostedPlace> existingPlace) {
         Long placeId = request.getPlaceId();
-        Integer rating = request.getRating();
+        Integer rating = request.getUserRating();
         String placeName = request.getPlaceName();
         if (placeId != null && !StringUtils.hasText(placeName)) {
             placeName = placeRepository.findById(placeId)
@@ -255,7 +275,8 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
         }
         if (rating == null) {
-            rating = existingPlace.map(PostedPlace::getRating).orElse(post.getRating());
+            rating = existingPlace.map(PostedPlace::getRating)
+                    .orElse(post.getRating() == null ? null : post.getRating().intValue());
         }
         if (rating == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
@@ -267,10 +288,13 @@ public class PostService {
         if (!StringUtils.hasText(googlePlaceId) && existingPlace.isPresent()) {
             googlePlaceId = existingPlace.get().getGooglePlaceId();
         }
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*Google place ID를 입력해주세요.");
+        }
         return new PlaceRecommendationPayload(placeId, googlePlaceId, placeName, rating);
     }
 
-    private record PlaceRecommendationPayload(Long placeId, String googlePlaceId, String placeName, Integer rating) {
+    private record PlaceRecommendationPayload(Long placeId, String googlePlaceId, String placeName, Integer userRating) {
     }
 
     private Long resolvePlanId(PostCreateRequest request) {
@@ -378,7 +402,7 @@ public class PostService {
                 Optional<PostedPlace> existingPlace = postedPlaceRepository.findByPostId(postId);
                 PlaceRecommendationPayload payload = validatePlaceRecommendationForUpdate(request, post, existingPlace);
                 post.setPlanInfo(null);
-                post.setPlaceRecommendation(payload.placeName(), payload.rating());
+                post.setPlaceRecommendation(payload.placeName(), payload.userRating());
                 postedPlanRepository.findByPostId(postId)
                         .ifPresent(postedPlanRepository::delete);
                 postedPlaceRepository.deleteByPostId(postId);
@@ -531,8 +555,23 @@ public class PostService {
     public PostDetailResponse getPostDetail(Long postId, String loginId) {
         User requester = resolveRequester(loginId);
         Long requesterId = requester == null ? null : requester.getId();
-        return postRepository.findDetailById(postId, requesterId)
+        PostDetailResponse detail = postRepository.findDetailById(postId, requesterId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
+        return enrichPlaceDetail(detail);
+    }
+
+    private PostDetailResponse enrichPlaceDetail(PostDetailResponse detail) {
+        String placeId = detail.getGooglePlaceId();
+        if (!StringUtils.hasText(placeId)) {
+            return detail;
+        }
+        try {
+            PlaceRecommendationDetailResponse placeDetail = placeRecommendationService.getPlaceDetail(placeId);
+            return detail.withPlaceDetail(placeDetail);
+        } catch (PlaceSearchException ex) {
+            log.warn("place detail lookup failed for placeId={} reason={}", placeId, ex.getMessage());
+            return detail;
+        }
     }
 
     /** 로그인 사용자를 User 엔티티로 반환 */

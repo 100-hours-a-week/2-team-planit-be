@@ -6,12 +6,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.planit.domain.common.repository.ImageRepository;
+import com.planit.domain.place.exception.PlaceSearchException;
+import com.planit.domain.place.repository.PlaceRepository;
+import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
+import com.planit.domain.placeRecommendation.service.PlaceRecommendationService;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
+import com.planit.domain.post.dto.PostDetailResponse;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedPlan;
-import com.planit.domain.place.repository.PlaceRepository;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.repository.PostedPlanRepository;
@@ -38,6 +42,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class) // Mockito 확장으로 모의 객체 주입
@@ -63,6 +68,10 @@ class PostServiceUnitTest {
     private TripRepository tripRepository;
     @Mock // PostedPlanRepository 목
     private PostedPlanRepository postedPlanRepository;
+    @Mock // PlaceRecommendationService 목
+    private PlaceRecommendationService placeRecommendationService;
+    @Mock // PlaceRepository 목
+    private PlaceRepository placeRepository;
 
     @InjectMocks // 위 목들을 조합하여 PostService 생성
     private PostService postService;
@@ -91,6 +100,34 @@ class PostServiceUnitTest {
         return request;
     }
 
+    private PostDetailResponse buildPostDetail(String googlePlaceId) {
+        return new PostDetailResponse(
+                1L,
+                "board",
+                "desc",
+                "title",
+                "content",
+                LocalDateTime.now(),
+                new PostDetailResponse.AuthorInfo(1L, "tester", null),
+                Collections.emptyList(),
+                0,
+                0,
+                false,
+                Collections.emptyList(),
+                false,
+                "placeName",
+                googlePlaceId,
+                null,
+                null,
+                null,
+                4,
+                10L,
+                20L,
+                "trip",
+                null
+        );
+    }
+
     @Test // PLAN_SHARE 정상 저장 시
     void PLAN_SHARE_정상저장() {
         PostCreateRequest request = buildRequest(BoardType.PLAN_SHARE);
@@ -110,9 +147,6 @@ class PostServiceUnitTest {
     void 존재하지않는_trip_예외() {
         PostCreateRequest request = buildRequest(BoardType.PLAN_SHARE);
         request.setPlanId(11L);
-        Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
-        savedPost.setId(61L);
-        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
         when(tripRepository.findById(11L)).thenReturn(Optional.empty());
 
         BusinessException exception = Assertions.assertThrows(BusinessException.class,
@@ -125,9 +159,6 @@ class PostServiceUnitTest {
     void 타인이_소유한_trip_예외() {
         PostCreateRequest request = buildRequest(BoardType.PLAN_SHARE);
         request.setPlanId(22L);
-        Post savedPost = Post.create(user, request.getTitle(), request.getContent(), BoardType.PLAN_SHARE, LocalDateTime.now());
-        savedPost.setId(62L);
-        when(postRepository.save(any(Post.class))).thenReturn(savedPost);
         Trip trip = new Trip(new User(), "foreign", LocalDate.now(), LocalDate.now(), null, null, "city", 0);
         trip.getUser().setId(999L);
         when(tripRepository.findById(22L)).thenReturn(Optional.of(trip));
@@ -188,7 +219,7 @@ class PostServiceUnitTest {
         PostCreateRequest request = buildRequest(BoardType.PLACE_RECOMMEND);
         request.setPlaceName("Place");
         request.setPlaceId(5L);
-        request.setRating(0);
+        request.setUserRating(0);
         request.setGooglePlaceId("place:5");
 
         ResponseStatusException exception = Assertions.assertThrows(ResponseStatusException.class,
@@ -201,7 +232,7 @@ class PostServiceUnitTest {
         PostCreateRequest request = buildRequest(BoardType.PLACE_RECOMMEND);
         request.setPlaceName("Place");
         request.setPlaceId(5L);
-        request.setRating(6);
+        request.setUserRating(6);
         request.setGooglePlaceId("place:5");
 
         ResponseStatusException exception = Assertions.assertThrows(ResponseStatusException.class,
@@ -209,6 +240,60 @@ class PostServiceUnitTest {
         Assertions.assertEquals("*별점은 1~5 사이여야 합니다.", exception.getReason());
     }
 
+    @Test
+    void PLACE_RECOMMEND_googlePlaceId_없음_예외() {
+        PostCreateRequest request = buildRequest(BoardType.PLACE_RECOMMEND);
+        request.setPlaceName("Place");
+        request.setPlaceId(5L);
+        request.setUserRating(3);
+        request.setGooglePlaceId("");
+
+        ResponseStatusException exception = Assertions.assertThrows(ResponseStatusException.class,
+                () -> postService.createPost(request, "tester"));
+        Assertions.assertEquals("*Google place ID를 입력해주세요.", exception.getReason());
+    }
+
+    @Test
+    void PLACE_RECOMMEND_rating_없음_예외() {
+        PostCreateRequest request = buildRequest(BoardType.PLACE_RECOMMEND);
+        request.setPlaceName("Place");
+        request.setPlaceId(5L);
+        request.setGooglePlaceId("place:5");
+
+        ResponseStatusException exception = Assertions.assertThrows(ResponseStatusException.class,
+                () -> postService.createPost(request, "tester"));
+        Assertions.assertEquals("*별점을 선택해주세요.", exception.getReason());
+    }
+
+    @Test
+    void PLACE_RECOMMEND_detail_enriches_place_detail() {
+        PostDetailResponse raw = buildPostDetail("place:123");
+        when(postRepository.findDetailById(44L, 1L)).thenReturn(Optional.of(raw));
+        PlaceRecommendationDetailResponse placeDetail =
+                new PlaceRecommendationDetailResponse("place:123", "name", "Seoul", "Korea", 37.5, 127.0, "photo", "maps");
+        when(placeRecommendationService.getPlaceDetail("place:123")).thenReturn(placeDetail);
+
+        PostDetailResponse response = postService.getPostDetail(44L, "tester");
+
+        Assertions.assertEquals("photo", response.getPlaceImageUrl());
+        Assertions.assertEquals("Seoul", response.getCity());
+        Assertions.assertEquals("Korea", response.getCountry());
+        verify(placeRecommendationService).getPlaceDetail("place:123");
+    }
+
+    @Test
+    void PLACE_RECOMMEND_detail_fallbacks_when_place_detail_unavailable() {
+        PostDetailResponse raw = buildPostDetail("place:123");
+        when(postRepository.findDetailById(55L, 1L)).thenReturn(Optional.of(raw));
+        when(placeRecommendationService.getPlaceDetail("place:123"))
+                .thenThrow(new PlaceSearchException(ErrorCode.PLACE_003, HttpStatus.NOT_FOUND, "fail"));
+
+        PostDetailResponse response = postService.getPostDetail(55L, "tester");
+
+        Assertions.assertNull(response.getPlaceImageUrl());
+        Assertions.assertNull(response.getCity());
+        Assertions.assertNull(response.getCountry());
+        verify(placeRecommendationService).getPlaceDetail("place:123");
+    }
+
 }
-    @Mock // PlaceRepository 목
-    private PlaceRepository placeRepository;

@@ -23,7 +23,27 @@ public class Place {
     @Column(name = "name", nullable = false, length = 100)
     private String name; // 장소 이름
 
-    public Place(String name) {
+    @Column(name = "google_place_id", length = 255, unique = true)
+    private String googlePlaceId;
+
+    @Column(name = "city", length = 100)
+    private String city;
+
+    @Column(name = "country", length = 255)
+    private String country;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    public Place(String name, String googlePlaceId, String city, String country, Double latitude, Double longitude) {
         this.name = name;
+        this.googlePlaceId = googlePlaceId;
+        this.city = city;
+        this.country = country;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 }

@@ -1,5 +1,6 @@
 package com.planit.domain.post.dto; // 게시글 상세 응답 DTO 패키지
 
+import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
 import java.time.LocalDateTime; // 생성/작성 시간 표현
 import java.util.Collections; // null 보호용 빈 리스트 반환
 import java.util.List; // 이미지/댓글 컬렉션
@@ -27,6 +28,10 @@ public class PostDetailResponse {
     private final String city;
     private final String country;
     private final Integer rating;
+    private final Long planTripId;
+    private final Long tripId;
+    private final String tripTitle;
+    private final String planThumbnailUrl;
 
     public PostDetailResponse(Long postId,
                               String boardName,
@@ -60,6 +65,10 @@ public class PostDetailResponse {
         this.city = null;
         this.country = null;
         this.rating = null;
+        this.planTripId = null;
+        this.tripId = null;
+        this.tripTitle = null;
+        this.planThumbnailUrl = null;
     }
 
     public PostDetailResponse(Long postId,
@@ -80,7 +89,11 @@ public class PostDetailResponse {
                               String placeImageUrl,
                               String city,
                               String country,
-                              Integer rating) {
+                              Integer rating,
+                              Long planTripId,
+                              Long tripId,
+                              String tripTitle,
+                              String planThumbnailUrl) {
         this.postId = postId;
         this.boardName = boardName;
         this.boardDescription = boardDescription;
@@ -100,6 +113,41 @@ public class PostDetailResponse {
         this.city = city;
         this.country = country;
         this.rating = rating;
+        this.planTripId = planTripId;
+        this.tripId = tripId;
+        this.tripTitle = tripTitle;
+        this.planThumbnailUrl = planThumbnailUrl;
+    }
+
+    public PostDetailResponse withPlaceDetail(PlaceRecommendationDetailResponse placeDetail) {
+        if (placeDetail == null) {
+            return this;
+        }
+        return new PostDetailResponse(
+                getPostId(),
+                getBoardName(),
+                getBoardDescription(),
+                getTitle(),
+                getContent(),
+                getCreatedAt(),
+                getAuthor(),
+                getImages(),
+                getLikeCount(),
+                getCommentCount(),
+                getLikedByRequester(),
+                getComments(),
+                getEditable(),
+                getPlaceName(),
+                getGooglePlaceId(),
+                placeDetail.getPhotoUrl(),
+                placeDetail.getCity(),
+                placeDetail.getCountry(),
+                getRating(),
+                getPlanTripId(),
+                getTripId(),
+                getTripTitle(),
+                getPlanThumbnailUrl()
+        );
     }
 
     @Getter

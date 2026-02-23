@@ -29,7 +29,7 @@ public class PostedPlace {
     @Column(name = "place_id", nullable = false)
     private Long placeId;
 
-    @Column(name = "google_place_id", length = 255)
+    @Column(name = "google_place_id", length = 255, nullable = false)
     private String googlePlaceId;
 
     @Column(name = "rating", nullable = false)

@@ -54,7 +54,7 @@ public class PostUpdateRequest {
     @Parameter(description = "PLACE_RECOMMEND일 때 별점")
     @Min(value = 1, message = "*별점은 1점 이상이어야 합니다.")
     @Max(value = 5, message = "*별점은 5점 이하만 가능합니다.")
-    private Integer rating;
+    private Integer userRating;
 
     @Parameter(description = "Presigned URL 업로드 완료 후 S3 key 목록 (최대 5장, 기존 이미지 교체)")
     @Size(max = 5, message = "*이미지는 최대 5장까지 업로드 가능합니다.")

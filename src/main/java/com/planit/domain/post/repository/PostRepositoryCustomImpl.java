@@ -5,6 +5,8 @@ import com.planit.domain.post.dto.PostDetailResponse.CommentInfo;
 import com.planit.domain.post.dto.PostDetailResponse.PostImage;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -45,6 +47,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private EntityManager entityManager; // 직접 native query 실행
 
     private final S3ImageUrlResolver imageUrlResolver;
+
+    @Value("${planit.cloudfront.domain:}")
+    private String cloudfrontDomain;
 
     @Override
     public Optional<PostDetailResponse> findDetailById(Long postId, Long requesterId) {
@@ -130,6 +135,10 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         String placeCity = (String) row[19];
         String placeCountry = (String) row[20];
         Integer placeRating = row[21] == null ? null : ((Number) row[21]).intValue();
+        Long planTripIdValue = row[11] == null ? null : ((Number) row[11]).longValue();
+        String tripTitleValue = (String) row[12];
+        String planThumbnailKey = (String) row[15];
+        String planThumbnailUrl = resolvePlanThumbnailUrl(planThumbnailKey);
         PostDetailResponse detail = new PostDetailResponse(
                 ((Number) row[0]).longValue(),
                 boardName,
@@ -149,9 +158,27 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 placeImageUrl,
                 placeCity,
                 placeCountry,
-                placeRating
+                placeRating,
+                planTripIdValue,
+                planTripIdValue,
+                tripTitleValue,
+                planThumbnailUrl
         ); // DTO 구성하여 반환
         return Optional.of(detail);
+    }
+
+    private String resolvePlanThumbnailUrl(String s3Key) {
+        if (StringUtils.hasText(s3Key)) {
+            return imageUrlResolver.resolveOrNull(s3Key);
+        }
+        if (!StringUtils.hasText(cloudfrontDomain)) {
+            return null;
+        }
+        String base = cloudfrontDomain.trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return "https://" + base + "/defaults/plan-thumbnail.png";
     }
 
     private List<PostImage> fetchImages(Long postId) {
