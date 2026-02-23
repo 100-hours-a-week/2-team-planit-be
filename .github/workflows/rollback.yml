@@ -1,11 +1,7 @@
-name: Rollback - Backend (Set LT default + Refresh)
+name: Rollback - Backend (Auto Previous LT + Refresh)
 
 on:
-  workflow_dispatch:
-    inputs:
-      rollback_lt_version:
-        description: "Launch Template version number to rollback to (e.g. 12)"
-        required: true
+  workflow_dispatch: {}
 
 jobs:
   rollback:
@@ -37,32 +33,45 @@ jobs:
             --auto-scaling-group-names "$ASG_NAME" \
             --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateId" \
             --output text)
+
           if [ -z "$LT_ID" ] || [ "$LT_ID" = "None" ]; then
             echo "Failed to resolve LaunchTemplateId from ASG."
             exit 1
           fi
+
           echo "lt_id=$LT_ID" >> "$GITHUB_OUTPUT"
           echo "LaunchTemplateId=$LT_ID"
 
-      - name: Set Launch Template default to requested version
+      - name: Set Launch Template default to previous version
         id: set
         shell: bash
         run: |
           set -euo pipefail
           LT_ID="${{ steps.lt.outputs.lt_id }}"
-          VER="${{ inputs.rollback_lt_version }}"
 
-          # 숫자만 허용
-          if ! [[ "$VER" =~ ^[0-9]+$ ]]; then
-            echo "rollback_lt_version must be a number"
+          CURRENT=$(aws ec2 describe-launch-templates \
+            --launch-template-ids "$LT_ID" \
+            --query "LaunchTemplates[0].DefaultVersionNumber" \
+            --output text)
+
+          if ! [[ "$CURRENT" =~ ^[0-9]+$ ]]; then
+            echo "Could not read current default version: $CURRENT"
+            exit 1
+          fi
+
+          PREV=$((CURRENT - 1))
+          if [ "$PREV" -lt 1 ]; then
+            echo "No previous version available (current=$CURRENT)"
             exit 1
           fi
 
           aws ec2 modify-launch-template \
             --launch-template-id "$LT_ID" \
-            --default-version "$VER"
+            --default-version "$PREV"
 
-          echo "Set LT default to version $VER"
+          echo "from=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "to=$PREV" >> "$GITHUB_OUTPUT"
+          echo "LT default updated: $CURRENT -> $PREV"
 
       - name: Start Instance Refresh (rollback)
         id: refresh
@@ -74,6 +83,7 @@ jobs:
             --preferences "MinHealthyPercentage=${MIN_HEALTHY_PERCENT},InstanceWarmup=${INSTANCE_WARMUP}" \
             --query "InstanceRefreshId" \
             --output text)
+
           echo "id=$ID" >> "$GITHUB_OUTPUT"
           echo "Started rollback refresh $ID"
 
