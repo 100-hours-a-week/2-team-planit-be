@@ -20,6 +20,13 @@ public class PostDetailResponse {
     private final Boolean likedByRequester; // 현재 요청자가 좋아요 눌렀는지
     private final List<CommentInfo> comments; // 댓글 목록 (20개)
     private final Boolean editable; // 현재 요청자가 작성자인지 (수정/삭제 버튼 노출 판단)
+    // PLACE_RECOMMEND 전용 필드
+    private final String placeName;
+    private final String googlePlaceId;
+    private final String placeImageUrl;
+    private final String city;
+    private final String country;
+    private final Integer rating;
 
     public PostDetailResponse(Long postId,
                               String boardName,
@@ -47,6 +54,52 @@ public class PostDetailResponse {
         this.likedByRequester = likedByRequester;
         this.comments = comments == null ? Collections.emptyList() : comments;
         this.editable = editable;
+        this.placeName = null;
+        this.googlePlaceId = null;
+        this.placeImageUrl = null;
+        this.city = null;
+        this.country = null;
+        this.rating = null;
+    }
+
+    public PostDetailResponse(Long postId,
+                              String boardName,
+                              String boardDescription,
+                              String title,
+                              String content,
+                              LocalDateTime createdAt,
+                              AuthorInfo author,
+                              List<PostImage> images,
+                              Integer likeCount,
+                              Integer commentCount,
+                              Boolean likedByRequester,
+                              List<CommentInfo> comments,
+                              Boolean editable,
+                              String placeName,
+                              String googlePlaceId,
+                              String placeImageUrl,
+                              String city,
+                              String country,
+                              Integer rating) {
+        this.postId = postId;
+        this.boardName = boardName;
+        this.boardDescription = boardDescription;
+        this.title = title;
+        this.content = content;
+        this.createdAt = createdAt;
+        this.author = author;
+        this.images = images == null ? Collections.emptyList() : images;
+        this.likeCount = likeCount;
+        this.commentCount = commentCount;
+        this.likedByRequester = likedByRequester;
+        this.comments = comments == null ? Collections.emptyList() : comments;
+        this.editable = editable;
+        this.placeName = placeName;
+        this.googlePlaceId = googlePlaceId;
+        this.placeImageUrl = placeImageUrl;
+        this.city = city;
+        this.country = country;
+        this.rating = rating;
     }
 
     @Getter

@@ -50,4 +50,8 @@ public class PostedPlan {
     public Trip getTrip() { // Trip 반환
         return trip;
     }
+
+    public void setTrip(Trip trip) {
+        this.trip = trip;
+    }
 }

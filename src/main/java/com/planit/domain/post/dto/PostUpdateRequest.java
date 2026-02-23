@@ -1,7 +1,10 @@
 package com.planit.domain.post.dto;
 
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.Collections;
 import java.util.List;
@@ -12,7 +15,7 @@ import lombok.Setter;
 
 /**
  * 게시글 수정 요청 DTO
- * - Presigned URL 업로드 완료 후 imageKeys로 교체
+ * - boardType 별 필수 입력을 담아 자유/일정/장소 모두 대응
  */
 @Getter
 @Setter
@@ -29,6 +32,29 @@ public class PostUpdateRequest {
     @NotBlank(message = "*내용을 입력해주세요.")
     @Size(max = 2000, message = "*내용은 최대 2000자까지 작성할 수 있습니다.")
     private String content;
+
+    @Parameter(description = "PLAN_SHARE일 때 연결할 plan ID")
+    private Long planId;
+
+    @Parameter(description = "PLAN_SHARE일 때 연결할 trip ID (레거시)")
+    private Long tripId;
+
+    @Parameter(description = "PLACE_RECOMMEND일 때 place ID")
+    @Positive(message = "*장소 정보를 정확히 입력해주세요.")
+    private Long placeId;
+
+    @Parameter(description = "PLACE_RECOMMEND일 때 place name")
+    @Size(max = 255, message = "*장소 이름은 최대 255자까지 입력 가능합니다.")
+    private String placeName;
+
+    @Parameter(description = "PLACE_RECOMMEND일 때 Google place ID")
+    @Size(max = 255, message = "*Google Place ID는 최대 255자까지 입력 가능합니다.")
+    private String googlePlaceId;
+
+    @Parameter(description = "PLACE_RECOMMEND일 때 별점")
+    @Min(value = 1, message = "*별점은 1점 이상이어야 합니다.")
+    @Max(value = 5, message = "*별점은 5점 이하만 가능합니다.")
+    private Integer rating;
 
     @Parameter(description = "Presigned URL 업로드 완료 후 S3 key 목록 (최대 5장, 기존 이미지 교체)")
     @Size(max = 5, message = "*이미지는 최대 5장까지 업로드 가능합니다.")

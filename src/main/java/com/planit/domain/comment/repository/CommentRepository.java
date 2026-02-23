@@ -48,7 +48,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
         String getAuthorProfileImageKey();
     }
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Comment c SET c.deletedAt = :deletedAt WHERE c.id = :commentId AND c.deletedAt IS NULL")
     int markAsDeleted(
         @Param("commentId") Long commentId,

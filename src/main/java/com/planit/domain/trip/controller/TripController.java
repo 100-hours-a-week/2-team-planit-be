@@ -2,14 +2,17 @@ package com.planit.domain.trip.controller;
 
 //import com.planit.domain.trip.dto.ItineraryRegenerateRequest;
 import com.planit.domain.trip.dto.ItineraryDayUpdateRequest;
+import com.planit.domain.trip.dto.ItineraryJobResponse;
 import com.planit.domain.trip.dto.ItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripCreateResponse;
 import com.planit.domain.trip.dto.TripListResponse;
 import com.planit.domain.trip.service.ItineraryQueryService;
+import com.planit.domain.trip.service.ItineraryJobService;
 import com.planit.domain.trip.service.ItineraryUpdateService;
 import com.planit.domain.trip.service.TripService;
 import com.planit.global.common.exception.ErrorCode;
+import com.planit.global.common.exception.UnauthorizedAccessException;
 import com.planit.global.common.response.ApiResponse;
 import com.planit.global.common.response.ErrorResponse;
 import jakarta.validation.Valid;
@@ -31,15 +34,18 @@ public class TripController {
     private final TripService tripService;
     private final ItineraryQueryService itineraryQueryService;
     private final ItineraryUpdateService itineraryUpdateService;
+    private final ItineraryJobService itineraryJobService;
 
     public TripController(
             TripService tripService,
             ItineraryQueryService itineraryQueryService,
-            ItineraryUpdateService itineraryUpdateService
+            ItineraryUpdateService itineraryUpdateService,
+            ItineraryJobService itineraryJobService
     ) {
         this.tripService = tripService;
         this.itineraryQueryService = itineraryQueryService;
         this.itineraryUpdateService = itineraryUpdateService;
+        this.itineraryJobService = itineraryJobService;
     }
 
     @PostMapping("/trips")
@@ -47,6 +53,9 @@ public class TripController {
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody TripCreateRequest request
     ) {
+        if (principal == null) {
+            throw new UnauthorizedAccessException();
+        }
         // 인증된 유저 기준으로 여행 생성 및 AI 큐 적재
         Long tripId = tripService.createTrip(request, principal.getUsername());
 
@@ -71,6 +80,20 @@ public class TripController {
                 .<ResponseEntity<?>>map(response -> ResponseEntity.ok(ApiResponse.success(response)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ErrorResponse.from(ErrorCode.TRIP_001)));
+    }
+
+    @GetMapping("/trips/{tripId}/itinerary-job")
+    public ResponseEntity<?> getItineraryJob(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable Long tripId
+    ) {
+        if (principal == null) {
+            throw new UnauthorizedAccessException();
+        }
+        return itineraryJobService.getStatus(tripId, principal.getUsername())
+                .<ResponseEntity<?>>map(response -> ResponseEntity.ok(ApiResponse.success(response)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ErrorResponse.from(ErrorCode.TRIP_003)));
     }
 
     @PatchMapping("/trips/itineraries/days")
