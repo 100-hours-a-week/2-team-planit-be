@@ -40,5 +40,17 @@ google:
   maps:
     api-key: ${GOOGLE_MAPS_API_KEY}
 
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
+      aiResultsKey: stream:itinerary-results
+  itinerary:
+    jobTtlSeconds: 86400
+    consumerGroup: travel-service
+    consumerName: ${HOSTNAME:prod}-${random.uuid}
+    streamEnabled: true
+
 trip:
   create-window-enabled: true # 운영환경에서는 시간 제한 활성화

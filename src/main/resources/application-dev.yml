@@ -40,5 +40,17 @@ google:
   maps:
     api-key: ${GOOGLE_MAPS_API_KEY}
 
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
+      aiResultsKey: stream:itinerary-results
+  itinerary:
+    jobTtlSeconds: 86400
+    consumerGroup: travel-service
+    consumerName: ${HOSTNAME:dev}-${random.uuid}
+    streamEnabled: true
+
 trip:
   create-window-enabled: false

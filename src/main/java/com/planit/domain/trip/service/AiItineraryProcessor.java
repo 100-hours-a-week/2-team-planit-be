@@ -16,10 +16,13 @@ import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AiItineraryProcessor {
+    private static final Logger log = LoggerFactory.getLogger(AiItineraryProcessor.class);
 
     private final AiItineraryClient client;
     private final TripRepository tripRepository;
@@ -44,14 +47,30 @@ public class AiItineraryProcessor {
     @Transactional
     public void process(AiItineraryJob job) {
         // AI 서버로 일정 생성 요청
+        log.info("[AI_PROCESS] start job tripId={}", job.request().tripId());
         AiItineraryResponse response = client.requestItinerary(job.request());
-        if (response == null || response.itineraries() == null) {
+        saveItinerary(job.request().tripId(), response);
+        log.info("[AI_PROCESS] end job tripId={}", job.request().tripId());
+    }
+
+    @Transactional
+    public void processResponse(AiItineraryResponse response) {
+        if (response == null) {
+            return;
+        }
+        log.info("[AI_PROCESS] processResponse tripId={}", response.tripId());
+        saveItinerary(response.tripId(), response);
+    }
+
+    private void saveItinerary(Long tripId, AiItineraryResponse response) {
+        if (tripId == null || response == null || response.itineraries() == null) {
             return;
         }
 
         // 여행이 존재할 때만 일정 저장
-        Trip trip = tripRepository.findById(job.request().tripId()).orElse(null);
+        Trip trip = tripRepository.findById(tripId).orElse(null);
         if (trip == null) {
+            log.warn("[AI_PROCESS] trip not found tripId={}", tripId);
             return;
         }
 
@@ -63,7 +82,7 @@ public class AiItineraryProcessor {
                     itinerary.day(),
                     itinerary.date() != null ? itinerary.date().atStartOfDay() : null
             ));
-            System.out.println("일별일정 저장됨: "+day.getId()+"&"+day.getDayIndex());
+            log.info("[AI_PROCESS] day saved dayId={}, dayIndex={}", day.getId(), day.getDayIndex());
 
 
             List<AiItineraryActivityResponse> activities = itinerary.activities();
@@ -84,6 +103,7 @@ public class AiItineraryProcessor {
                         resolveStartTime(activity.startTime()),
                         resolveDuration(activity.duration())
                     ));
+                    log.debug("[AI_PROCESS] transport saved dayId={}, order={}", day.getId(), activity.eventOrder());
                 } else {
                     placeRepository.save(new ItineraryItemPlace(
                         day,
@@ -97,6 +117,7 @@ public class AiItineraryProcessor {
                         activity.memo(),
                         activity.googleMapUrl()
                     ));
+                    log.debug("[AI_PROCESS] place saved dayId={}, name={}", day.getId(), activity.placeName());
                 }
             }
         }
