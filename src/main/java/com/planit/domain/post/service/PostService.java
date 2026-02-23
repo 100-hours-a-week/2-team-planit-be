@@ -59,7 +59,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PostService {
     private static final Logger log = LoggerFactory.getLogger(PostService.class);
-    private static final String PLAN_SHARE_PLACEHOLDER_IMAGE = "/images/plan-share-default.png";
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -315,6 +314,7 @@ public class PostService {
         if (tripPlaces.isEmpty()) {
             return;
         }
+        String defaultRepresentativeImage = imageUrlResolver.resolve(null);
         Map<Long, Long> tripToPlace = new LinkedHashMap<>();
         for (ItineraryItemPlaceRepository.TripPlaceInfo info : tripPlaces) {
             tripToPlace.putIfAbsent(info.getTripId(), info.getPlaceId());
@@ -327,7 +327,7 @@ public class PostService {
             if (tripId == null || !tripToPlace.containsKey(tripId)) {
                 continue;
             }
-            item.setRepresentativeImageUrl(PLAN_SHARE_PLACEHOLDER_IMAGE);
+            item.setRepresentativeImageUrl(defaultRepresentativeImage);
         }
     }
 
