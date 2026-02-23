@@ -2,6 +2,7 @@ package com.planit.domain.post.dto; // 게시글 생성 요청 DTO 패키지
 
 import com.planit.domain.post.entity.BoardType;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank; // 빈 문자열 검사
@@ -14,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.util.StringUtils;
 
 /**
  * 게시글 작성 요청 DTO
@@ -45,9 +47,10 @@ public class PostCreateRequest {
     @Size(max = 255, message = "*Google Place ID는 최대 255자까지 입력 가능합니다.")
     private String googlePlaceId;
 
+    @Parameter(description = "PLACE_RECOMMEND일 때 Google place 별점")
     @Min(value = 1, message = "*별점은 1점 이상이어야 합니다.")
     @Max(value = 5, message = "*별점은 5점 이하만 가능합니다.")
-    private Integer rating;
+    private Integer userRating;
 
     @Parameter(description = "게시판 유형")
     @NotNull(message = "*게시판 유형을 선택해주세요.")
@@ -65,4 +68,5 @@ public class PostCreateRequest {
     public List<String> getImageKeys() {
         return imageKeys == null ? Collections.emptyList() : imageKeys;
     }
+
 }

@@ -58,7 +58,7 @@ public class Post {
     private String placeName;
 
     @Column(name = "rating")
-    private Integer rating;
+    private Double rating;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean deleted = false; // 논리 삭제 플래그
@@ -112,7 +112,7 @@ public class Post {
 
     public void setPlaceRecommendation(String placeName, Integer rating) {
         this.placeName = placeName;
-        this.rating = rating;
+        this.rating = rating == null ? null : rating.doubleValue();
     }
 
     public Long getPlanId() {
@@ -123,7 +123,7 @@ public class Post {
         return placeName;
     }
 
-    public Integer getRating() {
+    public Double getRating() {
         return rating;
     }
 }
