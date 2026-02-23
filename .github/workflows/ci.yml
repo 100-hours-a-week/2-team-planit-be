@@ -6,14 +6,22 @@ on:
   push:
     branches: [develop, main]
 
+permissions:
+  contents: read
+
 jobs:
   backend-ci:
     runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ap-northeast-2
+      ECR_REPOSITORY: planit-was
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ===== 공통: JDK/Gradle 빌드(artifact는 develop에 필요) =====
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -23,8 +31,79 @@ jobs:
       - name: Set up Gradle / Cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build
-        run: ./gradlew bootJar --no-daemon -x test  # test 제외하고 빌드
+      - name: Build bootJar (no tests)
+        run: ./gradlew bootJar --no-daemon -x test
+
+      # develop: 기존 구조 유지(artifact 업로드)
+      - name: Upload Build file (develop push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: build/libs/*.jar
+          retention-days: 7
+
+      # ===== main: Docker build/test + ECR push =====
+      - name: Set up Docker Buildx (main path)
+        if: startsWith(github.ref, 'refs/heads/main') || github.base_ref == 'main'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials (Access Key) (main push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR (main push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Compute image tags (main path)
+        if: startsWith(github.ref, 'refs/heads/main') || github.base_ref == 'main'
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA="${GITHUB_SHA}"
+          SHORT="${SHA:0:7}"
+          TS="$(date -u +%Y%m%d%H%M%S)"
+          echo "sha_tag=sha-${SHORT}" >> "$GITHUB_OUTPUT"
+          echo "ts_tag=ts-${TS}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image (main path)
+        if: startsWith(github.ref, 'refs/heads/main') || github.base_ref == 'main'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # push(main)에서는 ECR로 태깅, PR(main)은 로컬 태그로만 빌드
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            REG="${{ steps.ecr.outputs.registry }}"
+            IMG="${REG}/${{ env.ECR_REPOSITORY }}"
+            docker build -t "${IMG}:${{ steps.meta.outputs.sha_tag }}" .
+          else
+            docker build -t "local/planit-was:${{ steps.meta.outputs.sha_tag }}" .
+          fi
+
+
+      - name: Push image to ECR (main push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          REG="${{ steps.ecr.outputs.registry }}"
+          IMG="${REG}/${{ env.ECR_REPOSITORY }}"
+
+          docker push "${IMG}:${{ steps.meta.outputs.sha_tag }}"
+
+          docker tag "${IMG}:${{ steps.meta.outputs.sha_tag }}" "${IMG}:${{ steps.meta.outputs.ts_tag }}"
+          docker push "${IMG}:${{ steps.meta.outputs.ts_tag }}"
+
+          docker tag "${IMG}:${{ steps.meta.outputs.sha_tag }}" "${IMG}:prod"
+          docker push "${IMG}:prod"
 
       - name: Send Discord Notification
         if: failure()

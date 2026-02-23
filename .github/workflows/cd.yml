@@ -1,149 +1,155 @@
-name: CD - Backend
+name: CD - Backend (ASG Refresh)
 
 on:
+  # CI - Backend 워크플로우가 성공적으로 끝났을 때만 실행
   workflow_run:
     workflows: ["CI - Backend"]
-    types:
-      - completed
+    types: [completed]
     branches: [main]
 
 jobs:
   backend-cd:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }} # CI가 성공했을 때만 실행
+    # CI가 성공(conclusion == success)일 때만 진행
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    env:
+      AWS_REGION: ap-northeast-2
+
+      # Backend ASG 이름 (AWS 콘솔의 Auto Scaling Groups에서 확인)
+      ASG_NAME: planit-v2-asg-was
+
+      # Instance Refresh 옵션
+      # - MinHealthyPercentage=50: 절반은 항상 살아있게 유지하며 교체
+      # - InstanceWarmup: 새 인스턴스가 정상 기동/헬스체크 통과할 시간을 고려
+      MIN_HEALTHY_PERCENT: "50"
+      INSTANCE_WARMUP: "180"
+
+      # Backend user-data에서 IMAGE_TAG를 주입할 템플릿 파일 경로
+      USER_DATA_PATH: resources/user-data.sh
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare image tags
-        id: tags
-        run: |
-          TIMESTAMP=$(date -u +%Y%m%d-%H%M)
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          echo "timestamp=${TIMESTAMP}" >> "$GITHUB_OUTPUT"
-          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "timestamp_tag=${TIMESTAMP}" >> "$GITHUB_OUTPUT"
-          echo "commit_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-      # GitHub Actions IP를 AWS SG에 일시적으로 등록하기
-      - name: Get GitHub Actions IP
-        id: get-ip
-        uses: haythem/public-ip@v1.3
-
-      - name: Configure AWS credentials
+      # AWS 인증
+      - name: Configure AWS credentials (Access Key)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACTIONS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Add IP to Security Group
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+
+      # 이 배포에서 사용할 이미지 태그 계산
+      # CI에서 sha-xxxxxxx 태그로 ECR에 push
+      - name: Compute image tag
+        id: img
+        shell: bash
         run: |
-          aws ec2 authorize-security-group-ingress \
-            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
-            || echo "IP may already be in security group"
-          sleep 10
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT="${HEAD_SHA:0:7}"
+          echo "tag=sha-${SHORT}" >> "$GITHUB_OUTPUT"
+          echo "Deploy image tag: sha-${SHORT}"
 
-      - name: Ensure ECR repository exists
+      # user-data 템플릿에서 {{IMAGE_TAG}}를 이번 배포 태그로 치환하고 base64 인코딩
+      # (Launch Template UserData는 base64 문자열)
+      - name: Render backend user-data with IMAGE_TAG
+        id: ud
+        shell: bash
         run: |
-          aws ecr create-repository --repository-name planit-was --region ap-northeast-2 \
-            || echo "Repository planit-was already exists"
+          set -euo pipefail
+          TAG="${{ steps.img.outputs.tag }}"
+          test -f "${USER_DATA_PATH}"
+          sed "s|{{IMAGE_TAG}}|$TAG|g" "${USER_DATA_PATH}" > rendered-userdata.sh
+          base64 -w 0 rendered-userdata.sh > userdata.b64
 
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          push: true
-          tags: |
-            ${{ steps.ecr-login.outputs.registry }}/planit-was:${{ steps.tags.outputs.timestamp_tag }}
-            ${{ steps.ecr-login.outputs.registry }}/planit-was:${{ steps.tags.outputs.commit_tag }}
-            ${{ steps.ecr-login.outputs.registry }}/planit-was:prod
-
-      - name: Deploy to EC2 (SSH)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            REGION="ap-northeast-2"
-            ACCOUNT_ID="713881824287"
-            REPO_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
-            APP_DIR="/opt/planit"
-
-            cd "${APP_DIR}"
-
-            # S3(Presigned URL 등)를 위한 AWS 자격증명 export (compose의 ${VAR} 치환에 사용)
-            export AWS_ACCESS_KEY_ID="${{ secrets.AWS_S3_ACCESS_KEY_ID }}"
-            export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}"
-            export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
-            export AWS_REGION="ap-northeast-2"
-            export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN }}"
-
-            # ECR 로그인 (인스턴스 IAM 역할 사용)
-            aws ecr get-login-password --region "${REGION}" \
-              | docker login --username AWS --password-stdin "${REPO_URI}"
-
-            # docker-compose.yml의 이미지 태그를 prod로 통일 (latest → prod)
-            sudo sed -i "s|planit-was:latest|planit-was:prod|g" docker-compose.yml
-
-            # 앱 이미지만 pull 후 재기동
-            docker compose pull app
-            docker compose up -d app
-
-            echo "Health Check 시작"
-            for retry in $(seq 1 15); do
-              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health || true)
-              if [ "$response" = "200" ] || [ "$response" = "401" ]; then
-                echo "Server is up (HTTP $response)"
-                exit 0 # 성공 종료
-              fi
-            
-              echo "Waiting for server... (Attempt $retry/15)"
-              sleep 10
-            done
-            echo "Server failed to start."
-            exit 1 # 실패 종료
-
-      - name: Configure AWS credentials for cleanup
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACTIONS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
-
-      - name: Remove IP from Security Group
-        if: always()
+      # ASG에 연결된 Launch Template ID를 가져오고,
+      # 1) 기존 default 버전을 SourceVersion으로 삼아
+      # 2) UserData만 교체한 새 버전을 생성한 뒤
+      # 3) default 버전을 새 버전으로 변경
+      - name: Create new Launch Template version + set default
+        id: lt
+        shell: bash
         run: |
-          aws ec2 revoke-security-group-ingress \
-            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
-            || echo "Failed to remove IP or rule not found"
+          set -euo pipefail
+
+          LT_ID=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$ASG_NAME" \
+            --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateId" \
+            --output text)
+
+          if [ -z "$LT_ID" ] || [ "$LT_ID" = "None" ]; then
+            echo "Failed to resolve LaunchTemplateId from ASG."
+            exit 1
+          fi
+
+          CURRENT=$(aws ec2 describe-launch-templates \
+            --launch-template-ids "$LT_ID" \
+            --query "LaunchTemplates[0].DefaultVersionNumber" \
+            --output text)
+
+          NEW=$(aws ec2 create-launch-template-version \
+            --launch-template-id "$LT_ID" \
+            --source-version "$CURRENT" \
+            --version-description "backend:${{ steps.img.outputs.tag }} (${GITHUB_RUN_ID})" \
+            --launch-template-data "{\"UserData\":\"$(cat userdata.b64)\"}" \
+            --query "LaunchTemplateVersion.VersionNumber" \
+            --output text)
+
+          aws ec2 modify-launch-template \
+            --launch-template-id "$LT_ID" \
+            --default-version "$NEW"
+
+          echo "LT default updated: $CURRENT -> $NEW"
+
+      # Instance Refresh 시작: 새 Launch Template default 버전으로 인스턴스를 순차 교체
+      - name: Start Instance Refresh
+        id: refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences "MinHealthyPercentage=${MIN_HEALTHY_PERCENT},InstanceWarmup=${INSTANCE_WARMUP}" \
+            --query "InstanceRefreshId" \
+            --output text)
+
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          echo "Started refresh $ID"
+
+      # Refresh 진행 상태를 폴링해서 성공/실패를 판단
+      - name: Monitor Instance Refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          ID="${{ steps.refresh.outputs.id }}"
+          for i in {1..90}; do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$ASG_NAME" \
+              --instance-refresh-ids "$ID" \
+              --query "InstanceRefreshes[0].Status" \
+              --output text)
+
+            echo "Status: $STATUS"
+
+            if [ "$STATUS" = "Successful" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then exit 1; fi
+
+            sleep 20
+          done
+
+          echo "Timeout"
+          exit 1
 
       - name: Send Discord Notification
         if: failure()
         run: |
-          MSG="🔴 CD - Backend 실패!"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"content\": \"${MSG}\n🔗 [배포 로그 확인](${RUN_URL})\"}" \
+               -d "{\"content\": \"CD - Backend(ASG) 실패\n🔗 ${RUN_URL}\"}" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
