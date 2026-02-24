@@ -17,7 +17,6 @@ spring:
       port: 6379
       password: localpass
       timeout: 2s
-
   cache:
     type: redis
 

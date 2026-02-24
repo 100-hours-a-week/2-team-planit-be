@@ -1,4 +1,10 @@
 spring:
+  data:
+    redis:
+      host: localhost
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:localpass}
+      timeout: 2s
   datasource: # cd-dev.yml에서 secrets.SPRING_DATASOURCE_*_DEV 주입
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
@@ -54,3 +60,4 @@ app:
 
 trip:
   create-window-enabled: false
+  daily-create-limit-enabled: false
