@@ -114,6 +114,7 @@ public class PostService {
                             summary.getRepresentativeImageId(),
                             thumbnailUrl,
                             summary.getRankingScore(),
+                            summary.getPlaceImageUrl(),
                             summary.getPlaceName(),
                             summary.getTripTitle()
                     );
@@ -183,7 +184,7 @@ public class PostService {
             }
             case PLACE_RECOMMEND -> {
                 PlaceRecommendationPayload payload = validatePlaceRecommendation(request);
-                post.setPlaceRecommendation(payload.placeName(), payload.userRating());
+                post.setPlaceRecommendation(payload.placeName(), payload.userRating(), payload.googlePlaceId());
                 Post saved = postRepository.save(post);
                 saveRecommendedPlace(saved, payload);
                 return buildCreateResponse(saved, Collections.emptyList());
@@ -223,6 +224,7 @@ public class PostService {
                             detail.getLatitude(),
                             detail.getLongitude()
                     );
+                    place.setPhotoUrl(detail.getPhotoUrl());
                     return placeRepository.save(place);
                 });
     }
@@ -285,9 +287,6 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
         }
         String googlePlaceId = request.getGooglePlaceId();
-        if (!StringUtils.hasText(googlePlaceId) && existingPlace.isPresent()) {
-            googlePlaceId = existingPlace.get().getGooglePlaceId();
-        }
         if (!StringUtils.hasText(googlePlaceId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*Google place ID를 입력해주세요.");
         }
@@ -380,7 +379,7 @@ public class PostService {
                 deleteExistingPostImages(postId);
                 imageIds = savePostImages(postId, request.getImageKeys(), now);
                 post.setPlanInfo(null);
-                post.setPlaceRecommendation(null, null);
+                post.setPlaceRecommendation(null, null, null);
                 postedPlaceRepository.deleteByPostId(postId);
                 postedPlanRepository.findByPostId(postId)
                         .ifPresent(postedPlanRepository::delete);
@@ -389,7 +388,7 @@ public class PostService {
                 Long planId = resolvePlanIdForUpdate(request);
                 Trip plan = validateTripForUpdate(planId, postId, user);
                 post.setPlanInfo(planId);
-                post.setPlaceRecommendation(null, null);
+                post.setPlaceRecommendation(null, null, null);
                 postedPlaceRepository.deleteByPostId(postId);
                 Optional<PostedPlan> existingPlan = postedPlanRepository.findByPostId(postId);
                 if (existingPlan.isPresent()) {
@@ -402,7 +401,7 @@ public class PostService {
                 Optional<PostedPlace> existingPlace = postedPlaceRepository.findByPostId(postId);
                 PlaceRecommendationPayload payload = validatePlaceRecommendationForUpdate(request, post, existingPlace);
                 post.setPlanInfo(null);
-                post.setPlaceRecommendation(payload.placeName(), payload.userRating());
+                post.setPlaceRecommendation(payload.placeName(), payload.userRating(), payload.googlePlaceId());
                 postedPlanRepository.findByPostId(postId)
                         .ifPresent(postedPlanRepository::delete);
                 postedPlaceRepository.deleteByPostId(postId);

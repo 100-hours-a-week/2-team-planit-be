@@ -30,7 +30,6 @@ public class PlaceRecommendationService {
             );
     private static final int MAX_SEARCH_RESULTS = 10;
     private static final String MAPS_PLACE_URL_PREFIX = "https://www.google.com/maps/place/?q=place_id:";
-    private static final String PHOTO_BASE_URL = "https://maps.googleapis.com/maps/api/place/photo";
 
     private final GooglePlacesClient googlePlacesClient;
     private final GooglePlaceDetailsClient googlePlaceDetailsClient;
@@ -57,7 +56,7 @@ public class PlaceRecommendationService {
         if (!StringUtils.hasText(composedQuery)) {
             throw new PlaceSearchException(ErrorCode.PLACE_002, HttpStatus.BAD_REQUEST, "query is required");
         }
-        GooglePlacesRequest placesRequest = new GooglePlacesRequest(composedQuery, WORLD_RESTRICTION);
+        GooglePlacesRequest placesRequest = new GooglePlacesRequest(composedQuery, null);
         GooglePlacesResponse response = googlePlacesClient.searchText(placesRequest);
         if (response == null || response.places() == null) {
             return Collections.emptyList();
@@ -90,42 +89,37 @@ public class PlaceRecommendationService {
             throw new PlaceSearchException(ErrorCode.PLACE_002, HttpStatus.BAD_REQUEST, "placeId is required");
         }
         PlaceDetailsResponse response = googlePlaceDetailsClient.getPlaceDetails(placeId);
-        if (response == null || response.status() == null) {
+        if (response == null || !StringUtils.hasText(response.id())) {
             throw new PlaceSearchException(ErrorCode.PLACE_003, HttpStatus.NOT_FOUND, "place not found");
         }
-        switch (response.status()) {
-            case "OK" -> {
-                PlaceDetailsResponse.PlaceResult result = response.result();
-                if (result == null) {
-                    throw new PlaceSearchException(ErrorCode.PLACE_003, HttpStatus.NOT_FOUND, "place not found");
-                }
-                String city = findComponent(result.address_components(), "locality");
-                if (city == null) {
-                    city = findComponent(result.address_components(), "administrative_area_level_2");
-                }
-                String country = findComponent(result.address_components(), "country");
-                String photoUrl = buildPhotoUrl(result.photos());
-                Double latitude = result.geometry() != null && result.geometry().location() != null
-                        ? result.geometry().location().lat()
-                        : null;
-                Double longitude = result.geometry() != null && result.geometry().location() != null
-                        ? result.geometry().location().lng()
-                        : null;
-                return new PlaceRecommendationDetailResponse(
-                        result.place_id(),
-                        result.name(),
-                        city,
-                        country,
-                        latitude,
-                        longitude,
-                        photoUrl,
-                        MAPS_PLACE_URL_PREFIX + result.place_id()
-                );
-            }
-            case "ZERO_RESULTS", "NOT_FOUND" -> throw new PlaceSearchException(ErrorCode.PLACE_003, HttpStatus.NOT_FOUND, "place not found");
-            case "INVALID_REQUEST" -> throw new PlaceSearchException(ErrorCode.PLACE_002, HttpStatus.BAD_REQUEST, "invalid placeId");
-            default -> throw new PlaceSearchException(ErrorCode.PLACE_003, HttpStatus.BAD_GATEWAY, "Google Places details error");
+        String googlePlaceId = extractGooglePlaceId(response.id());
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new PlaceSearchException(ErrorCode.PLACE_003, HttpStatus.NOT_FOUND, "place not found");
         }
+        String city = findComponent(response.addressComponents(), "locality");
+        if (city == null) {
+            city = findComponent(response.addressComponents(), "administrative_area_level_2");
+        }
+        String country = findComponent(response.addressComponents(), "country");
+        String placeName = response.displayName() != null && StringUtils.hasText(response.displayName().text())
+                ? response.displayName().text()
+                : response.formattedAddress();
+        Double latitude = response.location() != null ? response.location().latitude() : null;
+        Double longitude = response.location() != null ? response.location().longitude() : null;
+        String photoUrl = null;
+        if (response.photos() != null && !response.photos().isEmpty()) {
+            photoUrl = googlePlaceDetailsClient.fetchPhotoMediaUrl(response.photos().get(0).name());
+        }
+        return new PlaceRecommendationDetailResponse(
+                googlePlaceId,
+                placeName,
+                city,
+                country,
+                latitude,
+                longitude,
+                photoUrl,
+                MAPS_PLACE_URL_PREFIX + googlePlaceId
+        );
     }
 
     private String normalizeQuery(String query) {
@@ -138,19 +132,16 @@ public class PlaceRecommendationService {
         }
         return components.stream()
                 .filter(component -> component.types().contains(type))
-                .map(PlaceDetailsResponse.AddressComponent::long_name)
+                .map(PlaceDetailsResponse.AddressComponent::longText)
                 .findFirst()
                 .orElse(null);
     }
 
-    private String buildPhotoUrl(List<PlaceDetailsResponse.Photo> photos) {
-        if (photos == null || photos.isEmpty()) {
+    private String extractGooglePlaceId(String id) {
+        if (!StringUtils.hasText(id)) {
             return null;
         }
-        String reference = photos.get(0).photo_reference();
-        if (!StringUtils.hasText(reference)) {
-            return null;
-        }
-        return PHOTO_BASE_URL + "?maxwidth=400&photoreference=" + reference + "&key=" + apiKey;
+        int lastSlash = id.lastIndexOf('/');
+        return lastSlash >= 0 && lastSlash < id.length() - 1 ? id.substring(lastSlash + 1) : id;
     }
 }

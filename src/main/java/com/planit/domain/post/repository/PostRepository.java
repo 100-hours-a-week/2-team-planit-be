@@ -30,6 +30,7 @@ public interface PostRepository
         Double getRankingScore();
         String getPlaceName();
         String getTripTitle();
+        String getPlaceImageUrl();
 
     }
     /**
@@ -64,10 +65,14 @@ public interface PostRepository
                             + " order by pi.created_at asc limit 1) as representativeImageKey, "
                             //없는 테이블 참조 문제 해결
                             + "null as rankingScore, "
-                            + "(select pl.name from posted_places pp "
-                            + " join places pl on pl.place_id = pp.place_id "
-                            + " where pp.post_id = p.post_id "
-                            + " limit 1) as placeName, "
+                    + "(select pl.name from posted_places pp "
+                    + " join places pl on pl.place_id = pp.place_id "
+                    + " where pp.post_id = p.post_id "
+                    + " limit 1) as placeName, "
+                    + "(select pl.photo_url from posted_places pp "
+                    + " join places pl on pl.place_id = pp.place_id "
+                    + " where pp.post_id = p.post_id "
+                    + " limit 1) as placeImageUrl, "
                             + "null as tripTitle "
                             /*
                             + "(select pr.score from post_ranking_snapshots pr "
