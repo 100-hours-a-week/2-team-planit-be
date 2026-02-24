@@ -60,6 +60,9 @@ public class Post {
     @Column(name = "rating")
     private Double rating;
 
+    @Column(name = "google_place_id", length = 255)
+    private String googlePlaceId;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean deleted = false; // 논리 삭제 플래그
 
@@ -103,6 +106,7 @@ public class Post {
         post.planId = null;
         post.placeName = null;
         post.rating = null;
+        post.googlePlaceId = null;
         return post;
     }
 
@@ -110,9 +114,10 @@ public class Post {
         this.planId = planId;
     }
 
-    public void setPlaceRecommendation(String placeName, Integer rating) {
+    public void setPlaceRecommendation(String placeName, Integer rating, String googlePlaceId) {
         this.placeName = placeName;
         this.rating = rating == null ? null : rating.doubleValue();
+        this.googlePlaceId = googlePlaceId;
     }
 
     public Long getPlanId() {
@@ -125,5 +130,9 @@ public class Post {
 
     public Double getRating() {
         return rating;
+    }
+
+    public String getGooglePlaceId() {
+        return googlePlaceId;
     }
 }

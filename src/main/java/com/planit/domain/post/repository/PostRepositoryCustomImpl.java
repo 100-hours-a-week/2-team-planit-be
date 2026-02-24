@@ -81,10 +81,10 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                     order by pi.id asc
                     limit 1) as plan_thumbnail_key,
                    pp.place_id,
-                   pl.name as place_name,
-                   pp.google_place_id as place_google_place_id,
-                   null as place_city,
-                   null as place_country,
+                   p.place_name as place_name,
+                   p.google_place_id as place_google_place_id,
+                   pl.city as place_city,
+                   pl.country as place_country,
                    pp.rating as place_rating
             from posts p
             join users u on u.user_id = p.user_id and u.is_deleted = 0

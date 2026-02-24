@@ -38,6 +38,9 @@ public class Place {
     @Column(name = "longitude")
     private Double longitude;
 
+    @Column(name = "photo_url")
+    private String photoUrl;
+
     public Place(String name, String googlePlaceId, String city, String country, Double latitude, Double longitude) {
         this.name = name;
         this.googlePlaceId = googlePlaceId;
@@ -45,5 +48,14 @@ public class Place {
         this.country = country;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.photoUrl = null;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+    
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }

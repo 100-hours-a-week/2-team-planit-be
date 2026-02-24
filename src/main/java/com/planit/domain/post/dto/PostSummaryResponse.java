@@ -16,6 +16,7 @@ public class PostSummaryResponse {
     private final Long representativeImageId;
     private String representativeImageUrl;
     private final Double rankingScore;
+    private final String placeImageUrl;
     private final String placeName;
     private final String tripTitle;
 
@@ -31,6 +32,7 @@ public class PostSummaryResponse {
         Long representativeImageId,
         String representativeImageUrl,
         Double rankingScore,
+        String placeImageUrl,
         String placeName,
         String tripTitle
     ) {
@@ -45,6 +47,7 @@ public class PostSummaryResponse {
         this.representativeImageId = representativeImageId;
         this.representativeImageUrl = representativeImageUrl;
         this.rankingScore = rankingScore;
+        this.placeImageUrl = placeImageUrl;
         this.placeName = placeName;
         this.tripTitle = tripTitle;
     }

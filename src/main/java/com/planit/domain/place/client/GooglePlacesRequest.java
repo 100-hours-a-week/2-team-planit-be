@@ -1,7 +1,9 @@
 package com.planit.domain.place.client;
 
-public record GooglePlacesRequest(
+import com.fasterxml.jackson.annotation.JsonInclude;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record GooglePlacesRequest(
         String textQuery,
         LocationRestriction locationRestriction
 ) {
