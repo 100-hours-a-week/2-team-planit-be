@@ -51,6 +51,15 @@ public class Post {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt; // 수정 시각 (audit)
 
+    @Column(name = "plan_id")
+    private Long planId;
+
+    @Column(name = "place_name", length = 255)
+    private String placeName;
+
+    @Column(name = "rating")
+    private Double rating;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean deleted = false; // 논리 삭제 플래그
 
@@ -58,7 +67,7 @@ public class Post {
     private LocalDateTime deletedAt; // 삭제된 시점
 
     @Column(name = "comment_count", nullable = false)
-    private Long commentCount = 0L; // 댓글 수
+    private Integer commentCount = 0;
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", referencedColumnName = "post_id", insertable = false, updatable = false)
@@ -91,6 +100,30 @@ public class Post {
         post.boardType = boardType;
         post.createdAt = now;
         post.updatedAt = now;
+        post.planId = null;
+        post.placeName = null;
+        post.rating = null;
         return post;
+    }
+
+    public void setPlanInfo(Long planId) {
+        this.planId = planId;
+    }
+
+    public void setPlaceRecommendation(String placeName, Integer rating) {
+        this.placeName = placeName;
+        this.rating = rating == null ? null : rating.doubleValue();
+    }
+
+    public Long getPlanId() {
+        return planId;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public Double getRating() {
+        return rating;
     }
 }

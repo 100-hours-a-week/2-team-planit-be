@@ -16,8 +16,8 @@ import com.planit.domain.user.service.support.UserConstraintMetadata;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
-import com.planit.infrastructure.storage.S3ObjectDeleter;
-import com.planit.infrastructure.storage.S3PresignedUrlService;
+import com.planit.infrastructure.storage.UploadContext;
+import com.planit.infrastructure.storage.UploadUrlProvider;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -59,8 +59,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ObjectProvider<S3PresignedUrlService> presignedUrlServiceProvider;
-    private final ObjectProvider<S3ObjectDeleter> s3ObjectDeleterProvider;
+    private final ObjectProvider<UploadUrlProvider> uploadUrlProvider;
     private final S3ImageUrlResolver imageUrlResolver;
     private final UserConstraintMetadata constraintMetadata;
 
@@ -148,24 +147,26 @@ public class UserService {
     public PresignedUrlResponse getProfilePresignedUrl(String loginId, String fileExtension, String contentType) {
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
-        S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
-        if (service == null) {
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
-        return service.createProfilePresignedUrl(user.getId(), fileExtension,
-                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+        return provider.issuePresignedPutUrl(
+                UploadContext.profile(user.getId(), fileExtension, contentType)
+        );
     }
 
     /** 회원가입 시 프로필 이미지용 Presigned URL 발급 (비인증). signup/ prefix key 반환 */
     public PresignedUrlResponse getSignupProfilePresignedUrl(String fileExtension, String contentType) {
-        S3PresignedUrlService service = presignedUrlServiceProvider.getIfAvailable();
-        if (service == null) {
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "*프로필 이미지 업로드 기능이 비활성화 되어 있습니다.");
         }
-        return service.createSignupPresignedUrl(fileExtension,
-                StringUtils.hasText(contentType) ? contentType : "image/jpeg");
+        return provider.issuePresignedPutUrl(
+                UploadContext.signupProfile(fileExtension, contentType)
+        );
     }
 
     /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
@@ -173,15 +174,16 @@ public class UserService {
         if (!StringUtils.hasText(key) || !key.startsWith("signup/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
-        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-        if (deleter != null) {
-            try {
-                deleter.delete(key);
-                log.info("S3 signup profile image deleted: {}", key);
-            } catch (Exception e) {
-                log.warn("S3 delete failed for signup key={}", key, e);
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "*이미지 삭제에 실패했습니다.");
-            }
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "*이미지 삭제 기능이 비활성화 되어 있습니다.");
+        }
+        try {
+            provider.deleteByKey(key);
+            log.info("profile image deleted: {}", key);
+        } catch (Exception e) {
+            log.warn("image delete failed for signup key={}", key, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "*이미지 삭제에 실패했습니다.");
         }
     }
 
@@ -195,10 +197,10 @@ public class UserService {
         user.setProfileImageKey(key);
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
-        // 기존 이미지 S3에서 삭제
-        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-        if (deleter != null && StringUtils.hasText(oldKey) && !oldKey.equals(key)) {
-            deleter.delete(oldKey);
+        // 기존 이미지 삭제
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider != null && StringUtils.hasText(oldKey) && !oldKey.equals(key)) {
+            provider.deleteByKey(oldKey);
         }
         return buildUserProfileResponse(user);
     }
@@ -212,9 +214,9 @@ public class UserService {
         user.setProfileImageKey(null);
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
-        S3ObjectDeleter deleter = s3ObjectDeleterProvider.getIfAvailable();
-        if (deleter != null && StringUtils.hasText(oldKey)) {
-            deleter.delete(oldKey);
+        UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
+        if (provider != null && StringUtils.hasText(oldKey)) {
+            provider.deleteByKey(oldKey);
         }
         return buildUserProfileResponse(user);
     }

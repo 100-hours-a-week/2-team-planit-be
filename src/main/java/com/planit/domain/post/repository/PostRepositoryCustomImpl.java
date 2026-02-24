@@ -5,6 +5,8 @@ import com.planit.domain.post.dto.PostDetailResponse.CommentInfo;
 import com.planit.domain.post.dto.PostDetailResponse.PostImage;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,6 +21,8 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 @RequiredArgsConstructor
@@ -37,10 +41,15 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             BoardType.PLACE_RECOMMEND, "좋은 장소 추천하기"
     ); // 게시판 설명
 
+    private static final Logger log = LoggerFactory.getLogger(PostRepositoryCustomImpl.class);
+
     @PersistenceContext
     private EntityManager entityManager; // 직접 native query 실행
 
     private final S3ImageUrlResolver imageUrlResolver;
+
+    @Value("${planit.cloudfront.domain:}")
+    private String cloudfrontDomain;
 
     @Override
     public Optional<PostDetailResponse> findDetailById(Long postId, Long requesterId) {
@@ -50,31 +59,53 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                    p.content,
                    p.created_at,
                    p.board_type,
-            u.user_id,
-            u.nickname,
-            u.profile_image_key,
+                   u.user_id,
+                   u.nickname,
+                   u.profile_image_key,
                    (select count(1) from likes l where l.post_id = p.post_id) as like_count,
                    (select count(1) from comments c where c.post_id = p.post_id) as comment_count,
                    case
                      when :requesterId < 0 then 0
                      when exists(select 1 from likes l2 where l2.post_id = p.post_id and l2.author_id = :requesterId) then 1
                      else 0
-                   end as liked
+                   end as liked,
+                   post_plan.trip_id,
+                   t.title as plan_title,
+                   t.arrival_date,
+                   t.departure_date,
+                   (select i.s3_key
+                    from posted_images pi
+                    left join images i on i.id = pi.image_id
+                    where pi.post_id = p.post_id
+                      and pi.is_main_image = 1
+                    order by pi.id asc
+                    limit 1) as plan_thumbnail_key,
+                   pp.place_id,
+                   pl.name as place_name,
+                   pp.google_place_id as place_google_place_id,
+                   null as place_city,
+                   null as place_country,
+                   pp.rating as place_rating
             from posts p
             join users u on u.user_id = p.user_id and u.is_deleted = 0
+            left join posted_plans post_plan on post_plan.post_id = p.post_id
+            left join trips t on t.id = post_plan.trip_id
+            left join posted_places pp on pp.post_id = p.post_id
+            left join places pl on pl.place_id = pp.place_id
             where p.post_id = :postId
             """); // posts+users 조합
         baseQuery.setParameter("postId", postId);
         baseQuery.setParameter("requesterId", requesterId == null ? -1L : requesterId);
         @SuppressWarnings("unchecked")
         List<Object[]> rows = baseQuery.getResultList();
+        log.debug("findDetailById postId={} returned rows={}", postId, rows.size());
         if (rows.isEmpty()) {
             return Optional.empty();
         }
         Object[] row = rows.get(0);
         Long authorId = ((Number) row[5]).longValue();
         String profileImageKey = (String) row[7];
-        String profileImageUrl = imageUrlResolver.resolve(profileImageKey);
+        String profileImageUrl = imageUrlResolver.resolveOrNull(profileImageKey);
         String boardTypeValue = (String) row[4];
         BoardType boardType = BoardType.FREE;
         if (boardTypeValue != null) {
@@ -98,6 +129,16 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         String boardDescription = BOARD_DESCRIPTIONS.getOrDefault(boardType, "자유롭게 이야기하는 공간");
         Timestamp createdTimestamp = (Timestamp) row[3];
         LocalDateTime createdAt = createdTimestamp == null ? null : createdTimestamp.toLocalDateTime();
+        String placeName = (String) row[17];
+        String placeGooglePlaceId = (String) row[18];
+        String placeImageUrl = null;
+        String placeCity = (String) row[19];
+        String placeCountry = (String) row[20];
+        Integer placeRating = row[21] == null ? null : ((Number) row[21]).intValue();
+        Long planTripIdValue = row[11] == null ? null : ((Number) row[11]).longValue();
+        String tripTitleValue = (String) row[12];
+        String planThumbnailKey = (String) row[15];
+        String planThumbnailUrl = resolvePlanThumbnailUrl(planThumbnailKey);
         PostDetailResponse detail = new PostDetailResponse(
                 ((Number) row[0]).longValue(),
                 boardName,
@@ -111,9 +152,33 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 commentCount.intValue(),
                 liked,
                 comments,
-                editable
+                editable,
+                placeName,
+                placeGooglePlaceId,
+                placeImageUrl,
+                placeCity,
+                placeCountry,
+                placeRating,
+                planTripIdValue,
+                planTripIdValue,
+                tripTitleValue,
+                planThumbnailUrl
         ); // DTO 구성하여 반환
         return Optional.of(detail);
+    }
+
+    private String resolvePlanThumbnailUrl(String s3Key) {
+        if (StringUtils.hasText(s3Key)) {
+            return imageUrlResolver.resolveOrNull(s3Key);
+        }
+        if (!StringUtils.hasText(cloudfrontDomain)) {
+            return null;
+        }
+        String base = cloudfrontDomain.trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return "https://" + base + "/defaults/plan-thumbnail.png";
     }
 
     private List<PostImage> fetchImages(Long postId) {

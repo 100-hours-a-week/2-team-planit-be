@@ -2,6 +2,11 @@ package com.planit.domain.post.service;
 
 import com.planit.domain.common.entity.Image;
 import com.planit.domain.common.repository.ImageRepository;
+import com.planit.domain.place.entity.Place;
+import com.planit.domain.place.repository.PlaceRepository;
+import com.planit.domain.place.exception.PlaceSearchException;
+import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
+import com.planit.domain.placeRecommendation.service.PlaceRecommendationService;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse;
@@ -12,11 +17,14 @@ import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.entity.PostedImage;
 import com.planit.domain.post.entity.PostedPlan;
+import com.planit.domain.post.entity.PostedPlace;
 import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.repository.PostedImageRepository;
 import com.planit.domain.post.repository.PostedPlanRepository;
+import com.planit.domain.post.repository.PostedPlaceRepository;
 import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
@@ -30,8 +38,12 @@ import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -50,6 +62,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PostService {
     private static final Logger log = LoggerFactory.getLogger(PostService.class);
+    private static final String PLAN_SHARE_PLACEHOLDER_IMAGE = "/images/plan-share-default.png";
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -61,6 +74,10 @@ public class PostService {
     private final S3ImageUrlResolver imageUrlResolver;
     private final TripRepository tripRepository;
     private final PostedPlanRepository postedPlanRepository;
+    private final PostedPlaceRepository postedPlaceRepository;
+    private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
+    private final PlaceRepository placeRepository;
+    private final PlaceRecommendationService placeRecommendationService;
 
     /** 자유게시판 리스트를 DTO로 반환한다 */
     public PostListResponse listPosts(
@@ -71,10 +88,10 @@ public class PostService {
             int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        String pattern = buildSearchPattern(search);
+        String normalizedSearch = search == null ? "" : search;
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
                 boardType.name(),
-                pattern,
+                normalizedSearch,
                 sortOption.name(),
                 pageable
         );
@@ -102,7 +119,10 @@ public class PostService {
                     );
                 })
                 .collect(Collectors.toList());
-        return new PostListResponse(items, result.hasNext());
+        if (boardType == BoardType.PLAN_SHARE) {
+            overridePlanShareImages(items);
+        }
+        return new PostListResponse(items, result.hasNext(), page, size);
     }
 
     /** Presigned URL 발급 (게시물 이미지) */
@@ -144,35 +164,195 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
         LocalDateTime now = LocalDateTime.now();
-        BoardType boardType = request.getBoardType(); // API에서 전달된 게시판 유형
+        BoardType boardType = request.getBoardType();
+        validateText(request.getTitle(), request.getContent());
         Post post = Post.create(user, request.getTitle(), request.getContent(), boardType, now);
-        Post saved = postRepository.save(post);
-        List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
-        if (BoardType.PLAN_SHARE == boardType) { // 일정 공유 전용 검증 로직
-            if (postedPlanRepository.existsByPostId(saved.getId())) { // 동일 게시글에 이미 연결된 일정 존재
-                throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
+        switch (boardType) {
+            case FREE -> {
+                Post saved = postRepository.save(post);
+                List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
+                return buildCreateResponse(saved, imageIds);
             }
-            Long tripId = request.getTripId(); // 요청에서 전달된 일정 ID
-            if (tripId == null) { // 필수 값 누락 시 예외
-                throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+            case PLAN_SHARE -> {
+                Long planId = resolvePlanId(request);
+                Trip plan = validateTrip(planId, user);
+                post.setPlanInfo(planId);
+                Post saved = postRepository.save(post);
+                postedPlanRepository.save(new PostedPlan(saved, plan));
+                return buildCreateResponse(saved, Collections.emptyList());
             }
-            Trip referencedTrip = tripRepository.findById(tripId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND)); // 일정 존재 여부 체크
-            if (!referencedTrip.getUser().getId().equals(user.getId())) { // 소유자 검증
-                throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+            case PLACE_RECOMMEND -> {
+                PlaceRecommendationPayload payload = validatePlaceRecommendation(request);
+                post.setPlaceRecommendation(payload.placeName(), payload.userRating());
+                Post saved = postRepository.save(post);
+                saveRecommendedPlace(saved, payload);
+                return buildCreateResponse(saved, Collections.emptyList());
             }
-            if (postedPlanRepository.existsByTripId(tripId)) { // 동일 일정이 이미 공유된 경우
-                throw new BusinessException(ErrorCode.TRIP_ALREADY_SHARED);
-            }
-            postedPlanRepository.save(new PostedPlan(saved, referencedTrip)); // 정상적인 매핑 저장
+            default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
         }
-        return new PostCreateResponse(saved.getId(),
+    }
+
+    private PostCreateResponse buildCreateResponse(Post saved, List<Long> imageIds) {
+        return new PostCreateResponse(
+                saved.getId(),
                 saved.getBoardType(),
                 saved.getTitle(),
                 saved.getContent(),
                 saved.getCreatedAt(),
                 saved.getAuthor().getId(),
-                imageIds);
+                imageIds
+        );
+    }
+
+    private void saveRecommendedPlace(Post post, PlaceRecommendationPayload payload) {
+        Place place = findOrCreatePlace(payload);
+        postedPlaceRepository.save(
+                new PostedPlace(post, place.getId(), payload.googlePlaceId(), payload.userRating()));
+    }
+
+    private Place findOrCreatePlace(PlaceRecommendationPayload payload) {
+        return placeRepository.findByGooglePlaceId(payload.googlePlaceId())
+                .orElseGet(() -> {
+                    PlaceRecommendationDetailResponse detail =
+                            placeRecommendationService.getPlaceDetail(payload.googlePlaceId());
+                    Place place = new Place(
+                            detail.getName(),
+                            detail.getPlaceId(),
+                            detail.getCity(),
+                            detail.getCountry(),
+                            detail.getLatitude(),
+                            detail.getLongitude()
+                    );
+                    return placeRepository.save(place);
+                });
+    }
+
+    private PlaceRecommendationPayload validatePlaceRecommendation(PostCreateRequest request) {
+        Long placeId = request.getPlaceId();
+        Integer rating = request.getUserRating();
+        String placeName = request.getPlaceName();
+        if (placeName == null || placeName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
+        }
+        if (rating == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
+        }
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
+        }
+        String googlePlaceId = request.getGooglePlaceId();
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*Google place ID를 입력해주세요.");
+        }
+        return new PlaceRecommendationPayload(placeId, googlePlaceId, placeName, rating);
+    }
+
+    private PlaceRecommendationPayload validatePlaceRecommendationForUpdate(PostUpdateRequest request,
+                                                                           Post post,
+                                                                           Optional<PostedPlace> existingPlace) {
+        Long placeId = request.getPlaceId();
+        Integer rating = request.getUserRating();
+        String placeName = request.getPlaceName();
+        if (placeId != null && !StringUtils.hasText(placeName)) {
+            placeName = placeRepository.findById(placeId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 장소입니다."))
+                    .getName();
+        }
+        if (placeId == null && existingPlace.isPresent()) {
+            placeId = existingPlace.get().getPlaceId();
+        }
+        if (!StringUtils.hasText(placeName)) {
+            if (placeId != null) {
+                placeName = placeRepository.findById(placeId)
+                        .map(Place::getName)
+                        .orElse(null);
+            }
+            if (!StringUtils.hasText(placeName)) {
+                placeName = post.getPlaceName();
+            }
+        }
+        if (!StringUtils.hasText(placeName)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*장소 이름을 입력해주세요.");
+        }
+        if (rating == null) {
+            rating = existingPlace.map(PostedPlace::getRating)
+                    .orElse(post.getRating() == null ? null : post.getRating().intValue());
+        }
+        if (rating == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점을 선택해주세요.");
+        }
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*별점은 1~5 사이여야 합니다.");
+        }
+        String googlePlaceId = request.getGooglePlaceId();
+        if (!StringUtils.hasText(googlePlaceId) && existingPlace.isPresent()) {
+            googlePlaceId = existingPlace.get().getGooglePlaceId();
+        }
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*Google place ID를 입력해주세요.");
+        }
+        return new PlaceRecommendationPayload(placeId, googlePlaceId, placeName, rating);
+    }
+
+    private record PlaceRecommendationPayload(Long placeId, String googlePlaceId, String placeName, Integer userRating) {
+    }
+
+    private Long resolvePlanId(PostCreateRequest request) {
+        Long resolved = request.getPlanId() != null ? request.getPlanId() : request.getTripId();
+        if (resolved == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*연결할 일정을 선택해주세요.");
+        }
+        return resolved;
+    }
+
+    private Long resolvePlanIdForUpdate(PostUpdateRequest request) {
+        Long resolved = request.getPlanId() != null ? request.getPlanId() : request.getTripId();
+        if (resolved == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*연결할 일정을 선택해주세요.");
+        }
+        return resolved;
+    }
+
+    private void overridePlanShareImages(List<PostSummaryResponse> items) {
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Long> postIds = items.stream()
+                .map(PostSummaryResponse::getPostId)
+                .collect(Collectors.toList());
+        List<PostedPlanRepository.PostTripIdInfo> mappings = postedPlanRepository.findTripIdsByPostIds(postIds);
+        if (mappings.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> postToTrip = mappings.stream()
+                .collect(Collectors.toMap(
+                        PostedPlanRepository.PostTripIdInfo::getPostId,
+                        PostedPlanRepository.PostTripIdInfo::getTripId
+                ));
+        if (postToTrip.isEmpty()) {
+            return;
+        }
+        LinkedHashSet<Long> tripIdOrder = new LinkedHashSet<>(postToTrip.values());
+        List<Long> tripIds = new ArrayList<>(tripIdOrder);
+        List<ItineraryItemPlaceRepository.TripPlaceInfo> tripPlaces =
+                itineraryItemPlaceRepository.findFirstPlacesByTripIds(tripIds);
+        if (tripPlaces.isEmpty()) {
+            return;
+        }
+        Map<Long, Long> tripToPlace = new LinkedHashMap<>();
+        for (ItineraryItemPlaceRepository.TripPlaceInfo info : tripPlaces) {
+            tripToPlace.putIfAbsent(info.getTripId(), info.getPlaceId());
+        }
+        for (PostSummaryResponse item : items) {
+            if (item.getRepresentativeImageUrl() != null) {
+                continue;
+            }
+            Long tripId = postToTrip.get(item.getPostId());
+            if (tripId == null || !tripToPlace.containsKey(tripId)) {
+                continue;
+            }
+            item.setRepresentativeImageUrl(PLAN_SHARE_PLACEHOLDER_IMAGE);
+        }
     }
 
     /**
@@ -193,8 +373,43 @@ public class PostService {
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.touchUpdatedAt(now);
-        deleteExistingPostImages(postId);
-        List<Long> imageIds = savePostImages(postId, request.getImageKeys(), now);
+        List<Long> imageIds = Collections.emptyList();
+        BoardType currentBoardType = post.getBoardType();
+        switch (currentBoardType) {
+            case FREE -> {
+                deleteExistingPostImages(postId);
+                imageIds = savePostImages(postId, request.getImageKeys(), now);
+                post.setPlanInfo(null);
+                post.setPlaceRecommendation(null, null);
+                postedPlaceRepository.deleteByPostId(postId);
+                postedPlanRepository.findByPostId(postId)
+                        .ifPresent(postedPlanRepository::delete);
+            }
+            case PLAN_SHARE -> {
+                Long planId = resolvePlanIdForUpdate(request);
+                Trip plan = validateTripForUpdate(planId, postId, user);
+                post.setPlanInfo(planId);
+                post.setPlaceRecommendation(null, null);
+                postedPlaceRepository.deleteByPostId(postId);
+                Optional<PostedPlan> existingPlan = postedPlanRepository.findByPostId(postId);
+                if (existingPlan.isPresent()) {
+                    existingPlan.get().setTrip(plan);
+                } else {
+                    postedPlanRepository.save(new PostedPlan(post, plan));
+                }
+            }
+            case PLACE_RECOMMEND -> {
+                Optional<PostedPlace> existingPlace = postedPlaceRepository.findByPostId(postId);
+                PlaceRecommendationPayload payload = validatePlaceRecommendationForUpdate(request, post, existingPlace);
+                post.setPlanInfo(null);
+                post.setPlaceRecommendation(payload.placeName(), payload.userRating());
+                postedPlanRepository.findByPostId(postId)
+                        .ifPresent(postedPlanRepository::delete);
+                postedPlaceRepository.deleteByPostId(postId);
+                saveRecommendedPlace(post, payload);
+            }
+            default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
+        }
         Post saved = postRepository.save(post);
         return new PostCreateResponse(saved.getId(),
                 saved.getBoardType(),
@@ -284,6 +499,39 @@ public class PostService {
         }
     }
 
+    private void validateText(String title, String content) {
+        if (!StringUtils.hasText(title)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*제목을 입력해주세요.");
+        }
+        if (!StringUtils.hasText(content)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*내용을 입력해주세요.");
+        }
+    }
+
+    private Trip validateTrip(Long tripId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        return trip;
+    }
+
+    private Trip validateTripForUpdate(Long tripId, Long postId, User user) {
+        if (tripId == null) {
+            throw new BusinessException(ErrorCode.TRIP_NOT_FOUND);
+        }
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_NOT_FOUND));
+        if (!trip.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_TRIP_ACCESS);
+        }
+        return trip;
+    }
+
     /**
      * 게시글 삭제: 작성자만 가능하며 논리 삭제
      */
@@ -307,8 +555,23 @@ public class PostService {
     public PostDetailResponse getPostDetail(Long postId, String loginId) {
         User requester = resolveRequester(loginId);
         Long requesterId = requester == null ? null : requester.getId();
-        return postRepository.findDetailById(postId, requesterId)
+        PostDetailResponse detail = postRepository.findDetailById(postId, requesterId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
+        return enrichPlaceDetail(detail);
+    }
+
+    private PostDetailResponse enrichPlaceDetail(PostDetailResponse detail) {
+        String placeId = detail.getGooglePlaceId();
+        if (!StringUtils.hasText(placeId)) {
+            return detail;
+        }
+        try {
+            PlaceRecommendationDetailResponse placeDetail = placeRecommendationService.getPlaceDetail(placeId);
+            return detail.withPlaceDetail(placeDetail);
+        } catch (PlaceSearchException ex) {
+            log.warn("place detail lookup failed for placeId={} reason={}", placeId, ex.getMessage());
+            return detail;
+        }
     }
 
     /** 로그인 사용자를 User 엔티티로 반환 */
@@ -322,25 +585,9 @@ public class PostService {
 
     /** 리스트 정렬 옵션 */
     public enum SortOption {
-        LATEST("createdAt"),
-        COMMENTS("commentCount"),
-        LIKES("likeCount");
-
-        private final String sortProperty;
-
-        SortOption(String sortProperty) {
-            this.sortProperty = sortProperty;
-        }
-
-        public String getSortProperty() {
-            return sortProperty;
-        }
+        LATEST,
+        COMMENTS_1Y,
+        LIKES_1Y
     }
 
-    private String buildSearchPattern(String search) {
-        if (search == null || search.isBlank()) {
-            return "%";
-        }
-        return "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
-    }
 }

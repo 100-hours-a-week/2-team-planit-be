@@ -1,4 +1,10 @@
 spring:
+  data:
+    redis:
+      host: localhost
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:localpass}
+      timeout: 2s
   datasource: # cd-dev.yml에서 secrets.SPRING_DATASOURCE_*_DEV 주입
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
@@ -24,6 +30,8 @@ cloud:
     region:
       static: ${AWS_REGION:ap-northeast-2}
 
+storage:
+  mode: s3
 planit:
   cloudfront: # cd-dev.yml에서 secrets.CLOUDFRONT_DOMAIN_DEV 주입
     domain: ${CLOUDFRONT_DOMAIN}
@@ -34,5 +42,22 @@ ai:
   base-url: http://localhost:8000
   mock-enabled: false
 
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY}
+
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
+      aiResultsKey: stream:itinerary-results
+  itinerary:
+    jobTtlSeconds: 86400
+    consumerGroup: travel-service
+    consumerName: ${HOSTNAME:dev}-${random.uuid}
+    streamEnabled: true
+
 trip:
-  create-window-enabled: true
+  create-window-enabled: false
+  daily-create-limit-enabled: false

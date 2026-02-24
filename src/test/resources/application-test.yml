@@ -18,3 +18,33 @@ jwt:
 cloud:
   aws:
     enabled: false  # 테스트에서는 S3 비활성화
+
+ai:
+  mock-enabled: true
+
+
+trip:
+  create-window-enabled: false
+  daily-create-limit-enabled: false
+
+
+storage:
+  mode: stub
+  stub-base-url: http://localhost:${server.port:8080}/api
+  stub-upload-dir: ./tmp/uploads
+
+google:
+  maps:
+    api-key: test-key
+
+app:
+  redis:
+    stream:
+      aiJobsKey: stream:ai-jobs
+      aiJobsGroup: ai-workers
+      aiResultsKey: stream:itinerary-results
+  itinerary:
+    jobTtlSeconds: 3600
+    consumerGroup: travel-service
+    consumerName: test-${random.uuid}
+    streamEnabled: false

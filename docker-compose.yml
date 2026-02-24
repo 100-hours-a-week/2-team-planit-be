@@ -1,0 +1,18 @@
+
+services:
+  redis:
+    image: redis:7.4
+    container_name: planit-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass localpass
+    volumes:
+      - planit-redis-data:/data
+
+volumes:
+  planit-redis-data:
