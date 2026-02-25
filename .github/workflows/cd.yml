@@ -1,143 +1,155 @@
-name: CD - Backend
+name: CD - Backend (ASG Refresh)
 
 on:
+  # CI - Backend 워크플로우가 성공적으로 끝났을 때만 실행
   workflow_run:
     workflows: ["CI - Backend"]
-    types:
-      - completed
+    types: [completed]
     branches: [main]
 
 jobs:
   backend-cd:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }} # CI가 성공했을 때만 실행
+    # CI가 성공(conclusion == success)일 때만 진행
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    env:
+      AWS_REGION: ap-northeast-2
+
+      # Backend ASG 이름 (AWS 콘솔의 Auto Scaling Groups에서 확인)
+      ASG_NAME: planit-v2-asg-was
+
+      # Instance Refresh 옵션
+      # - MinHealthyPercentage=50: 절반은 항상 살아있게 유지하며 교체
+      # - InstanceWarmup: 새 인스턴스가 정상 기동/헬스체크 통과할 시간을 고려
+      MIN_HEALTHY_PERCENT: "50"
+      INSTANCE_WARMUP: "180"
+
+      # Backend user-data에서 IMAGE_TAG를 주입할 템플릿 파일 경로
+      USER_DATA_PATH: resources/user-data.sh
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # CI에서 빌드한 JAR 파일 다운로드
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-jar
-          path: build/libs
-          run-id: ${{ github.event.workflow_run.id }}  # 버전 관리용 ID
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # GitHub Actions IP를 AWS SG에 일시적으로 등록하기
-      - name: Get GitHub Actions IP
-        id: get-ip
-        uses: haythem/public-ip@v1.3
-
-      - name: Configure AWS credentials
+      # AWS 인증
+      - name: Configure AWS credentials (Access Key)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACTIONS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Add IP to SG
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+
+      # 이 배포에서 사용할 이미지 태그 계산
+      # CI에서 sha-xxxxxxx 태그로 ECR에 push
+      - name: Compute image tag
+        id: img
+        shell: bash
         run: |
-          aws ec2 authorize-security-group-ingress \
-            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
-            || echo "IP may already be in security group"
-          sleep 10
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT="${HEAD_SHA:0:7}"
+          echo "tag=sha-${SHORT}" >> "$GITHUB_OUTPUT"
+          echo "Deploy image tag: sha-${SHORT}"
 
-      # JAR 파일을 EC2 서버로 전송
-      - name: Copy JAR to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/*.jar"  # 다운로드 받은 경로
-          target: "/home/ubuntu/temp_backend"
-          strip_components: 2
-
-      # 서버 접속 후 기존 프로세스 종료 및 새 JAR 실행
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            # 폴더 이동 및 정리
-            sudo mkdir -p /var/www/planit/backend
-            sudo mv /home/ubuntu/temp_backend/*.jar /var/www/planit/backend/planit-backend.jar
-            sudo chown -R ubuntu:ubuntu /var/www/planit/backend
-            rm -rf /home/ubuntu/temp_backend/*
-
-            # 기존 8080 포트 프로세스 종료
-            sudo fuser -k 8080/tcp || true
-
-            # S3(Presigned URL 등) 사용을 위해 AWS 자격증명을 프로세스에 전달
-            export AWS_ACCESS_KEY_ID="${{ secrets.AWS_S3_ACCESS_KEY_ID }}"
-            export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}"
-            export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
-            export AWS_REGION=ap-northeast-2
-            export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN }}"
-
-            echo "==================================================" >> /var/www/planit/backend/app.log 
-            echo "[DEPLOY] $(date '+%F %T %Z') start" >> /var/www/planit/backend/app.log 
-            echo "==================================================" >> /var/www/planit/backend/app.log 
-            # 새 프로세스 실행 (환경 변수 주입) - JVM 타임존을 KST로 고정
-            nohup java \
-              -Duser.timezone=Asia/Seoul \
-              -Dspring.profiles.active=prod \
-              -Dspring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect \
-              -DSPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
-              -DSPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
-              -DSPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
-              -DGOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" \
-              -DJWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -jar /var/www/planit/backend/planit-backend.jar >> /var/www/planit/backend/app.log 2>&1 &
-
-            echo "Health Check 시작"
-            for retry_count in {1..15}
-            do
-              # localhost:8080/api/health로 요청
-              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health || true)
-              if [ "$response" -eq 200 ] || [ "$response" -eq 401 ]; then
-                echo "Server is up (HTTP $response)"
-                exit 0 # 성공 종료
-              fi
-            
-              echo "Waiting for server... (Attempt $retry_count/15)"
-              sleep 10
-            done
-            echo "Server failed to start."
-            exit 1 # 실패 종료
-
-      # AWS SG에서 IP 제거
-      - name: Configure AWS credentials for cleanup
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACTIONS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
-
-      - name: Remove IP from Security Group
-        if: always()
+      # user-data 템플릿에서 {{IMAGE_TAG}}를 이번 배포 태그로 치환하고 base64 인코딩
+      # (Launch Template UserData는 base64 문자열)
+      - name: Render backend user-data with IMAGE_TAG
+        id: ud
+        shell: bash
         run: |
-          aws ec2 revoke-security-group-ingress \
-            --group-id ${{ secrets.SECURITY_GROUP_ID }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.get-ip.outputs.ipv4 }}/32 \
-            || echo "Failed to remove IP or rule not found"
+          set -euo pipefail
+          TAG="${{ steps.img.outputs.tag }}"
+          test -f "${USER_DATA_PATH}"
+          sed "s|{{IMAGE_TAG}}|$TAG|g" "${USER_DATA_PATH}" > rendered-userdata.sh
+          base64 -w 0 rendered-userdata.sh > userdata.b64
+
+      # ASG에 연결된 Launch Template ID를 가져오고,
+      # 1) 기존 default 버전을 SourceVersion으로 삼아
+      # 2) UserData만 교체한 새 버전을 생성한 뒤
+      # 3) default 버전을 새 버전으로 변경
+      - name: Create new Launch Template version + set default
+        id: lt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LT_ID=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$ASG_NAME" \
+            --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateId" \
+            --output text)
+
+          if [ -z "$LT_ID" ] || [ "$LT_ID" = "None" ]; then
+            echo "Failed to resolve LaunchTemplateId from ASG."
+            exit 1
+          fi
+
+          CURRENT=$(aws ec2 describe-launch-templates \
+            --launch-template-ids "$LT_ID" \
+            --query "LaunchTemplates[0].DefaultVersionNumber" \
+            --output text)
+
+          NEW=$(aws ec2 create-launch-template-version \
+            --launch-template-id "$LT_ID" \
+            --source-version "$CURRENT" \
+            --version-description "backend:${{ steps.img.outputs.tag }} (${GITHUB_RUN_ID})" \
+            --launch-template-data "{\"UserData\":\"$(cat userdata.b64)\"}" \
+            --query "LaunchTemplateVersion.VersionNumber" \
+            --output text)
+
+          aws ec2 modify-launch-template \
+            --launch-template-id "$LT_ID" \
+            --default-version "$NEW"
+
+          echo "LT default updated: $CURRENT -> $NEW"
+
+      # Instance Refresh 시작: 새 Launch Template default 버전으로 인스턴스를 순차 교체
+      - name: Start Instance Refresh
+        id: refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences "MinHealthyPercentage=${MIN_HEALTHY_PERCENT},InstanceWarmup=${INSTANCE_WARMUP}" \
+            --query "InstanceRefreshId" \
+            --output text)
+
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          echo "Started refresh $ID"
+
+      # Refresh 진행 상태를 폴링해서 성공/실패를 판단
+      - name: Monitor Instance Refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          ID="${{ steps.refresh.outputs.id }}"
+          for i in {1..90}; do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$ASG_NAME" \
+              --instance-refresh-ids "$ID" \
+              --query "InstanceRefreshes[0].Status" \
+              --output text)
+
+            echo "Status: $STATUS"
+
+            if [ "$STATUS" = "Successful" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then exit 1; fi
+
+            sleep 20
+          done
+
+          echo "Timeout"
+          exit 1
 
       - name: Send Discord Notification
         if: failure()
         run: |
-          MSG="🔴 CD - Backend 실패!"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"content\": \"${MSG}\n🔗 [배포 로그 확인](${RUN_URL})\"}" \
+               -d "{\"content\": \"CD - Backend(ASG) 실패\n🔗 ${RUN_URL}\"}" \
                ${{ secrets.DISCORD_WEBHOOK_URL }}
