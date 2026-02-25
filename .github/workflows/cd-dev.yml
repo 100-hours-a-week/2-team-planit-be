@@ -10,7 +10,8 @@ on:
 jobs:
   backend-cd-dev:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }} # CI가 성공했을 때만 실행
+    # CI가 성공했고, develop에 대한 push로 실행된 경우에만 (PR 머지로 main에서 돌아간 CI에서는 제외)
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
 
     steps:
       - name: Checkout
