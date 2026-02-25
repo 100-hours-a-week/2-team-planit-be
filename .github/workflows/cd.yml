@@ -144,6 +144,17 @@ jobs:
 
           echo "Timeout"
           exit 1
+          
+      - name: Cancel Instance Refresh on failure/timeout
+        if: always() && steps.refresh.outputs.id != '' && (failure() || cancelled())
+        shell: bash
+        run: |
+          set -euo pipefail
+          ID="${{ steps.refresh.outputs.id }}"
+          echo "Cancelling instance refresh: $ID"
+          aws autoscaling cancel-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --instance-refresh-id "$ID"
 
       - name: Send Discord Notification
         if: failure()
