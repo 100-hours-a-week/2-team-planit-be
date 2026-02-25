@@ -9,7 +9,7 @@ jobs:
 
     env:
       AWS_REGION: ap-northeast-2
-      ASG_NAME: planit-v2-asg-backend
+      ASG_NAME: planit-v2-asg-was
       MIN_HEALTHY_PERCENT: "50"
       INSTANCE_WARMUP: "180"
 
