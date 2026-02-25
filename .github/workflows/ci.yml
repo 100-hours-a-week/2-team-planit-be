@@ -34,9 +34,9 @@ jobs:
       - name: Build bootJar (no tests)
         run: ./gradlew bootJar --no-daemon -x test
 
-      # develop: 기존 구조 유지(artifact 업로드)
+      # develop: 기존 구조 유지(artifact 업로드) — push 또는 develop 대상 PR 시 업로드
       - name: Upload Build file (develop push only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        if: github.ref == 'refs/heads/develop' || github.base_ref == 'develop'
         uses: actions/upload-artifact@v4
         with:
           name: backend-jar
