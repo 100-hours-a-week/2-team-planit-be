@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   backend-ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm64
 
     env:
       AWS_REGION: ap-northeast-2
@@ -34,7 +34,7 @@ jobs:
       - name: Build bootJar (no tests)
         run: ./gradlew bootJar --no-daemon -x test
 
-      # develop: 기존 구조 유지(artifact 업로드)
+      # develop push 전용: Artifact 업로드
       - name: Upload Build file (develop push only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@v4
@@ -44,12 +44,6 @@ jobs:
           retention-days: 7
 
       # ===== main: Docker build/test + ECR push =====
-      - name: Set up QEMU (main path)
-        if: startsWith(github.ref, 'refs/heads/main') || github.base_ref == 'main'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Set up Docker Buildx (main path)
         if: startsWith(github.ref, 'refs/heads/main') || github.base_ref == 'main'
         uses: docker/setup-buildx-action@v3
@@ -67,33 +61,28 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Compute image tags (main path)
-        if: startsWith(github.ref, 'refs/heads/main') || github.base_ref == 'main'
-        id: meta
-        shell: bash
-        run: |
-          set -euo pipefail
-          SHA="${GITHUB_SHA}"
-          SHORT="${SHA:0:7}"
-          TS="$(date -u +%Y%m%d%H%M%S)"
-          echo "sha_tag=sha-${SHORT}" >> "$GITHUB_OUTPUT"
-          echo "ts_tag=ts-${TS}" >> "$GITHUB_OUTPUT"
-
-      - name: Build & Push multi-arch image to ECR (main push only)
+      # docker 태그 세팅
+      - name: Docker meta
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          set -euo pipefail
-          REG="${{ steps.ecr.outputs.registry }}"
-          IMG="${REG}/${{ env.ECR_REPOSITORY }}"
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=sha,format=short,prefix=sha-
+            type=raw,value=prod
+            type=raw,value=ts-{{date 'YYYYMMDDHHmmss'}}
 
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t "${IMG}:${{ steps.meta.outputs.sha_tag }}" \
-            -t "${IMG}:${{ steps.meta.outputs.ts_tag }}" \
-            -t "${IMG}:prod" \
-            --push \
-            .
+      - name: Build & Push to ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Send Discord Notification
         if: failure()
