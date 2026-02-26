@@ -36,36 +36,27 @@ public class S3PresignedUrlService {
 
     /**
      * 프로필 이미지용 Presigned PUT URL 발급
-     *
-     * @param userId   사용자 ID (폴더 경로에 사용)
-     * @param fileExt  확장자 (jpg, png 등)
-     * @param mimeType Content-Type
+     * key: profile/{uuid}.{ext}
      */
     public PresignedUrlResponse createProfilePresignedUrl(Long userId, String fileExt, String mimeType) {
         validateExtension(fileExt);
-        String key = buildKey("profile", userId, fileExt);
+        String key = buildKey("profile", fileExt);
         return createPresignedUrl(key, mimeType);
     }
 
     /**
      * 게시물 이미지용 Presigned PUT URL 발급
-     *
-     * @param userId   사용자 ID (폴더 경로에 사용)
-     * @param fileExt  확장자
-     * @param mimeType Content-Type
+     * key: post/{uuid}.{ext}
      */
     public PresignedUrlResponse createPostPresignedUrl(Long userId, String fileExt, String mimeType) {
         validateExtension(fileExt);
-        String key = buildKey("post", userId, fileExt);
+        String key = buildKey("post", fileExt);
         return createPresignedUrl(key, mimeType);
     }
 
     /**
      * 회원가입 시 프로필 이미지용 Presigned PUT URL 발급 (비인증).
-     * key: signup/{uuid}.{ext} — 가입 완료 시 이 key를 profileImageKey로 저장합니다.
-     *
-     * @param fileExt  확장자 (jpg, png 등)
-     * @param mimeType Content-Type
+     * key: profile/{uuid}.{ext}
      */
     public PresignedUrlResponse createSignupPresignedUrl(String fileExt, String mimeType) {
         validateExtension(fileExt);
@@ -85,9 +76,9 @@ public class S3PresignedUrlService {
         }
     }
 
-    private String buildKey(String folder, Long userId, String fileExt) {
+    private String buildKey(String folder, String fileExt) {
         String ext = fileExt.toLowerCase().replaceFirst("^\\.", "");
-        return String.format("%s/%d/%s.%s", folder, userId, UUID.randomUUID(), ext);
+        return String.format("%s/%s.%s", folder, UUID.randomUUID(), ext);
     }
 
     private PresignedUrlResponse createPresignedUrl(String key, String mimeType) {
