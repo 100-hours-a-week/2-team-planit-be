@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.trip.config.ItineraryJobProperties;
 import com.planit.domain.trip.config.RedisStreamProperties;
 import com.planit.domain.trip.dto.AiItineraryResponse;
+import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.entity.TripStatus;
+import com.planit.domain.trip.repository.TripRepository;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -25,6 +28,7 @@ public class ItineraryResultListener implements StreamListener<String, MapRecord
     private final StringRedisTemplate redisTemplate;
     private final RedisStreamProperties streamProperties;
     private final ItineraryJobProperties jobProperties;
+    private final TripRepository tripRepository;
 
     @Override
     public void onMessage(MapRecord<String, String, String> message) {
@@ -46,16 +50,20 @@ public class ItineraryResultListener implements StreamListener<String, MapRecord
                 try {
                     AiItineraryResponse response = objectMapper.readValue(payload, AiItineraryResponse.class);
                     processor.processResponse(response);
+                    updateTripStatus(tripId, TripStatus.DONE);
                     jobService.markSuccess(tripId);
                 } catch (Exception ex) {
                     log.error("Itinerary result processing failed", ex);
+                    updateTripStatus(tripId, TripStatus.CANCELED);
                     jobService.markFail(tripId, "RESULT_PROCESSING_FAILED");
                 }
             } else {
+                updateTripStatus(tripId, TripStatus.CANCELED);
                 jobService.markFail(tripId, "EMPTY_RESULT_PAYLOAD");
             }
         } else if (ItineraryJobStatus.FAIL.name().equalsIgnoreCase(status)) {
             String errorMessage = fields.get("errorMessage");
+            updateTripStatus(tripId, TripStatus.CANCELED);
             jobService.markFail(tripId, errorMessage);
         } else {
             log.warn("Unknown status: {}, fields={}", status, fields);
@@ -70,5 +78,14 @@ public class ItineraryResultListener implements StreamListener<String, MapRecord
         } catch (Exception ex) {
             log.warn("Failed to ack result message: {}", message.getId(), ex);
         }
+    }
+
+    private void updateTripStatus(Long tripId, TripStatus status) {
+        Trip trip = tripRepository.findById(tripId).orElse(null);
+        if (trip == null) {
+            return;
+        }
+        trip.updateStatus(status);
+        tripRepository.save(trip);
     }
 }
