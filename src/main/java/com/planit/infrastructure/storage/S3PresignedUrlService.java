@@ -70,7 +70,7 @@ public class S3PresignedUrlService {
     public PresignedUrlResponse createSignupPresignedUrl(String fileExt, String mimeType) {
         validateExtension(fileExt);
         String ext = fileExt.toLowerCase().replaceFirst("^\\.", "");
-        String key = String.format("signup/%s.%s", UUID.randomUUID(), ext);
+        String key = String.format("profile/%s.%s", UUID.randomUUID(), ext);
         return createPresignedUrl(key, mimeType);
     }
 

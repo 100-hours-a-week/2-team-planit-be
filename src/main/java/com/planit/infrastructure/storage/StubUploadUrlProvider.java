@@ -45,7 +45,7 @@ public class StubUploadUrlProvider implements UploadUrlProvider {
         String ext = normalizeExtension(context.getFileExtension());
         String suffix = "stub/" + UUID.randomUUID() + "." + ext;
         return switch (context.getDomain()) {
-            case SIGNUP_PROFILE -> "signup/" + suffix;
+            case SIGNUP_PROFILE -> "profile/" + suffix; // profile/ 직하위만 (서브폴더 없음)
             case PROFILE -> "profile/" + requireUserId(context) + "/" + suffix;
             case POST -> "post/" + requireUserId(context) + "/" + suffix;
         };
