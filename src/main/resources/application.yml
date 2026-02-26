@@ -61,6 +61,6 @@ trip:
 
 planit:
   profile:
-    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
+    default-image-url: https://${planit.cloudfront.domain}/profile/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}

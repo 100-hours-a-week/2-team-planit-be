@@ -36,7 +36,7 @@ planit:
   cloudfront: # cd-dev.yml에서 secrets.CLOUDFRONT_DOMAIN_DEV 주입
     domain: ${CLOUDFRONT_DOMAIN}
   profile:
-    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
+    default-image-url: https://${planit.cloudfront.domain}/profile/default-profile.png
 
 ai:
   base-url: http://localhost:8000

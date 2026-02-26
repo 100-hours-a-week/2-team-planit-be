@@ -171,7 +171,7 @@ public class UserService {
 
     /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
     public void deleteSignupProfileImageByKey(String key) {
-        if (!StringUtils.hasText(key) || !key.startsWith("signup/")) {
+        if (!StringUtils.hasText(key) || !key.startsWith("profile/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
         UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
