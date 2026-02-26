@@ -222,8 +222,7 @@ public class UserService {
     }
 
     private void validateProfileImageKey(String key, Long userId) {
-        String expectedPrefix = "profile/" + userId + "/";
-        if (!key.startsWith(expectedPrefix)) {
+        if (!StringUtils.hasText(key) || !key.startsWith("profile/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
     }
