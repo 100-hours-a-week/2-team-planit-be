@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   backend-ci:
-    runs-on: ubuntu-24.04-arm64
+    runs-on: ubuntu-24.04-arm
 
     env:
       AWS_REGION: ap-northeast-2
