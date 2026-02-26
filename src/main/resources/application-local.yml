@@ -65,7 +65,7 @@ storage:
 
 planit:
   cloudfront:
-    domain: ${CLOUDFRONT_DOMAIN:dijh9mhj7vomy.cloudfront.net}
+    domain: ${CLOUDFRONT_DOMAIN:dgs44b7mvwjo3.cloudfront.net}
   profile:
     default-image-url: https://${planit.cloudfront.domain}/profile/default-profile.png
 
