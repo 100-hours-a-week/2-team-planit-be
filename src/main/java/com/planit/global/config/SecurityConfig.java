@@ -37,15 +37,9 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final List<String> ALLOWED_ORIGINS = List.of(
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "https://planit-ai.store",
-            "https://3.39.61.9",
-            "https://d1e7kkp6huat07.cloudfront.net"
-    );
+    private static final List<String> ALLOWED_ORIGIN_PATTERNS = List.of("http://localhost:5173", "http://127.0.0.1:5173");
     private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
-    private static final List<String> ALLOWED_HEADERS = List.of("*");
+    private static final List<String> ALLOWED_HEADERS = List.of("Authorization", "Content-Type");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final PlanMineAuthenticationFilter planMineAuthenticationFilter;
@@ -104,9 +98,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(ALLOWED_ORIGINS);
+        // dev origin에서 preflight를 보내므로 패턴 리스트로 허용하고 credentials도 true 설정
+        configuration.setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS);
         configuration.setAllowedMethods(ALLOWED_METHODS);
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(ALLOWED_HEADERS);
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
