@@ -1,6 +1,7 @@
 package com.planit.domain.trip.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.planit.domain.trip.entity.TravelMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -36,6 +37,9 @@ public record TripCreateRequest(
 
         @NotEmpty
         List<@NotBlank String> travelTheme,
-        List<@NotBlank String> wantedPlace
+        List<@NotBlank String> wantedPlace,
+
+        TravelMode travelMode,
+        Integer headCount
 ) {
 }

@@ -19,7 +19,12 @@ public enum ErrorCode {
     PLACE_003("PLACE_003", "장소 검색 호출에 실패했습니다"),
     PLACE_004("PLACE_004", "장소 검색 요청이 시간 초과되었습니다"),
     TRIP_NOT_FOUND("TRIP_NOT_FOUND", "여행 정보를 찾을 수 없습니다"),
-    FORBIDDEN_TRIP_ACCESS("FORBIDDEN_TRIP_ACCESS", "다른 사용자의 여행입니다");
+    FORBIDDEN_TRIP_ACCESS("FORBIDDEN_TRIP_ACCESS", "다른 사용자의 여행입니다"),
+    GROUP_001("GROUP_001", "그룹을 찾을 수 없습니다"),
+    GROUP_002("GROUP_002", "초대코드가 만료되었습니다"),
+    GROUP_003("GROUP_003", "그룹 생성 인원수는 2명 이상이어야 합니다"),
+    GROUP_004("GROUP_004", "팀장만 수행할 수 있는 요청입니다"),
+    GROUP_005("GROUP_005", "현재 대기 상태에서만 가능한 요청입니다");
 
     private final String code;
     private final String message;
