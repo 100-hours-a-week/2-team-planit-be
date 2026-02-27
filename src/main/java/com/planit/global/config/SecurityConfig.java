@@ -68,6 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/health").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/users/signup").permitAll()
                         .requestMatchers("/users/signup/profile-image/presigned-url").permitAll()
                         .requestMatchers("/users/signup/profile-image").permitAll()
