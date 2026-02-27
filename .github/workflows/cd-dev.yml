@@ -82,7 +82,8 @@ jobs:
             export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET_DEV }}"
             export AWS_REGION=ap-northeast-2
             export CLOUDFRONT_DOMAIN="${{ secrets.CLOUDFRONT_DOMAIN_DEV }}"
-            
+            export SPRING_DATA_MONGODB_URI="${{ secrets.SPRING_DATA_MONGODB_URI_DEV }}"
+
             echo "==================================================" >> /var/www/planit-dev/backend/app.log
             echo "[DEPLOY-DEV] $(date '+%F %T %Z') start" >> /var/www/planit-dev/backend/app.log
             echo "==================================================" >> /var/www/planit-dev/backend/app.log
