@@ -1,5 +1,13 @@
-
 services:
+  mongo:
+    image: mongo:7
+    container_name: planit-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - planit-mongo-data:/data/db
+
   redis:
     image: redis:7.4
     container_name: planit-redis
@@ -16,3 +24,4 @@ services:
 
 volumes:
   planit-redis-data:
+  planit-mongo-data:
