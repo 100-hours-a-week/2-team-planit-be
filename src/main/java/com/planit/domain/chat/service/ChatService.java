@@ -26,7 +26,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,6 +38,7 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class ChatService {
 
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
     private static final int MAX_LIMIT = 100;
 
     private final ChatRoomRepository chatRoomRepository;
@@ -44,6 +48,7 @@ public class ChatService {
     private final TripAccessService tripAccessService;
     private final UserRepository userRepository;
     private final S3ImageUrlResolver imageUrlResolver;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Transactional
     public ChatMessageResponse sendUserMessage(Long tripId, String content, String loginId) {
@@ -64,6 +69,17 @@ public class ChatService {
                 Instant.now(),
                 seq
         ));
+
+        if (content.contains("@AI")) {
+            redisTemplate.opsForStream().add(
+                    "stream:ai-jobs",
+                    Map.of(
+                            "messageId", saved.getId(),
+                            "tripId", String.valueOf(tripId)
+                    )
+            );
+            log.info("Published AI job tripId={} messageId={}", tripId, saved.getId());
+        }
 
         context.participant().markRead(seq);
         participantRepository.save(context.participant());
