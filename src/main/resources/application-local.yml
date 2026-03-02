@@ -16,9 +16,9 @@ spring:
       host: localhost
       port: 6379
       password: localpass
-      timeout: 2s
+      timeout: 10s
     mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/planit_chat_local}
+      uri: mongodb://planit:planit1234@localhost:27017/planit_chat?authSource=planit_chat
   cache:
     type: redis
 
@@ -54,14 +54,14 @@ google:
 
 cloud:
   aws:
-    enabled: false
+    enabled: true
     s3:
       bucket: ${AWS_S3_BUCKET}
     region:
       static: ${AWS_REGION:ap-northeast-2}
 
 storage:
-  mode: stub
+  mode: s3
   stub-base-url: http://localhost:${server.port:8080}/api
   stub-upload-dir: ./tmp/uploads
 

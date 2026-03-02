@@ -34,7 +34,7 @@ public class ChatStreamConfig {
 
         StreamMessageListenerContainer.StreamMessageListenerContainerOptions<String, MapRecord<String, String, String>> options =
                 StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
-                        .pollTimeout(Duration.ofSeconds(2))
+                        .pollTimeout(Duration.ofSeconds(5))
                         .build();
 
         StreamMessageListenerContainer<String, MapRecord<String, String, String>> container =
