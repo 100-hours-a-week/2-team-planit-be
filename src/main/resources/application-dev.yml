@@ -4,7 +4,7 @@ spring:
       host: localhost
       port: ${SPRING_DATA_REDIS_PORT:6379}
       password: ${SPRING_DATA_REDIS_PASSWORD:localpass}
-      timeout: 2s
+      timeout: 10s
     mongodb:
       uri: ${SPRING_DATA_MONGODB_URI}
   datasource: # cd-dev.yml에서 secrets.SPRING_DATASOURCE_*_DEV 주입
