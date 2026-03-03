@@ -30,6 +30,7 @@ public class GroupController {
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable String inviteCode
     ) {
+        // [같이가기 입력 전 단계] 초대코드 기준으로 현재 그룹 상태/내 제출값을 조회한다.
         if (principal == null) {
             throw new UnauthorizedAccessException();
         }
@@ -43,6 +44,7 @@ public class GroupController {
             @PathVariable String inviteCode,
             @Valid @RequestBody GroupSubmitRequest request
     ) {
+        // [같이가기 입력 단계] 멤버가 travelTheme/wantedPlace를 제출하는 진입점
         if (principal == null) {
             throw new UnauthorizedAccessException();
         }

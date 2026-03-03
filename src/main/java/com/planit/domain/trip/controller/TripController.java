@@ -66,6 +66,7 @@ public class TripController {
     public ResponseEntity<ApiResponse<TripListResponse>> getTrips(
             @AuthenticationPrincipal UserDetails principal
     ) {
+        // [같이가기 출력 단계] "내 계획 목록" 조회 진입점
         if (principal == null) {
             throw new UnauthorizedAccessException();
         }

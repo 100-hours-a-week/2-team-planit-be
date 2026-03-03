@@ -10,9 +10,13 @@ import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.entity.TripGroup;
 import com.planit.domain.trip.entity.TripGroupMember;
 import com.planit.domain.trip.entity.TripStatus;
+import com.planit.domain.trip.entity.TripTheme;
+import com.planit.domain.trip.entity.WantedPlace;
 import com.planit.domain.trip.repository.TripGroupMemberRepository;
 import com.planit.domain.trip.repository.TripGroupRepository;
 import com.planit.domain.trip.repository.TripRepository;
+import com.planit.domain.trip.repository.TripThemeRepository;
+import com.planit.domain.trip.repository.WantedPlaceRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
@@ -38,6 +42,8 @@ public class TripGroupService {
     private final TripGroupRepository groupRepository;
     private final TripGroupMemberRepository groupMemberRepository;
     private final TripRepository tripRepository;
+    private final TripThemeRepository tripThemeRepository;
+    private final WantedPlaceRepository wantedPlaceRepository;
     private final UserRepository userRepository;
     private final TripAccessService tripAccessService;
     private final ItineraryEnqueueService itineraryEnqueueService;
@@ -45,6 +51,8 @@ public class TripGroupService {
 
     @Transactional
     public String createWaitingGroup(Trip trip, User leader, Integer headCount, List<String> themes, List<String> wantedPlaces) {
+        // 1) 그룹 여행 생성 시 리더를 즉시 submitted=true로 저장한다.
+        //    따라서 submittedCount에는 생성 직후 리더 1명이 이미 포함된다.
         int normalizedHeadCount = headCount == null ? 0 : headCount;
         if (normalizedHeadCount < 2) {
             throw new BusinessException(ErrorCode.GROUP_003);
@@ -76,6 +84,10 @@ public class TripGroupService {
 
     @Transactional(readOnly = true)
     public GroupJoinResponse getJoinInfo(String inviteCode, String loginId) {
+        // 2) join 화면 진입 시:
+        //    - 리더가 처음 입력한 값(leader themes/wantedPlaces)
+        //    - 현재 사용자 본인의 기존 입력값(my themes/wantedPlaces)
+        //    를 함께 내려준다.
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
         TripGroup group = getValidWaitingGroup(inviteCode);
@@ -110,6 +122,7 @@ public class TripGroupService {
 
     @Transactional
     public TripGroupStatusResponse submit(String inviteCode, String loginId, GroupSubmitRequest request) {
+        // 3) 제출 요청 시 사용자 멤버 레코드를 찾고(없으면 생성), submitted=true + JSON 값으로 갱신한다.
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
         TripGroup group = getValidWaitingGroup(inviteCode);
@@ -128,8 +141,14 @@ public class TripGroupService {
 
         member.submit(toJson(request.travelTheme()), toJson(request.wantedPlace()), LocalDateTime.now());
         groupMemberRepository.save(member);
+        // 3-1) 그룹 멤버 제출값을 trip 레벨 테마/희망장소 테이블에도 동기화한다.
+        //      (기존에는 trip_group_members에만 저장되어 그룹원 입력이 테이블에 반영되지 않았음)
+        syncTripPreferencesBySubmittedMembers(group, trip);
 
         long submittedCount = groupMemberRepository.countByGroupIdAndSubmittedTrue(group.getId());
+        // 4) 실제 일정 생성 트리거 조건:
+        //    trip.status == WAITING && submittedCount >= headCount
+        //    (조건을 만족해야만 멤버 입력값이 합쳐져 AI 생성 큐로 전달된다)
         if (trip.getStatus() == TripStatus.WAITING && trip.getHeadCount() != null && submittedCount >= trip.getHeadCount()) {
             trip.updateStatus(TripStatus.GENERATING);
             tripRepository.save(trip);
@@ -186,6 +205,8 @@ public class TripGroupService {
     }
 
     private void enqueueBySubmittedMembers(TripGroup group, Trip trip) {
+        // 5) AI 요청에는 submitted=true 멤버의 값만 반영된다.
+        //    아직 submit 안 한 멤버 값은 여기서 제외된다.
         List<TripGroupMember> members = groupMemberRepository.findByGroupIdAndSubmittedTrue(group.getId());
         Set<String> allThemes = new LinkedHashSet<>();
         Set<String> allWantedPlaces = new LinkedHashSet<>();
@@ -202,7 +223,30 @@ public class TripGroupService {
         );
     }
 
+    private void syncTripPreferencesBySubmittedMembers(TripGroup group, Trip trip) {
+        List<TripGroupMember> members = groupMemberRepository.findByGroupIdAndSubmittedTrue(group.getId());
+        Set<String> allThemes = new LinkedHashSet<>();
+        Set<String> allWantedPlaces = new LinkedHashSet<>();
+
+        for (TripGroupMember member : members) {
+            allThemes.addAll(fromJson(member.getThemesJson()));
+            allWantedPlaces.addAll(fromJson(member.getWantedPlacesJson()));
+        }
+
+        tripThemeRepository.deleteByTripId(trip.getId());
+        wantedPlaceRepository.deleteByTripId(trip.getId());
+
+        for (String theme : allThemes) {
+            tripThemeRepository.save(new TripTheme(trip, theme));
+        }
+        for (String wantedPlace : allWantedPlaces) {
+            wantedPlaceRepository.save(new WantedPlace(trip, wantedPlace));
+        }
+    }
+
     private TripGroup getValidWaitingGroup(String inviteCode) {
+        // 6) 입력 API는 WAITING 상태에서만 허용된다.
+        //    이미 GENERATING/DONE 상태가 되면 submit/getJoinInfo에서 예외가 발생한다.
         TripGroup group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_001));
         if (group.isExpired(LocalDateTime.now())) {
