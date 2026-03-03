@@ -20,5 +20,7 @@ public interface NotificationService {
 
     void createLikeNotification(Long targetUserId, Long postId, String actorName);
 
+    void deleteCommentNotification(Long targetUserId, Long postId, String actorName, String previewText);
+
     void markAllRead(String loginId);
 }

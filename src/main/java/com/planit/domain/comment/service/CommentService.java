@@ -37,15 +37,15 @@ public class CommentService {
     @Transactional(readOnly = true)
     public List<CommentDetail> listComments(Long postId) {
         return commentRepository.findDetailsByPostId(postId).stream()
-            .map(detail -> new CommentDetail(
-                detail.getCommentId(),
-                detail.getContent(),
-                detail.getCreatedAt(),
-                detail.getAuthorId(),
-                detail.getAuthorNickname(),
-                imageUrlResolver.resolve(detail.getAuthorProfileImageKey())
-            ))
-            .collect(Collectors.toList());
+                .map(detail -> new CommentDetail(
+                        detail.getCommentId(),
+                        detail.getContent(),
+                        detail.getCreatedAt(),
+                        detail.getAuthorId(),
+                        detail.getAuthorNickname(),
+                        imageUrlResolver.resolve(detail.getAuthorProfileImageKey())
+                ))
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -54,8 +54,8 @@ public class CommentService {
             Post post = postRepository.findById(postId).orElseThrow();
             User user = userRepository.findByLoginIdAndDeletedFalse(loginId).orElseThrow();
             LocalDateTime now = LocalDateTime.now();
-        Comment comment = Comment.create(post, user, request.getContent(), now);
-        Comment saved = commentRepository.save(comment);
+            Comment comment = Comment.create(post, user, request.getContent(), now);
+            Comment saved = commentRepository.save(comment);
             publishCommentNotification(post, user, request.getContent());
             String profileImageUrl = imageUrlResolver.resolve(user.getProfileImageKey());
             return CommentResponse.from(saved, profileImageUrl);
@@ -66,7 +66,7 @@ public class CommentService {
     public void deleteComment(Long commentId, String loginId) {
         retryOnDeadlock(() -> {
             Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new IllegalArgumentException("삭제할 댓글을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new IllegalArgumentException("삭제할 댓글을 찾을 수 없습니다."));
             if (!comment.getAuthor().getLoginId().equals(loginId)) {
                 throw new IllegalStateException("작성자만 삭제할 수 있습니다.");
             }
@@ -105,10 +105,10 @@ public class CommentService {
         }
         String preview = buildPreview(content);
         notificationService.createCommentNotification(
-            post.getAuthor().getId(),
-            post.getId(),
-            actor.getNickname(),
-            preview
+                post.getAuthor().getId(),
+                post.getId(),
+                actor.getNickname(),
+                preview
         );
     }
 

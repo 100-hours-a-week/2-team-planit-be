@@ -62,7 +62,7 @@ public class PostLikeService {
 
     private User resolveUser(String loginId) {
         return userRepository.findByLoginIdAndDeletedFalse(loginId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다."));
     }
 
     private void publishLikeNotificationIfNeeded(Post post, User actor) {

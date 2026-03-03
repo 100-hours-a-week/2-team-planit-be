@@ -95,6 +95,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             left join posted_places pp on pp.post_id = p.post_id
             left join places pl on pl.place_id = pp.place_id
             where p.post_id = :postId
+              and p.is_deleted = 0
             """); // posts+users 조합
         baseQuery.setParameter("postId", postId);
         baseQuery.setParameter("requesterId", requesterId == null ? -1L : requesterId);

@@ -22,7 +22,7 @@ spring:
 
 jwt: # cd-dev.yml에서 secrets.JWT_SECRET_DEV 주입
   secret: ${JWT_SECRET}
-  access-token-expiration-ms: 3600000
+  access-token-expiration-ms: 86400000
 
 cloud:
   aws: # cd-dev.yml에서 secrets.AWS_S3_BUCKET_DEV, secrets.CLOUDFRONT_DOMAIN_DEV 주입

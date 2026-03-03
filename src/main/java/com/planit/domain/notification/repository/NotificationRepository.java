@@ -1,15 +1,15 @@
 package com.planit.domain.notification.repository;
 
 import com.planit.domain.notification.entity.Notification;
+import com.planit.domain.notification.entity.NotificationType;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
@@ -31,4 +31,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Transactional
     @Query("update Notification n set n.isRead = true where n.userId = :userId and n.isRead = false")
     void markAllRead(@Param("userId") Long userId);
+
+    Optional<Notification> findFirstByUserIdAndTypeAndPostIdAndActorNameAndPreviewTextOrderByCreatedAtDesc(
+            Long userId,
+            NotificationType type,
+            Long postId,
+            String actorName,
+            String previewText
+    );
 }

@@ -108,6 +108,20 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
+    public void deleteCommentNotification(Long targetUserId, Long postId, String actorName, String previewText) {
+        notificationRepository
+                .findFirstByUserIdAndTypeAndPostIdAndActorNameAndPreviewTextOrderByCreatedAtDesc(
+                        targetUserId,
+                        NotificationType.COMMENT,
+                        postId,
+                        actorName,
+                        previewText
+                )
+                .ifPresent(notificationRepository::delete);
+    }
+
+    @Override
+    @Transactional
     public void markAllRead(String loginId) {
         Long userId = resolveUserId(loginId);
         notificationRepository.markAllRead(userId);

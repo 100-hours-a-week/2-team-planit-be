@@ -50,6 +50,10 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    public Long getUserId() {
+        return id;
+    }
+
     public void markDeleted(LocalDateTime when) {
         this.deleted = true;
         this.deletedAt = when;

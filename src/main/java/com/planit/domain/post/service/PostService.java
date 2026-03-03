@@ -278,8 +278,8 @@ public class PostService {
     }
 
     private PlaceRecommendationPayload validatePlaceRecommendationForUpdate(PostUpdateRequest request,
-                                                                           Post post,
-                                                                           Optional<PostedPlace> existingPlace) {
+                                                                            Post post,
+                                                                            Optional<PostedPlace> existingPlace) {
         Long placeId = request.getPlaceId();
         Integer rating = request.getUserRating();
         String placeName = request.getPlaceName();
