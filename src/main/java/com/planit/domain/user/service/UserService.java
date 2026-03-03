@@ -271,13 +271,13 @@ public class UserService {
         // 참고: 여기 previews는 여행(trips) 목록이 아니라 사용자가 작성한 게시글(post) 미리보기다.
         // 따라서 그룹 참여 여행이 "내 계획"으로 안 보이는 현상과는 별도 흐름이다.
         List<PlanPreview> previews = postRepository
-                .findMyPosts(user.getId(), pageRequest)
+                .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
                 .stream()
                 .map(p -> new PlanPreview(
-                        p.getPostId(),
+                        p.getId(),
                         p.getTitle(),
                         "내 계획",
-                        p.getBoardType()
+                        p.getBoardType().name()
                 ))
                 .toList();
         return new MyPageResponse(

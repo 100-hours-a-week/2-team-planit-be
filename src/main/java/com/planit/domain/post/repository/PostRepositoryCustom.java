@@ -10,8 +10,5 @@ public interface PostRepositoryCustom {
      */
     Optional<PostDetailResponse> findDetailById(Long postId, Long requesterId);
 
-    /**
-     * 장소추천 게시판 country/city 문자열 기준으로 제목/본문에 포함되는 게시글 ID 리스트.
-     */
     List<Long> findPlaceRecommendationPostIdsByLocation(String country, String city);
 }

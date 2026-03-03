@@ -54,8 +54,16 @@ public class Place {
     public String getPhotoUrl() {
         return photoUrl;
     }
-    
+
     public void setPhotoUrl(String photoUrl) {
         this.photoUrl = photoUrl;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
     }
 }

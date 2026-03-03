@@ -24,4 +24,12 @@ public class StorageProperties {
      * Stub 업로드 파일 저장 경로
      */
     private String stubUploadDir = "./tmp/uploads";
+
+    public String getMode() {
+        return mode;
+    }
+
+    public String getStubBaseUrl() {
+        return stubBaseUrl;
+    }
 }

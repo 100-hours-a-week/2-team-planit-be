@@ -38,4 +38,8 @@ public class PostedImage {
         this.isMainImage = isMainImage;
         this.createdAt = createdAt;
     }
+
+    public Long getImageId() {
+        return imageId;
+    }
 }

@@ -69,4 +69,40 @@ public class PostCreateRequest {
         return imageKeys == null ? Collections.emptyList() : imageKeys;
     }
 
+    public String getTitle() {
+        return title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public Long getPlaceId() {
+        return placeId;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public String getGooglePlaceId() {
+        return googlePlaceId;
+    }
+
+    public Integer getUserRating() {
+        return userRating;
+    }
+
+    public BoardType getBoardType() {
+        return boardType;
+    }
+
+    public Long getTripId() {
+        return tripId;
+    }
+
+    public Long getPlanId() {
+        return planId;
+    }
+
 }

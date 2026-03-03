@@ -55,4 +55,12 @@ public class PostSummaryResponse {
     public void setRepresentativeImageUrl(String representativeImageUrl) {
         this.representativeImageUrl = representativeImageUrl;
     }
+
+    public Long getPostId() {
+        return postId;
+    }
+
+    public String getRepresentativeImageUrl() {
+        return representativeImageUrl;
+    }
 }

@@ -208,49 +208,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return images;
     }
 
-    private List<CommentInfo> fetchComments(Long postId, Long requesterId) {
-        Query commentQuery = entityManager.createNativeQuery("""
-            select c.comment_id,
-                   c.author_id,
-                   u.nickname,
-                   u.profile_image_key,
-                   c.content,
-                   c.created_at
-            from comments c
-            join users u on u.user_id = c.author_id and u.is_deleted = 0
-            where c.post_id = :postId
-              and c.deleted_at is null
-            order by c.created_at asc
-            limit :limit
-            """); // 댓글 20개 오래된 순
-        commentQuery.setParameter("postId", postId);
-        commentQuery.setParameter("limit", MAX_COMMENT_PAGE_SIZE);
-        @SuppressWarnings("unchecked")
-        List<Object[]> rows = commentQuery.getResultList();
-        if (rows.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<CommentInfo> comments = new ArrayList<>();
-        for (Object[] row : rows) {
-            Long authorId = ((Number) row[1]).longValue();
-            String profileImageKey = (String) row[3];
-            String profileImageUrl = imageUrlResolver.resolve(profileImageKey);
-            boolean deletable = requesterId != null && requesterId.equals(authorId);
-            Timestamp commentTimestamp = (Timestamp) row[5];
-            LocalDateTime commentCreatedAt = commentTimestamp == null ? null : commentTimestamp.toLocalDateTime();
-            comments.add(new CommentInfo(
-                    ((Number) row[0]).longValue(),
-                    authorId,
-                    (String) row[2],
-                    profileImageUrl,
-                    (String) row[4],
-                    commentCreatedAt,
-                    deletable
-            ));
-        }
-        return comments;
-    }
-
     @Override
     public List<Long> findPlaceRecommendationPostIdsByLocation(String country, String city) {
         boolean hasCountry = StringUtils.hasText(country);
@@ -294,4 +251,48 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private String buildLikePattern(String value) {
         return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
     }
+
+    private List<CommentInfo> fetchComments(Long postId, Long requesterId) {
+        Query commentQuery = entityManager.createNativeQuery("""
+            select c.comment_id,
+                   c.author_id,
+                   u.nickname,
+                   u.profile_image_key,
+                   c.content,
+                   c.created_at
+            from comments c
+            join users u on u.user_id = c.author_id and u.is_deleted = 0
+            where c.post_id = :postId
+              and c.deleted_at is null
+            order by c.created_at asc
+            limit :limit
+            """); // 댓글 20개 오래된 순
+        commentQuery.setParameter("postId", postId);
+        commentQuery.setParameter("limit", MAX_COMMENT_PAGE_SIZE);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = commentQuery.getResultList();
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<CommentInfo> comments = new ArrayList<>();
+        for (Object[] row : rows) {
+            Long authorId = ((Number) row[1]).longValue();
+            String profileImageKey = (String) row[3];
+            String profileImageUrl = imageUrlResolver.resolve(profileImageKey);
+            boolean deletable = requesterId != null && requesterId.equals(authorId);
+            Timestamp commentTimestamp = (Timestamp) row[5];
+            LocalDateTime commentCreatedAt = commentTimestamp == null ? null : commentTimestamp.toLocalDateTime();
+            comments.add(new CommentInfo(
+                    ((Number) row[0]).longValue(),
+                    authorId,
+                    (String) row[2],
+                    profileImageUrl,
+                    (String) row[4],
+                    commentCreatedAt,
+                    deletable
+            ));
+        }
+        return comments;
+    }
+
 }

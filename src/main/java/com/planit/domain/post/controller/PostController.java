@@ -12,11 +12,16 @@ import com.planit.domain.post.service.PostService; // 게시판 서비스
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
 import java.util.Locale;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증자
 import org.springframework.security.core.userdetails.UserDetails; // UserDetails 인터페이스
 import org.springframework.validation.annotation.Validated; // 검증 활성화
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -55,26 +60,20 @@ public class PostController {
             @RequestParam(defaultValue = "FREE") String boardType,
             @Parameter(description = "검색어(히스토리/단어 길이 2~24자, 특수문자/초성 불가)") @RequestParam(required = false) String search,
             @Parameter(description = "정렬 옵션(latest/comment/like)") @RequestParam(required = false) String sort,
-            @Parameter(description = "country filter") @RequestParam(required = false) String country,
-            @Parameter(description = "city filter") @RequestParam(required = false) String city,
             @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal UserDetails principal
+            @CookieValue(name = "postSort", required = false) String sortCookie,
+            HttpServletResponse response
     ) {
+        String effectiveSort = sort;
+        if (effectiveSort == null || effectiveSort.isBlank()) {
+            effectiveSort = normalizeSortCookie(sortCookie);
+        }
         BoardType resolvedBoardType = parseBoardType(boardType);
         validateSearch(search); // helper text 기준으로 검색어 검증
-        PostService.SortOption sortOption = resolveSortOption(sort);
-        String loginId = principal == null ? null : principal.getUsername();
-        return postService.listPosts(
-                resolvedBoardType,
-                normalizeSearch(search),
-                sortOption,
-                page,
-                size,
-                country,
-                city,
-                loginId
-        );
+        PostService.SortOption sortOption = resolveSortOption(effectiveSort);
+        writeSortCookie(response, sortOption);
+        return postService.listPosts(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
     }
 
     /**
@@ -209,6 +208,32 @@ public class PostController {
             default -> throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
         };
+    }
+
+    private String normalizeSortCookie(String sortCookie) {
+        if (sortCookie == null || sortCookie.isBlank()) {
+            return null;
+        }
+        String normalized = sortCookie.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "latest", "comment", "comments_1y", "like", "likes_1y" -> normalized;
+            default -> null;
+        };
+    }
+
+    private void writeSortCookie(HttpServletResponse response, PostService.SortOption sortOption) {
+        String cookieSort = switch (sortOption) {
+            case LATEST -> "latest";
+            case COMMENTS_1Y -> "comment";
+            case LIKES_1Y -> "like";
+        };
+        ResponseCookie cookie = ResponseCookie.from("postSort", cookieSort)
+                .maxAge(Duration.ofDays(30))
+                .path("/")
+                .sameSite("Lax")
+                .httpOnly(false)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private BoardType parseBoardType(String boardType) {
