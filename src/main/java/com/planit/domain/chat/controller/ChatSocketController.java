@@ -1,8 +1,9 @@
 package com.planit.domain.chat.controller;
 
-import com.planit.domain.chat.dto.ChatMessageRequest;
 import com.planit.domain.chat.dto.ChatMessageResponse;
+import com.planit.domain.chat.dto.ChatSendRequest;
 import com.planit.domain.chat.service.ChatService;
+import java.security.Principal;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -19,18 +20,16 @@ public class ChatSocketController {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @MessageMapping("/trips/{tripId}/chat")
-    public void handleChat(@DestinationVariable Long tripId, ChatMessageRequest request) {
-        // 클라이언트가 보낸 메시지를 먼저 브로드캐스트
-        messagingTemplate.convertAndSend(
-                "/topic/trips/" + tripId + "/chat",
-                new ChatMessageResponse(tripId, "USER", request.message())
-        );
-
-        // AI 응답을 생성하고 브로드캐스트
-        ChatMessageResponse response = chatService.handleUserMessage(
-                new ChatMessageRequest(tripId, request.message())
-        );
+    @MessageMapping("/trips/{tripId}/chat.send")
+    public void sendChat(
+            @DestinationVariable Long tripId,
+            ChatSendRequest request,
+            Principal principal
+    ) {
+        if (principal == null) {
+            throw new IllegalStateException("WebSocket principal is required");
+        }
+        ChatMessageResponse response = chatService.sendUserMessage(tripId, request.content(), principal.getName());
         messagingTemplate.convertAndSend("/topic/trips/" + tripId + "/chat", response);
     }
 }

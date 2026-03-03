@@ -11,10 +11,6 @@ import com.planit.domain.trip.repository.ItineraryDayRepository;
 import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
-import com.planit.domain.user.entity.User;
-import com.planit.domain.user.repository.UserRepository;
-import com.planit.global.common.exception.BusinessException;
-import com.planit.global.common.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -30,20 +26,20 @@ public class ItineraryQueryService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository placeRepository;
     private final ItineraryItemTransportRepository transportRepository;
-    private final UserRepository userRepository;
+    private final TripAccessService tripAccessService;
 
     public ItineraryQueryService(
             TripRepository tripRepository,
             ItineraryDayRepository itineraryDayRepository,
             ItineraryItemPlaceRepository placeRepository,
             ItineraryItemTransportRepository transportRepository,
-            UserRepository userRepository
+            TripAccessService tripAccessService
     ) {
         this.tripRepository = tripRepository;
         this.itineraryDayRepository = itineraryDayRepository;
         this.placeRepository = placeRepository;
         this.transportRepository = transportRepository;
-        this.userRepository = userRepository;
+        this.tripAccessService = tripAccessService;
     }
 
     public Optional<ItineraryResponse> getTripItineraries(Long tripId, String loginId) {
@@ -52,15 +48,12 @@ public class ItineraryQueryService {
             return Optional.empty();
         }
 
-        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
-        boolean isOwner = trip.getUser() != null && trip.getUser().getId().equals(user.getId());
+        TripAccessService.AccessInfo accessInfo = tripAccessService.requireReadable(trip, loginId);
 
-        return Optional.of(buildItineraries(trip, isOwner));
+        return Optional.of(buildItineraries(trip, accessInfo.isOwner(), accessInfo.isMember()));
     }
 
-    private ItineraryResponse buildItineraries(Trip trip, boolean isOwner) {
-        // 여행 1건에 대해 일별 일정 + 이벤트를 응답 DTO로 변환
+    private ItineraryResponse buildItineraries(Trip trip, boolean isOwner, boolean isMember) {
         Long tripId = trip.getId();
         List<ItineraryDay> itineraryDays = itineraryDayRepository.findByTripIdOrderByDayIndex(tripId);
         List<ItineraryDayResponse> dayResponses = new ArrayList<>();
@@ -115,6 +108,7 @@ public class ItineraryQueryService {
                 trip.getArrivalDate(),
                 trip.getDepartureDate(),
                 isOwner,
+                isMember,
                 dayResponses
         );
     }

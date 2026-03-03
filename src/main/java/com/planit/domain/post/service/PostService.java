@@ -85,32 +85,14 @@ public class PostService {
             String search,
             SortOption sortOption,
             int page,
-            int size,
-            String country,
-            String city
+            int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
         String normalizedSearch = search == null ? "" : search;
-        String normalizedCountry = normalizeLocation(country);
-        String normalizedCity = normalizeLocation(city);
-        boolean locationFilterApplied = boardType == BoardType.PLACE_RECOMMEND
-                && hasLocationFilter(normalizedCountry, normalizedCity);
-        List<Long> filteredPostIds = Collections.emptyList();
-        if (locationFilterApplied) {
-            filteredPostIds = postRepository.findPlaceRecommendationPostIdsByLocation(
-                    normalizedCountry, normalizedCity);
-            if (filteredPostIds.isEmpty()) {
-                return new PostListResponse(Collections.emptyList(), false, page, size);
-            }
-        }
-        List<Long> idsForQuery = filteredPostIds.isEmpty() ? List.of(-1L) : filteredPostIds;
-        int filteredSize = filteredPostIds.size();
         Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
                 boardType.name(),
                 normalizedSearch,
                 sortOption.name(),
-                idsForQuery,
-                filteredSize,
                 pageable
         );
         List<PostSummaryResponse> items = result.getContent()
@@ -119,9 +101,6 @@ public class PostService {
                     String thumbnailUrl = null;
                     if (summary.getRepresentativeImageKey() != null) {
                         thumbnailUrl = imageUrlResolver.resolve(summary.getRepresentativeImageKey());
-                    } else if (boardType == BoardType.PLACE_RECOMMEND
-                            && StringUtils.hasText(summary.getPlaceImageUrl())) {
-                        thumbnailUrl = summary.getPlaceImageUrl();
                     }
                     return new PostSummaryResponse(
                             summary.getPostId(),
@@ -384,8 +363,7 @@ public class PostService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
+        Post post = findActivePost(postId);
         if (!post.getAuthor().getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 수정 가능합니다.");
         }
@@ -447,8 +425,7 @@ public class PostService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
+        Post post = findActivePost(postId);
         if (!post.getAuthor().getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 삭제 가능합니다.");
         }
@@ -561,8 +538,7 @@ public class PostService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "*로그인이 필요한 요청입니다.");
         }
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
+        Post post = findActivePost(postId);
         if (!post.getAuthor().getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "작성자만 삭제할 수 있습니다.");
         }
@@ -603,12 +579,9 @@ public class PostService {
                 .orElse(null);
     }
 
-    private String normalizeLocation(String value) {
-        return StringUtils.hasText(value) ? value.trim() : null;
-    }
-
-    private boolean hasLocationFilter(String country, String city) {
-        return StringUtils.hasText(country) || StringUtils.hasText(city);
+    private Post findActivePost(Long postId) {
+        return postRepository.findByIdAndDeletedFalse(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
     }
 
     /** 리스트 정렬 옵션 */

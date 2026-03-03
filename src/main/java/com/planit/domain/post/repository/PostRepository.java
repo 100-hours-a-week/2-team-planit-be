@@ -102,9 +102,6 @@ public interface PostRepository
                     + "         and pl.name like concat('%', :search, '%')"
                     + "   )"
                     + ") "
-                    + "and ( :filteredPostIdsSize = 0 "
-                    + "   or p.post_id in (:filteredPostIds)"
-                    + ") "
                     + "order by case\n"
                             + " when :sortOption in ('COMMENTS', 'COMMENTS_1Y') then commentCount\n"
                             + " when :sortOption in ('LIKES', 'LIKES_1Y') then likeCount\n"
@@ -126,9 +123,6 @@ public interface PostRepository
                             + "       where pp.post_id = p.post_id "
                             + "         and pl.name like concat('%', :search, '%')"
                             + "   )"
-                            + ")"
-                            + "and ( :filteredPostIdsSize = 0 "
-                            + "   or p.post_id in (:filteredPostIds)"
                             + ")",
             nativeQuery = true
     )
@@ -136,8 +130,6 @@ public interface PostRepository
         @Param("boardType") String boardType,
         @Param("search") String search,
         @Param("sortOption") String sortOption,
-        @Param("filteredPostIds") List<Long> filteredPostIds,
-        @Param("filteredPostIdsSize") int filteredPostIdsSize,
         Pageable pageable
     );
 
@@ -148,5 +140,7 @@ public interface PostRepository
             Long authorId,
             Pageable pageable
     );
+
+    java.util.Optional<Post> findByIdAndDeletedFalse(Long postId);
 
 }

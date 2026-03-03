@@ -4,8 +4,6 @@ import com.planit.domain.trip.config.ItineraryJobProperties;
 import com.planit.domain.trip.dto.ItineraryJobResponse;
 import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.repository.TripRepository;
-import com.planit.domain.user.entity.User;
-import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
 import java.util.Map;
@@ -21,7 +19,7 @@ public class ItineraryJobService {
     private static final Logger log = LoggerFactory.getLogger(ItineraryJobService.class);
     private final ItineraryJobRepository jobRepository;
     private final TripRepository tripRepository;
-    private final UserRepository userRepository;
+    private final TripAccessService tripAccessService;
     private final ItineraryJobProperties jobProperties;
 
     public void initPending(Long tripId) {
@@ -52,11 +50,7 @@ public class ItineraryJobService {
         log.debug("[JOB] get status tripId={}, loginId={}", tripId, loginId);
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TRIP_001));
-        User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
-        if (!trip.getUser().getId().equals(user.getId())) {
-            throw new BusinessException(ErrorCode.TRIP_006);
-        }
+        tripAccessService.requireReadable(trip, loginId);
 
         Optional<Map<String, String>> statusOpt = jobRepository.findStatus(tripId);
         if (statusOpt.isEmpty()) {

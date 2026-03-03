@@ -269,13 +269,13 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 정보를 불러오지 못했습니다."));
         PageRequest pageRequest = PageRequest.of(0, 3);
         List<PlanPreview> previews = postRepository
-                .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
+                .findMyPosts(user.getId(), pageRequest)
                 .stream()
                 .map(p -> new PlanPreview(
-                        p.getId(),
+                        p.getPostId(),
                         p.getTitle(),
                         "내 계획",
-                        p.getBoardType().name()
+                        p.getBoardType()
                 ))
                 .toList();
         return new MyPageResponse(
