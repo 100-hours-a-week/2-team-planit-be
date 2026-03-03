@@ -129,6 +129,8 @@ public class TripService {
 
         String inviteCode = null;
         if (travelMode == TravelMode.GROUP) {
+            // 1) GROUP 모드 생성 시 즉시 itinerary 생성하지 않고 WAITING 그룹을 만든다.
+            // 2) 이후 각 멤버 submit이 모여 TripGroupService에서 큐 enqueue를 수행한다.
             inviteCode = tripGroupService.createWaitingGroup(
                     trip,
                     user,
@@ -174,10 +176,11 @@ public class TripService {
 
     @Transactional(readOnly = true)
     public TripListResponse getUserTrips(String loginId) {
+        // [출력 핵심] owner + group member(참여자) 여행을 함께 조회한다.
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        List<TripListResponse.TripSummary> summaries = tripRepository.findByUserIdOrderByIdDesc(user.getId())
+        List<TripListResponse.TripSummary> summaries = tripRepository.findReadableTripsByUserIdOrderByIdDesc(user.getId())
                 .stream()
                 .map(trip -> new TripListResponse.TripSummary(
                         trip.getId(),
