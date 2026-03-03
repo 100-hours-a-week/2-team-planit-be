@@ -171,7 +171,7 @@ public class UserService {
 
     /** 회원가입 화면에서 이미지 교체/삭제 시 S3 객체 삭제 (비인증). signup/ prefix key만 허용 */
     public void deleteSignupProfileImageByKey(String key) {
-        if (!StringUtils.hasText(key) || !key.startsWith("signup/")) {
+        if (!StringUtils.hasText(key) || !key.startsWith("profile/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
         UploadUrlProvider provider = uploadUrlProvider.getIfAvailable();
@@ -222,8 +222,7 @@ public class UserService {
     }
 
     private void validateProfileImageKey(String key, Long userId) {
-        String expectedPrefix = "profile/" + userId + "/";
-        if (!key.startsWith(expectedPrefix)) {
+        if (!StringUtils.hasText(key) || !key.startsWith("profile/")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "*유효하지 않은 이미지 key입니다.");
         }
     }
@@ -272,13 +271,13 @@ public class UserService {
         // 참고: 여기 previews는 여행(trips) 목록이 아니라 사용자가 작성한 게시글(post) 미리보기다.
         // 따라서 그룹 참여 여행이 "내 계획"으로 안 보이는 현상과는 별도 흐름이다.
         List<PlanPreview> previews = postRepository
-                .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
+                .findMyPosts(user.getId(), pageRequest)
                 .stream()
                 .map(p -> new PlanPreview(
-                        p.getId(),
+                        p.getPostId(),
                         p.getTitle(),
                         "내 계획",
-                        p.getBoardType().name()
+                        p.getBoardType()
                 ))
                 .toList();
         return new MyPageResponse(

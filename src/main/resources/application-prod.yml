@@ -4,7 +4,7 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST}
       port: ${SPRING_DATA_REDIS_PORT:6379}
       password: ${SPRING_DATA_REDIS_PASSWORD:localpass}
-      timeout: 2s # Production 환경 Spring Boot 설정 루트
+      timeout: 10s # Production 환경 Spring Boot 설정 루트
     mongodb:
       uri: ${SPRING_DATA_MONGODB_URI}
   datasource: # 배포용 데이터베이스 접속 정보 (cd.yml에서 secrets.SPRING_DATASOURCE_* 주입)
@@ -38,7 +38,7 @@ planit:
   cloudfront: # cd.yml에서 secrets.CLOUDFRONT_DOMAIN 주입
     domain: ${CLOUDFRONT_DOMAIN}
   profile:
-    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
+    default-image-url: https://${planit.cloudfront.domain}/profile/default-profile.png
 
 ai:
   base-url: ${AI_BASE_URL:http://10.0.1.92:8000}

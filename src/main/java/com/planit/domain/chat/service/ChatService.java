@@ -1,5 +1,7 @@
 package com.planit.domain.chat.service;
 
+import com.planit.ai.client.AiApiClient;
+import com.planit.ai.dto.AiRequest;
 import com.planit.domain.chat.document.ChatMessageDocument;
 import com.planit.domain.chat.dto.ChatMessageResponse;
 import com.planit.domain.chat.dto.ChatReadResponse;
@@ -27,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -44,6 +47,8 @@ public class ChatService {
     private final TripAccessService tripAccessService;
     private final UserRepository userRepository;
     private final S3ImageUrlResolver imageUrlResolver;
+    private final AiApiClient aiApiClient;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public ChatMessageResponse sendUserMessage(Long tripId, String content, String loginId) {
@@ -64,6 +69,40 @@ public class ChatService {
                 Instant.now(),
                 seq
         ));
+
+        if (content.startsWith("@AI")) {
+            String cleaned = content.substring(3).trim();
+            String aiReply = aiApiClient.requestAiReply(new AiRequest(String.valueOf(tripId), cleaned));
+
+            long aiSeq = context.chatRoom().incrementAndGet();
+            ChatMessageDocument savedAiReply = chatMessageMongoRepository.save(new ChatMessageDocument(
+                    tripId,
+                    null,
+                    "AI",
+                    null,
+                    ChatSenderType.BOT.name(),
+                    aiReply,
+                    Instant.now(),
+                    aiSeq
+            ));
+
+            context.participant().markRead(aiSeq);
+            participantRepository.save(context.participant());
+
+            ChatMessageResponse aiResponse = new ChatMessageResponse(
+                    savedAiReply.getId(),
+                    savedAiReply.getTripId(),
+                    null,
+                    "AI",
+                    null,
+                    ChatSenderType.BOT.name(),
+                    savedAiReply.getContent(),
+                    savedAiReply.getCreatedAt(),
+                    savedAiReply.getSeq()
+            );
+            messagingTemplate.convertAndSend("/topic/trips/" + tripId + "/chat", aiResponse);
+            return toResponse(saved, Map.of(context.user().getId(), context.user()));
+        }
 
         context.participant().markRead(seq);
         participantRepository.save(context.participant());

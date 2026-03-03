@@ -48,6 +48,7 @@ app:
       aiJobsKey: stream:ai-jobs
       aiJobsGroup: ai-workers
       aiResultsKey: stream:itinerary-results
+      chatResultsKey: stream:chat-results
   itinerary:
     jobTtlSeconds: 86400
     consumerGroup: travel-service
@@ -61,6 +62,6 @@ trip:
 
 planit:
   profile:
-    default-image-url: https://${planit.cloudfront.domain}/default-profile.png
+    default-image-url: https://${planit.cloudfront.domain}/profile/default-profile.png
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:}

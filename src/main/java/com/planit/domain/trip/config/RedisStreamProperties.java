@@ -13,4 +13,5 @@ public class RedisStreamProperties {
     private String aiJobsKey = "stream:ai-jobs";
     private String aiResultsKey = "stream:itinerary-results";
     private String aiJobsGroup = "ai-workers";
+    private String chatResultsKey = "stream:chat-results";
 }
