@@ -295,47 +295,4 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return comments;
     }
 
-    @Override
-    public List<Long> findPlaceRecommendationPostIdsByLocation(String country, String city) {
-        boolean hasCountry = StringUtils.hasText(country);
-        boolean hasCity = StringUtils.hasText(city);
-        if (!hasCountry && !hasCity) {
-            return Collections.emptyList();
-        }
-        StringBuilder jpql = new StringBuilder("""
-                select p.id
-                from Post p
-                where p.boardType = :boardType
-                  and p.deleted = false
-                """);
-        if (hasCountry) {
-            jpql.append("""
-                  and (
-                    lower(p.title) like :countryPattern
-                    or lower(p.content) like :countryPattern
-                  )
-                """);
-        }
-        if (hasCity) {
-            jpql.append("""
-                  and (
-                    lower(p.title) like :cityPattern
-                    or lower(p.content) like :cityPattern
-                  )
-                """);
-        }
-        TypedQuery<Long> query = entityManager.createQuery(jpql.toString(), Long.class);
-        query.setParameter("boardType", BoardType.PLACE_RECOMMEND);
-        if (hasCountry) {
-            query.setParameter("countryPattern", buildLikePattern(country));
-        }
-        if (hasCity) {
-            query.setParameter("cityPattern", buildLikePattern(city));
-        }
-        return query.getResultList();
-    }
-
-    private String buildLikePattern(String value) {
-        return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
-    }
 }

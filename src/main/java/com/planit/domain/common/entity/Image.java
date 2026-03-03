@@ -39,4 +39,12 @@ public class Image {
         this.s3Key = s3Key;
         this.createdAt = createdAt;
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getS3Key() {
+        return s3Key;
+    }
 }

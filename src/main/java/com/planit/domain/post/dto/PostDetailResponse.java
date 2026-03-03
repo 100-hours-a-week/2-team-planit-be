@@ -150,6 +150,86 @@ public class PostDetailResponse {
         );
     }
 
+    public Long getPostId() {
+        return postId;
+    }
+
+    public String getBoardName() {
+        return boardName;
+    }
+
+    public String getBoardDescription() {
+        return boardDescription;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public AuthorInfo getAuthor() {
+        return author;
+    }
+
+    public List<PostImage> getImages() {
+        return images;
+    }
+
+    public Integer getLikeCount() {
+        return likeCount;
+    }
+
+    public Integer getCommentCount() {
+        return commentCount;
+    }
+
+    public Boolean getLikedByRequester() {
+        return likedByRequester;
+    }
+
+    public List<CommentInfo> getComments() {
+        return comments;
+    }
+
+    public Boolean getEditable() {
+        return editable;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public String getGooglePlaceId() {
+        return googlePlaceId;
+    }
+
+    public Integer getRating() {
+        return rating;
+    }
+
+    public Long getPlanTripId() {
+        return planTripId;
+    }
+
+    public Long getTripId() {
+        return tripId;
+    }
+
+    public String getTripTitle() {
+        return tripTitle;
+    }
+
+    public String getPlanThumbnailUrl() {
+        return planThumbnailUrl;
+    }
+
     @Getter
     public static class AuthorInfo {
         private final Long authorId; // 작성자 PK
