@@ -19,4 +19,12 @@ public class PresignedUrlRequest {
     private String fileExtension;
 
     private String contentType;
+
+    public String getFileExtension() {
+        return fileExtension;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
 }

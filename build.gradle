@@ -38,6 +38,7 @@ repositories {
 dependencies {
     // Web and JPA support
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
@@ -62,12 +63,15 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
+
     // AWS SDK S3
     implementation 'software.amazon.awssdk:s3:2.20.81'
 
     //Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 
 }
 

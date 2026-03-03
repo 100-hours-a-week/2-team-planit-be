@@ -63,4 +63,36 @@ public class PostUpdateRequest {
     public List<String> getImageKeys() {
         return imageKeys == null ? Collections.emptyList() : imageKeys;
     }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public Long getPlanId() {
+        return planId;
+    }
+
+    public Long getTripId() {
+        return tripId;
+    }
+
+    public Long getPlaceId() {
+        return placeId;
+    }
+
+    public String getPlaceName() {
+        return placeName;
+    }
+
+    public String getGooglePlaceId() {
+        return googlePlaceId;
+    }
+
+    public Integer getUserRating() {
+        return userRating;
+    }
 }

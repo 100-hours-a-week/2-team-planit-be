@@ -1,11 +1,12 @@
 package com.planit.domain.trip.service;
 
-import com.planit.domain.trip.dto.AiItineraryRequest;
-import com.planit.domain.trip.dto.AiItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
+import com.planit.domain.trip.dto.TripCreateResult;
 import com.planit.domain.trip.dto.TripListResponse;
 import com.planit.domain.trip.entity.ItineraryDay;
+import com.planit.domain.trip.entity.TravelMode;
 import com.planit.domain.trip.entity.Trip;
+import com.planit.domain.trip.entity.TripStatus;
 import com.planit.domain.trip.entity.TripTheme;
 import com.planit.domain.trip.entity.WantedPlace;
 import com.planit.domain.trip.repository.ItineraryDayRepository;
@@ -43,15 +44,10 @@ public class TripService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
     private final ItineraryItemTransportRepository itineraryItemTransportRepository;
-    private final AiItineraryQueue aiItineraryQueue;
-    private final AiItineraryProcessor aiItineraryProcessor;
-    private final AiItineraryClient aiItineraryClient;
-    private final ItineraryJobService itineraryJobService;
-    private final ItineraryJobStreamService itineraryJobStreamService;
-    private final boolean aiMockEnabled;
+    private final ItineraryEnqueueService itineraryEnqueueService;
+    private final TripGroupService tripGroupService;
     private final boolean createWindowEnabled;
     private final boolean dailyCreateLimitEnabled;
-    private final boolean streamEnabled;
     private final Map<Long, LocalDate> lastCreateDateByUser = new ConcurrentHashMap<>();
 
     public TripService(
@@ -62,15 +58,10 @@ public class TripService {
             ItineraryDayRepository itineraryDayRepository,
             ItineraryItemPlaceRepository itineraryItemPlaceRepository,
             ItineraryItemTransportRepository itineraryItemTransportRepository,
-            AiItineraryQueue aiItineraryQueue,
-            AiItineraryProcessor aiItineraryProcessor,
-            AiItineraryClient aiItineraryClient,
-            ItineraryJobService itineraryJobService,
-            ItineraryJobStreamService itineraryJobStreamService,
-            @Value("${ai.mock-enabled:false}") boolean aiMockEnabled,
+            ItineraryEnqueueService itineraryEnqueueService,
+            TripGroupService tripGroupService,
             @Value("${trip.create-window-enabled:true}") boolean createWindowEnabled,
-            @Value("${trip.daily-create-limit-enabled:true}") boolean dailyCreateLimitEnabled,
-            @Value("${app.itinerary.stream-enabled:true}") boolean streamEnabled
+            @Value("${trip.daily-create-limit-enabled:true}") boolean dailyCreateLimitEnabled
     ) {
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
@@ -79,32 +70,24 @@ public class TripService {
         this.itineraryDayRepository = itineraryDayRepository;
         this.itineraryItemPlaceRepository = itineraryItemPlaceRepository;
         this.itineraryItemTransportRepository = itineraryItemTransportRepository;
-        this.aiItineraryQueue = aiItineraryQueue;
-        this.aiItineraryProcessor = aiItineraryProcessor;
-        this.aiItineraryClient = aiItineraryClient;
-        this.itineraryJobService = itineraryJobService;
-        this.itineraryJobStreamService = itineraryJobStreamService;
-        this.aiMockEnabled = aiMockEnabled;
+        this.itineraryEnqueueService = itineraryEnqueueService;
+        this.tripGroupService = tripGroupService;
         this.createWindowEnabled = createWindowEnabled;
         this.dailyCreateLimitEnabled = dailyCreateLimitEnabled;
-        this.streamEnabled = streamEnabled;
     }
 
     @Transactional
-    public Long createTrip(TripCreateRequest request, String loginId) {
+    public TripCreateResult createTrip(TripCreateRequest request, String loginId) {
         log.info("[TRIP_CREATE] start loginId={}, title={}", loginId, request.title());
-        // 일정 생성 허용 시간(14:00 ~ 다음날 02:00) 외에는 요청 차단
         if (createWindowEnabled && !isCreateWindowOpen(ZonedDateTime.now(ZoneId.of("Asia/Seoul")))) {
             log.warn("[TRIP_CREATE] blocked by create window loginId={}", loginId);
             throw new BusinessException(ErrorCode.TRIP_005);
         }
 
-        // 1) 토큰에서 추출된 loginId로 사용자 조회
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
         log.info("[TRIP_CREATE] user resolved userId={}", user.getId());
 
-        // 임시 MVP 보호 로직: 사용자당 하루 1회 생성 제한
         if (dailyCreateLimitEnabled) {
             LocalDate today = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).toLocalDate();
             LocalDate lastCreateDate = lastCreateDateByUser.get(user.getId());
@@ -113,10 +96,10 @@ public class TripService {
                 throw new BusinessException(ErrorCode.TRIP_007);
             }
         }
-        // 기존코드 주석화
-        // // 유저별 일일 생성 제한 없이 바로 여행 생성 저장 진행
 
-        // 2) 여행 기본 정보 저장
+        TravelMode travelMode = request.travelMode() == null ? TravelMode.SOLO : request.travelMode();
+        TripStatus initialStatus = travelMode == TravelMode.GROUP ? TripStatus.WAITING : TripStatus.GENERATING;
+
         Trip trip = tripRepository.save(new Trip(
                 user,
                 request.title(),
@@ -125,18 +108,18 @@ public class TripService {
                 request.arrivalTime(),
                 request.departureTime(),
                 request.travelCity(),
-                request.totalBudget()
+                request.totalBudget(),
+                travelMode == TravelMode.GROUP ? request.headCount() : null,
+                initialStatus
         ));
-        log.info("[TRIP_CREATE] trip saved tripId={}", trip.getId());
+        log.info("[TRIP_CREATE] trip saved tripId={}, mode={}", trip.getId(), travelMode);
 
-        // 테마 저장 (Trip 1 : Theme N)
         for (String theme : request.travelTheme()) {
             trip.addTheme(new TripTheme(trip, theme));
         }
         tripRepository.save(trip);
         log.info("[TRIP_CREATE] themes saved tripId={}, count={}", trip.getId(), trip.getThemes().size());
 
-        // 희망 장소 저장
         if (request.wantedPlace() != null) {
             for (String placeId : request.wantedPlace()) {
                 wantedPlaceRepository.save(new WantedPlace(trip, placeId));
@@ -144,60 +127,35 @@ public class TripService {
             log.info("[TRIP_CREATE] wanted places saved tripId={}, count={}", trip.getId(), request.wantedPlace().size());
         }
 
-        // 4) AI 요청을 Redis Streams에 적재 + Job 상태 초기화
-        AiItineraryJob job = new AiItineraryJob(new AiItineraryRequest(
-                trip.getId(),
-                trip.getArrivalDate(),
-                trip.getArrivalTime(),
-                trip.getDepartureDate(),
-                trip.getDepartureTime(),
-                trip.getTravelCity(),
-                trip.getTotalBudget(),
-                request.travelTheme(),
-                request.wantedPlace()
-        ));
-        log.info("[TRIP_CREATE] job built tripId={}, streamEnabled={}, mockEnabled={}", trip.getId(), streamEnabled, aiMockEnabled);
-        if (streamEnabled) {
-            itineraryJobService.initPending(trip.getId());
-            log.info("[TRIP_CREATE] job status initialized PENDING tripId={}", trip.getId());
-            itineraryJobStreamService.enqueueJob(trip.getId(), job.request());
-            log.info("[TRIP_CREATE] job enqueued to stream tripId={}", trip.getId());
-            if (aiMockEnabled) {
-                // mock 모드: 즉시 결과 생성 -> results stream publish
-                AiItineraryResponse response = aiItineraryClient.requestItinerary(job.request());
-                log.info("[TRIP_CREATE] mock response generated tripId={}, itineraries={}",
-                        trip.getId(), response == null ? 0 : (response.itineraries() == null ? 0 : response.itineraries().size()));
-                itineraryJobStreamService.publishResult(trip.getId(), ItineraryJobStatus.SUCCESS.name(), response, null);
-                log.info("[TRIP_CREATE] mock result published tripId={}", trip.getId());
-            }
+        String inviteCode = null;
+        if (travelMode == TravelMode.GROUP) {
+            // 1) GROUP 모드 생성 시 즉시 itinerary 생성하지 않고 WAITING 그룹을 만든다.
+            // 2) 이후 각 멤버 submit이 모여 TripGroupService에서 큐 enqueue를 수행한다.
+            inviteCode = tripGroupService.createWaitingGroup(
+                    trip,
+                    user,
+                    request.headCount(),
+                    request.travelTheme(),
+                    request.wantedPlace()
+            );
+            log.info("[TRIP_CREATE] group waiting created tripId={}, inviteCode={}", trip.getId(), inviteCode);
         } else {
-            // stream 비활성화 환경에서는 기존 흐름 유지
-            if (aiMockEnabled) {
-                log.info("[TRIP_CREATE] stream disabled, mock direct processing tripId={}", trip.getId());
-                aiItineraryProcessor.process(job);
-            } else {
-                log.info("[TRIP_CREATE] stream disabled, enqueue in-memory tripId={}", trip.getId());
-                aiItineraryQueue.enqueue(job);
-            }
+            itineraryEnqueueService.enqueueGeneration(trip, request.travelTheme(), request.wantedPlace());
         }
 
         if (dailyCreateLimitEnabled) {
-            // 생성 성공 시점에만 오늘 날짜를 기록
             lastCreateDateByUser.put(user.getId(), ZonedDateTime.now(ZoneId.of("Asia/Seoul")).toLocalDate());
             log.info("[TRIP_CREATE] daily limit timestamp stored userId={}", user.getId());
         }
-        // 기존코드 주석화
-        // // 생성 횟수 제한 로직 없음
 
         log.info("[TRIP_CREATE] end tripId={}", trip.getId());
-        return trip.getId();
+        return new TripCreateResult(trip.getId(), inviteCode);
     }
 
     private boolean isCreateWindowOpen(ZonedDateTime now) {
         LocalTime currentTime = now.toLocalTime();
         LocalTime start = LocalTime.of(14, 0);
         LocalTime end = LocalTime.of(2, 0);
-        // 자정을 넘기는 허용 구간: 14:00 이상 또는 02:00 미만
         return !currentTime.isBefore(start) || currentTime.isBefore(end);
     }
 
@@ -218,10 +176,11 @@ public class TripService {
 
     @Transactional(readOnly = true)
     public TripListResponse getUserTrips(String loginId) {
+        // [출력 핵심] owner + group member(참여자) 여행을 함께 조회한다.
         User user = userRepository.findByLoginIdAndDeletedFalse(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_001));
 
-        List<TripListResponse.TripSummary> summaries = tripRepository.findByUserIdOrderByIdDesc(user.getId())
+        List<TripListResponse.TripSummary> summaries = tripRepository.findReadableTripsByUserIdOrderByIdDesc(user.getId())
                 .stream()
                 .map(trip -> new TripListResponse.TripSummary(
                         trip.getId(),
@@ -236,7 +195,6 @@ public class TripService {
     }
 
     private void deleteTripData(Long tripId) {
-        // 일정 데이터 삭제 (장소/이동 -> 일별 일정 순서)
         List<ItineraryDay> days = itineraryDayRepository.findByTripId(tripId);
         List<Long> dayIds = days.stream().map(ItineraryDay::getId).toList();
         if (!dayIds.isEmpty()) {
@@ -245,9 +203,7 @@ public class TripService {
         }
         itineraryDayRepository.deleteAll(days);
 
-        // 테마/희망장소 삭제
         tripThemeRepository.deleteByTripId(tripId);
         wantedPlaceRepository.deleteByTripId(tripId);
     }
-
 }

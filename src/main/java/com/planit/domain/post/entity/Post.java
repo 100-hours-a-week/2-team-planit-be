@@ -135,4 +135,28 @@ public class Post {
     public String getGooglePlaceId() {
         return googlePlaceId;
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getAuthor() {
+        return author;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public BoardType getBoardType() {
+        return boardType;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
 }

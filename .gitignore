@@ -9,10 +9,11 @@ build/ # project build output
 !**/src/test/**/build/ # allow per-module test build dirs
 
 ### Application config ### # environment-specific configs
-application-*.yml # ignore sensitive application configs
-application-*.yaml # YAML variants
+# application-*.yml # ignore sensitive application configs
+# application-*.yaml # YAML variants
 .env # local dotenv file
 .env.* # environment-specific variants
+src/main/resources/application-local.yml
 
 ### STS ### # Spring Tool Suite project files
 .apt_generated # generated metadata

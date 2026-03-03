@@ -268,6 +268,8 @@ public class UserService {
         UserRepository.ProfileSummary summary = userRepository.fetchProfileSummary(user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "프로필 정보를 불러오지 못했습니다."));
         PageRequest pageRequest = PageRequest.of(0, 3);
+        // 참고: 여기 previews는 여행(trips) 목록이 아니라 사용자가 작성한 게시글(post) 미리보기다.
+        // 따라서 그룹 참여 여행이 "내 계획"으로 안 보이는 현상과는 별도 흐름이다.
         List<PlanPreview> previews = postRepository
                 .findByAuthorIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), pageRequest)
                 .stream()

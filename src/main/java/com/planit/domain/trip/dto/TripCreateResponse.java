@@ -1,4 +1,7 @@
 package com.planit.domain.trip.dto;
 
-public record TripCreateResponse(Long tripId) {
+public record TripCreateResponse(
+        Long tripId,
+        String inviteCode
+) {
 }

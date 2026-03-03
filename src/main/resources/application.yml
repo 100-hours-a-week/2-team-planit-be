@@ -48,6 +48,7 @@ app:
       aiJobsKey: stream:ai-jobs
       aiJobsGroup: ai-workers
       aiResultsKey: stream:itinerary-results
+      chatResultsKey: stream:chat-results
   itinerary:
     jobTtlSeconds: 86400
     consumerGroup: travel-service

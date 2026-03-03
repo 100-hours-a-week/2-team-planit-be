@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -206,6 +208,50 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return images;
     }
 
+    @Override
+    public List<Long> findPlaceRecommendationPostIdsByLocation(String country, String city) {
+        boolean hasCountry = StringUtils.hasText(country);
+        boolean hasCity = StringUtils.hasText(city);
+        if (!hasCountry && !hasCity) {
+            return Collections.emptyList();
+        }
+        StringBuilder jpql = new StringBuilder("""
+                select p.id
+                from Post p
+                where p.boardType = :boardType
+                  and p.deleted = false
+                """);
+        if (hasCountry) {
+            jpql.append("""
+                  and (
+                    lower(p.title) like :countryPattern
+                    or lower(p.content) like :countryPattern
+                  )
+                """);
+        }
+        if (hasCity) {
+            jpql.append("""
+                  and (
+                    lower(p.title) like :cityPattern
+                    or lower(p.content) like :cityPattern
+                  )
+                """);
+        }
+        TypedQuery<Long> query = entityManager.createQuery(jpql.toString(), Long.class);
+        query.setParameter("boardType", BoardType.PLACE_RECOMMEND);
+        if (hasCountry) {
+            query.setParameter("countryPattern", buildLikePattern(country));
+        }
+        if (hasCity) {
+            query.setParameter("cityPattern", buildLikePattern(city));
+        }
+        return query.getResultList();
+    }
+
+    private String buildLikePattern(String value) {
+        return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
+    }
+
     private List<CommentInfo> fetchComments(Long postId, Long requesterId) {
         Query commentQuery = entityManager.createNativeQuery("""
             select c.comment_id,
@@ -248,4 +294,5 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         }
         return comments;
     }
+
 }

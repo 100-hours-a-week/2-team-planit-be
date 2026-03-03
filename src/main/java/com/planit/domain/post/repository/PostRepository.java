@@ -141,4 +141,6 @@ public interface PostRepository
             Pageable pageable
     );
 
+    java.util.Optional<Post> findByIdAndDeletedFalse(Long postId);
+
 }

@@ -1,14 +1,14 @@
 package com.planit.domain.trip.controller;
 
-//import com.planit.domain.trip.dto.ItineraryRegenerateRequest;
 import com.planit.domain.trip.dto.ItineraryDayUpdateRequest;
 import com.planit.domain.trip.dto.ItineraryJobResponse;
 import com.planit.domain.trip.dto.ItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripCreateResponse;
+import com.planit.domain.trip.dto.TripCreateResult;
 import com.planit.domain.trip.dto.TripListResponse;
-import com.planit.domain.trip.service.ItineraryQueryService;
 import com.planit.domain.trip.service.ItineraryJobService;
+import com.planit.domain.trip.service.ItineraryQueryService;
 import com.planit.domain.trip.service.ItineraryUpdateService;
 import com.planit.domain.trip.service.TripService;
 import com.planit.global.common.exception.ErrorCode;
@@ -56,17 +56,20 @@ public class TripController {
         if (principal == null) {
             throw new UnauthorizedAccessException();
         }
-        // 인증된 유저 기준으로 여행 생성 및 AI 큐 적재
-        Long tripId = tripService.createTrip(request, principal.getUsername());
+        TripCreateResult created = tripService.createTrip(request, principal.getUsername());
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(new TripCreateResponse(tripId)));
+                .body(ApiResponse.success(new TripCreateResponse(created.tripId(), created.inviteCode())));
     }
 
     @GetMapping("/trips")
     public ResponseEntity<ApiResponse<TripListResponse>> getTrips(
             @AuthenticationPrincipal UserDetails principal
     ) {
+        // [같이가기 출력 단계] "내 계획 목록" 조회 진입점
+        if (principal == null) {
+            throw new UnauthorizedAccessException();
+        }
         TripListResponse response = tripService.getUserTrips(principal.getUsername());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -76,6 +79,9 @@ public class TripController {
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable Long tripId
     ) {
+        if (principal == null) {
+            throw new UnauthorizedAccessException();
+        }
         return itineraryQueryService.getTripItineraries(tripId, principal.getUsername())
                 .<ResponseEntity<?>>map(response -> ResponseEntity.ok(ApiResponse.success(response)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -101,7 +107,9 @@ public class TripController {
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody ItineraryDayUpdateRequest request
     ) {
-        // 특정 일자의 장소 정보만 부분 수정
+        if (principal == null) {
+            throw new UnauthorizedAccessException();
+        }
         itineraryUpdateService.updateDayPlaces(request, principal.getUsername());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -111,9 +119,10 @@ public class TripController {
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable Long tripId
     ) {
-        // 유저 소유의 여행 삭제
+        if (principal == null) {
+            throw new UnauthorizedAccessException();
+        }
         tripService.deleteTrip(principal.getUsername(), tripId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
-
 }
