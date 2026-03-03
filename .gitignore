@@ -11,6 +11,7 @@ build/ # project build output
 ### Application config ### # environment-specific configs
 application-*.yml # ignore sensitive application configs
 application-*.yaml # YAML variants
+/src/main/resources/application-local.yml # always ignore local profile config
 .env # local dotenv file
 .env.* # environment-specific variants
 
