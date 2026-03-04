@@ -31,6 +31,6 @@ public class AiChatClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<AiChatRequest> entity = new HttpEntity<>(request, headers);
-        return restTemplate.postForObject(baseUrl + "/api/v1/chat", entity, AiChatResponse.class);
+        return restTemplate.postForObject(baseUrl + "/api/v1/chatbot", entity, AiChatResponse.class);
     }
 }
