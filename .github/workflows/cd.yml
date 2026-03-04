@@ -1,40 +1,30 @@
-name: CD - Backend (ASG Refresh)
+name: CD - Multi ASG (Single LT Update + Refresh)
 
 on:
-  # CI - Backend 워크플로우가 성공적으로 끝났을 때만 실행
   workflow_run:
     workflows: ["CI - Backend"]
     types: [completed]
     branches: [main]
 
 jobs:
-  backend-cd:
+  lt-update:
     runs-on: ubuntu-latest
-    # CI가 성공(conclusion == success)일 때만 진행
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     env:
       AWS_REGION: ap-northeast-2
-
-      # Backend ASG 이름 (AWS 콘솔의 Auto Scaling Groups에서 확인)
-      ASG_NAME: planit-v2-asg-was
-
-      # Instance Refresh 옵션
-      # - MinHealthyPercentage=50: 절반은 항상 살아있게 유지하며 교체
-      # - InstanceWarmup: 새 인스턴스가 정상 기동/헬스체크 통과할 시간을 고려
-      MIN_HEALTHY_PERCENT: "50"
-      INSTANCE_WARMUP: "180"
-
-      # Backend user-data에서 IMAGE_TAG를 주입할 템플릿 파일 경로
+      # LT를 알아내기 위한 "기준 ASG" 하나만 지정 (같은 LT를 쓰니까 아무거나 1개)
+      BASE_ASG_NAME: planit-v2-asg-was
       USER_DATA_PATH: resources/user-data.sh
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    outputs:
+      lt_id: ${{ steps.lt.outputs.lt_id }}
+      lt_version: ${{ steps.lt.outputs.lt_version }}
 
-      # AWS 인증
-      - name: Configure AWS credentials (Access Key)
-        uses: aws-actions/configure-aws-credentials@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACTIONS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
@@ -43,8 +33,6 @@ jobs:
       - name: Install jq
         run: sudo apt-get update -y && sudo apt-get install -y jq
 
-      # 이 배포에서 사용할 이미지 태그 계산
-      # CI에서 sha-xxxxxxx 태그로 ECR에 push
       - name: Compute image tag
         id: img
         shell: bash
@@ -53,37 +41,48 @@ jobs:
           HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
           SHORT="${HEAD_SHA:0:7}"
           echo "tag=sha-${SHORT}" >> "$GITHUB_OUTPUT"
-          echo "Deploy image tag: sha-${SHORT}"
 
-      # user-data 템플릿에서 {{IMAGE_TAG}}를 이번 배포 태그로 치환하고 base64 인코딩
-      # (Launch Template UserData는 base64 문자열)
-      - name: Render backend user-data with IMAGE_TAG
-        id: ud
+      - name: Render user-data with IMAGE_TAG
         shell: bash
         run: |
           set -euo pipefail
           TAG="${{ steps.img.outputs.tag }}"
-          test -f "${USER_DATA_PATH}"
-          sed "s|{{IMAGE_TAG}}|$TAG|g" "${USER_DATA_PATH}" > rendered-userdata.sh
+          test -f "$USER_DATA_PATH"
+          sed "s|{{IMAGE_TAG}}|$TAG|g" "$USER_DATA_PATH" > rendered-userdata.sh
           base64 -w 0 rendered-userdata.sh > userdata.b64
 
-      # ASG에 연결된 Launch Template ID를 가져오고,
-      # 1) 기존 default 버전을 SourceVersion으로 삼아
-      # 2) UserData만 교체한 새 버전을 생성한 뒤
-      # 3) default 버전을 새 버전으로 변경
-      - name: Create new Launch Template version + set default
+      - name: Create new Launch Template version + set default (ONCE)
         id: lt
         shell: bash
         run: |
           set -euo pipefail
 
-          LT_ID=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names "$ASG_NAME" \
-            --query "AutoScalingGroups[0].LaunchTemplate.LaunchTemplateId" \
-            --output text)
+          ASG_JSON=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$BASE_ASG_NAME" \
+            --query "AutoScalingGroups[0]" \
+            --output json)
+
+          LT_ID=$(echo "$ASG_JSON" | jq -r '
+            .LaunchTemplate.LaunchTemplateId
+            // .MixedInstancesPolicy.LaunchTemplate.LaunchTemplateSpecification.LaunchTemplateId
+            // empty
+          ')
+          LT_NAME=$(echo "$ASG_JSON" | jq -r '
+            .LaunchTemplate.LaunchTemplateName
+            // .MixedInstancesPolicy.LaunchTemplate.LaunchTemplateSpecification.LaunchTemplateName
+            // empty
+          ')
+
+          if [ -z "$LT_ID" ] && [ -n "$LT_NAME" ]; then
+            LT_ID=$(aws ec2 describe-launch-templates \
+              --launch-template-names "$LT_NAME" \
+              --query "LaunchTemplates[0].LaunchTemplateId" \
+              --output text)
+          fi
 
           if [ -z "$LT_ID" ] || [ "$LT_ID" = "None" ]; then
-            echo "Failed to resolve LaunchTemplateId from ASG."
+            echo "❌ Launch Template not found from ASG: $BASE_ASG_NAME"
+            echo "$ASG_JSON" | jq '{AutoScalingGroupName, LaunchTemplate, MixedInstancesPolicy, LaunchConfigurationName}'
             exit 1
           fi
 
@@ -92,11 +91,14 @@ jobs:
             --query "LaunchTemplates[0].DefaultVersionNumber" \
             --output text)
 
+          LT_DATA=$(jq -n --arg ud "$(cat userdata.b64)" '{UserData:$ud}')
+
+          TAG="${{ steps.img.outputs.tag }}"
           NEW=$(aws ec2 create-launch-template-version \
             --launch-template-id "$LT_ID" \
             --source-version "$CURRENT" \
-            --version-description "backend:${{ steps.img.outputs.tag }} (${GITHUB_RUN_ID})" \
-            --launch-template-data "{\"UserData\":\"$(cat userdata.b64)\"}" \
+            --version-description "shared:${TAG} (${GITHUB_RUN_ID})" \
+            --launch-template-data "$LT_DATA" \
             --query "LaunchTemplateVersion.VersionNumber" \
             --output text)
 
@@ -104,28 +106,52 @@ jobs:
             --launch-template-id "$LT_ID" \
             --default-version "$NEW"
 
-          echo "LT default updated: $CURRENT -> $NEW"
+          echo "lt_id=$LT_ID" >> "$GITHUB_OUTPUT"
+          echo "lt_version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "LT default updated: $CURRENT -> $NEW (LT=$LT_ID)"
 
-      # Instance Refresh 시작: 새 Launch Template default 버전으로 인스턴스를 순차 교체
+  refresh:
+    runs-on: ubuntu-latest
+    needs: lt-update
+
+    strategy:
+      fail-fast: false
+      matrix:
+        asg_name:
+          - planit-v2-asg-was
+          - planit-v2-asg-ws
+
+    env:
+      AWS_REGION: ap-northeast-2
+      MIN_HEALTHY_PERCENT: "50"
+      INSTANCE_WARMUP: "180"
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACTIONS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ACTIONS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Start Instance Refresh
         id: refresh
         shell: bash
         run: |
           set -euo pipefail
+          ASG_NAME="${{ matrix.asg_name }}"
           ID=$(aws autoscaling start-instance-refresh \
             --auto-scaling-group-name "$ASG_NAME" \
             --preferences "MinHealthyPercentage=${MIN_HEALTHY_PERCENT},InstanceWarmup=${INSTANCE_WARMUP}" \
             --query "InstanceRefreshId" \
             --output text)
-
           echo "id=$ID" >> "$GITHUB_OUTPUT"
-          echo "Started refresh $ID"
+          echo "Started refresh $ID (ASG=$ASG_NAME)"
 
-      # Refresh 진행 상태를 폴링해서 성공/실패를 판단
       - name: Monitor Instance Refresh
         shell: bash
         run: |
           set -euo pipefail
+          ASG_NAME="${{ matrix.asg_name }}"
           ID="${{ steps.refresh.outputs.id }}"
           for i in {1..90}; do
             STATUS=$(aws autoscaling describe-instance-refreshes \
@@ -133,28 +159,22 @@ jobs:
               --instance-refresh-ids "$ID" \
               --query "InstanceRefreshes[0].Status" \
               --output text)
-
-            echo "Status: $STATUS"
-
+            echo "ASG=$ASG_NAME Status: $STATUS"
             if [ "$STATUS" = "Successful" ]; then exit 0; fi
             if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then exit 1; fi
-
             sleep 20
           done
-
           echo "Timeout"
           exit 1
-          
+
       - name: Cancel Instance Refresh on failure/timeout
         if: always() && steps.refresh.outputs.id != '' && (failure() || cancelled())
         shell: bash
         run: |
           set -euo pipefail
-          ID="${{ steps.refresh.outputs.id }}"
-          echo "Cancelling instance refresh: $ID"
-          aws autoscaling cancel-instance-refresh \
-            --auto-scaling-group-name "$ASG_NAME" \
-            --instance-refresh-id "$ID"
+          ASG_NAME="${{ matrix.asg_name }}"
+          echo "Cancelling instance refresh (ASG=$ASG_NAME)"
+          aws autoscaling cancel-instance-refresh --auto-scaling-group-name "$ASG_NAME"
 
       - name: Send Discord Notification
         if: failure()
