@@ -229,8 +229,8 @@ services:
       AWS_S3_BUCKET: "${AWS_S3_BUCKET}"
       AWS_REGION: "${REGION}"
       CLOUDFRONT_DOMAIN: "${CLOUDFRONT_DOMAIN}"
-      SPRING_DATA_MONGODB_URI="${SPRING_DATA_MONGODB_URI}"
-      AI_BASE_URL="$(get_ssm "${SPRING_DATA_MONGODB_URI}"
+      SPRING_DATA_MONGODB_URI: "${SPRING_DATA_MONGODB_URI}"
+      AI_BASE_URL: "${SPRING_DATA_MONGODB_URI}"
     volumes:
       - /var/log/planit/was:/var/log/planit/was
       - ${APP_DIR}/config:/app/config
