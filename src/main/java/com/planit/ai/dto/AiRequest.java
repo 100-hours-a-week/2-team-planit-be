@@ -8,4 +8,5 @@ import lombok.Data;
 public class AiRequest {
     private String tripId;
     private String content;
+    private String userJWT;
 }

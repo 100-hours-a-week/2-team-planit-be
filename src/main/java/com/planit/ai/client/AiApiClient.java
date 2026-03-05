@@ -25,6 +25,7 @@ public class AiApiClient {
         }
 
         AiResponse response = aiWebClient.post()
+                .uri("/api/v1/chatbot")
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(AiResponse.class)

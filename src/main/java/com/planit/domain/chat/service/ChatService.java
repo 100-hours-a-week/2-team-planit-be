@@ -51,7 +51,7 @@ public class ChatService {
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
-    public ChatMessageResponse sendUserMessage(Long tripId, String content, String loginId) {
+    public ChatMessageResponse sendUserMessage(Long tripId, String content, String loginId, String userJwt) {
         if (content == null || content.isBlank()) {
             throw new BusinessException(ErrorCode.COMMON_001);
         }
@@ -72,7 +72,7 @@ public class ChatService {
 
         if (content.startsWith("@AI")) {
             String cleaned = content.substring(3).trim();
-            String aiReply = aiApiClient.requestAiReply(new AiRequest(String.valueOf(tripId), cleaned));
+            String aiReply = aiApiClient.requestAiReply(new AiRequest(String.valueOf(tripId), cleaned, userJwt));
 
             long aiSeq = context.chatRoom().incrementAndGet();
             ChatMessageDocument savedAiReply = chatMessageMongoRepository.save(new ChatMessageDocument(
