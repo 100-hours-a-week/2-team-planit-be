@@ -55,9 +55,9 @@ public class ItineraryResultListener implements StreamListener<String, MapRecord
                     updateTripStatus(tripId, TripStatus.DONE);
                     jobService.markSuccess(tripId);
                 } catch (Exception ex) {
-                    log.error("Itinerary result processing failed", ex);
-                    updateTripStatus(tripId, TripStatus.CANCELED);
-                    jobService.markFail(tripId, "RESULT_PROCESSING_FAILED");
+                    log.error("일정 결과큐 리스닝 중 예외 발생", ex);
+                    //updateTripStatus(tripId, TripStatus.CANCELED);
+                    //jobService.markFail(tripId, "RESULT_PROCESSING_FAILED");
                 }
             } else {
                 updateTripStatus(tripId, TripStatus.CANCELED);

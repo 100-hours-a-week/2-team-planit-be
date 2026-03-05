@@ -4,6 +4,7 @@ import com.planit.domain.chat.dto.ChatMessageResponse;
 import com.planit.domain.chat.dto.ChatSendRequest;
 import com.planit.domain.chat.service.ChatService;
 import java.security.Principal;
+import org.springframework.security.core.Authentication;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -29,7 +30,15 @@ public class ChatSocketController {
         if (principal == null) {
             throw new IllegalStateException("WebSocket principal is required");
         }
-        ChatMessageResponse response = chatService.sendUserMessage(tripId, request.content(), principal.getName());
+        String userJwt = extractUserJwt(principal);
+        ChatMessageResponse response = chatService.sendUserMessage(tripId, request.content(), principal.getName(), userJwt);
         messagingTemplate.convertAndSend("/topic/trips/" + tripId + "/chat", response);
+    }
+
+    private String extractUserJwt(Principal principal) {
+        if (principal instanceof Authentication authentication && authentication.getCredentials() instanceof String jwt) {
+            return jwt;
+        }
+        return null;
     }
 }
