@@ -4,5 +4,6 @@ import lombok.Data;
 
 @Data
 public class AiResponse {
-    private String reply;
+    private String tripId;
+    private String content;
 }
