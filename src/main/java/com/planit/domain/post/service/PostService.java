@@ -4,14 +4,10 @@ import com.planit.domain.common.entity.Image;
 import com.planit.domain.common.repository.ImageRepository;
 import com.planit.domain.place.entity.Place;
 import com.planit.domain.place.repository.PlaceRepository;
-import com.planit.domain.place.exception.PlaceSearchException;
 import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
 import com.planit.domain.placeRecommendation.service.PlaceRecommendationService;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
-import com.planit.domain.post.dto.PostDetailResponse;
-import com.planit.domain.post.dto.PostListResponse;
-import com.planit.domain.post.dto.PostSummaryResponse;
 import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.entity.Post;
@@ -24,13 +20,11 @@ import com.planit.domain.post.repository.PostedPlanRepository;
 import com.planit.domain.post.repository.PostedPlaceRepository;
 import com.planit.domain.post.service.ImageStorageService;
 import com.planit.domain.trip.entity.Trip;
-import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
-import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import com.planit.infrastructure.storage.S3ObjectDeleter;
 import com.planit.infrastructure.storage.S3PresignedUrlService;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
@@ -38,20 +32,12 @@ import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -62,7 +48,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PostService {
     private static final Logger log = LoggerFactory.getLogger(PostService.class);
-    private static final String PLAN_SHARE_PLACEHOLDER_IMAGE = "/images/plan-share-default.png";
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -71,60 +56,11 @@ public class PostService {
     private final ImageRepository imageRepository;
     private final ObjectProvider<S3PresignedUrlService> presignedUrlServiceProvider;
     private final ObjectProvider<S3ObjectDeleter> s3ObjectDeleterProvider;
-    private final S3ImageUrlResolver imageUrlResolver;
     private final TripRepository tripRepository;
     private final PostedPlanRepository postedPlanRepository;
     private final PostedPlaceRepository postedPlaceRepository;
-    private final ItineraryItemPlaceRepository itineraryItemPlaceRepository;
     private final PlaceRepository placeRepository;
     private final PlaceRecommendationService placeRecommendationService;
-
-    /** 자유게시판 리스트를 DTO로 반환한다 */
-    public PostListResponse listPosts(
-            BoardType boardType,
-            String search,
-            SortOption sortOption,
-            int page,
-            int size
-    ) {
-        Pageable pageable = PageRequest.of(page, size);
-        String normalizedSearch = search == null ? "" : search;
-        Page<PostRepository.PostSummary> result = postRepository.searchByBoardType(
-                boardType.name(),
-                normalizedSearch,
-                sortOption.name(),
-                pageable
-        );
-        List<PostSummaryResponse> items = result.getContent()
-                .stream()
-                .map(summary -> {
-                    String thumbnailUrl = null;
-                    if (summary.getRepresentativeImageKey() != null) {
-                        thumbnailUrl = imageUrlResolver.resolve(summary.getRepresentativeImageKey());
-                    }
-                    return new PostSummaryResponse(
-                            summary.getPostId(),
-                            summary.getTitle(),
-                            summary.getAuthorId(),
-                            summary.getAuthorNickname(),
-                            imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
-                            summary.getCreatedAt(),
-                            summary.getLikeCount(),
-                            summary.getCommentCount(),
-                            summary.getRepresentativeImageId(),
-                            thumbnailUrl,
-                            summary.getRankingScore(),
-                            summary.getPlaceImageUrl(),
-                            summary.getPlaceName(),
-                            summary.getTripTitle()
-                    );
-                })
-                .collect(Collectors.toList());
-        if (boardType == BoardType.PLAN_SHARE) {
-            overridePlanShareImages(items);
-        }
-        return new PostListResponse(items, result.hasNext(), page, size);
-    }
 
     /** Presigned URL 발급 (게시물 이미지) */
     public PresignedUrlResponse getPostPresignedUrl(String loginId, String fileExtension, String contentType) {
@@ -312,47 +248,6 @@ public class PostService {
         return resolved;
     }
 
-    private void overridePlanShareImages(List<PostSummaryResponse> items) {
-        if (items.isEmpty()) {
-            return;
-        }
-        List<Long> postIds = items.stream()
-                .map(PostSummaryResponse::getPostId)
-                .collect(Collectors.toList());
-        List<PostedPlanRepository.PostTripIdInfo> mappings = postedPlanRepository.findTripIdsByPostIds(postIds);
-        if (mappings.isEmpty()) {
-            return;
-        }
-        Map<Long, Long> postToTrip = mappings.stream()
-                .collect(Collectors.toMap(
-                        PostedPlanRepository.PostTripIdInfo::getPostId,
-                        PostedPlanRepository.PostTripIdInfo::getTripId
-                ));
-        if (postToTrip.isEmpty()) {
-            return;
-        }
-        LinkedHashSet<Long> tripIdOrder = new LinkedHashSet<>(postToTrip.values());
-        List<Long> tripIds = new ArrayList<>(tripIdOrder);
-        List<ItineraryItemPlaceRepository.TripPlaceInfo> tripPlaces =
-                itineraryItemPlaceRepository.findFirstPlacesByTripIds(tripIds);
-        if (tripPlaces.isEmpty()) {
-            return;
-        }
-        Map<Long, Long> tripToPlace = new LinkedHashMap<>();
-        for (ItineraryItemPlaceRepository.TripPlaceInfo info : tripPlaces) {
-            tripToPlace.putIfAbsent(info.getTripId(), info.getPlaceId());
-        }
-        for (PostSummaryResponse item : items) {
-            if (item.getRepresentativeImageUrl() != null) {
-                continue;
-            }
-            Long tripId = postToTrip.get(item.getPostId());
-            if (tripId == null || !tripToPlace.containsKey(tripId)) {
-                continue;
-            }
-            item.setRepresentativeImageUrl(PLAN_SHARE_PLACEHOLDER_IMAGE);
-        }
-    }
 
     /**
      * 게시글 수정: 제목/본문/이미지(imageKeys로 교체)
@@ -547,28 +442,6 @@ public class PostService {
         postRepository.save(post);
     }
 
-    /** 상세 조회: Post + requester 기준 권한 판단 */
-    public PostDetailResponse getPostDetail(Long postId, String loginId) {
-        User requester = resolveRequester(loginId);
-        Long requesterId = requester == null ? null : requester.getId();
-        PostDetailResponse detail = postRepository.findDetailById(postId, requesterId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-        return enrichPlaceDetail(detail);
-    }
-
-    private PostDetailResponse enrichPlaceDetail(PostDetailResponse detail) {
-        String placeId = detail.getGooglePlaceId();
-        if (!StringUtils.hasText(placeId)) {
-            return detail;
-        }
-        try {
-            PlaceRecommendationDetailResponse placeDetail = placeRecommendationService.getPlaceDetail(placeId);
-            return detail.withPlaceDetail(placeDetail);
-        } catch (PlaceSearchException ex) {
-            log.warn("place detail lookup failed for placeId={} reason={}", placeId, ex.getMessage());
-            return detail;
-        }
-    }
 
     /** 로그인 사용자를 User 엔티티로 반환 */
     private User resolveRequester(String loginId) {
@@ -582,13 +455,6 @@ public class PostService {
     private Post findActivePost(Long postId) {
         return postRepository.findByIdAndDeletedFalse(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-    }
-
-    /** 리스트 정렬 옵션 */
-    public enum SortOption {
-        LATEST,
-        COMMENTS_1Y,
-        LIKES_1Y
     }
 
 }
