@@ -4,6 +4,7 @@ import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse;
 import com.planit.domain.post.dto.PostListResponse;
+import com.planit.domain.post.query.service.PostQueryService;
 import com.planit.infrastructure.storage.dto.PresignedUrlRequest;
 import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
@@ -41,9 +42,11 @@ import org.springframework.web.server.ResponseStatusException; // 예외 처리
 public class PostController {
 
     private final PostService postService;
+    private final PostQueryService postQueryService;
 
-    public PostController(PostService postService) {
+    public PostController(PostService postService, PostQueryService postQueryService) {
         this.postService = postService;
+        this.postQueryService = postQueryService;
     }
 
     /**
@@ -71,9 +74,9 @@ public class PostController {
         }
         BoardType resolvedBoardType = parseBoardType(boardType);
         validateSearch(search); // helper text 기준으로 검색어 검증
-        PostService.SortOption sortOption = resolveSortOption(effectiveSort);
+        PostQueryService.SortOption sortOption = resolveSortOption(effectiveSort);
         writeSortCookie(response, sortOption);
-        return postService.listPosts(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
+        return postQueryService.getPostSummaries(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
     }
 
     /**
@@ -87,7 +90,7 @@ public class PostController {
             @AuthenticationPrincipal UserDetails principal
     ) {
         String loginId = principal == null ? null : principal.getUsername();
-        return postService.getPostDetail(postId, loginId);
+        return postQueryService.getPostDetail(postId, loginId);
     }
 
     /** 게시물 이미지 Presigned URL 발급 */
@@ -196,15 +199,15 @@ public class PostController {
         return search == null ? "" : search.trim();
     }
 
-    private PostService.SortOption resolveSortOption(String sort) {
+    private PostQueryService.SortOption resolveSortOption(String sort) {
         if (sort == null || sort.isBlank()) {
-            return PostService.SortOption.LATEST;
+            return PostQueryService.SortOption.LATEST;
         }
 
         return switch (sort.trim().toLowerCase(Locale.ROOT)) {
-            case "latest" -> PostService.SortOption.LATEST;
-            case "comments_1y", "comment" -> PostService.SortOption.COMMENTS_1Y;
-            case "likes_1y", "like" -> PostService.SortOption.LIKES_1Y;
+            case "latest" -> PostQueryService.SortOption.LATEST;
+            case "comments_1y", "comment" -> PostQueryService.SortOption.COMMENTS_1Y;
+            case "likes_1y", "like" -> PostQueryService.SortOption.LIKES_1Y;
             default -> throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
         };
@@ -221,7 +224,7 @@ public class PostController {
         };
     }
 
-    private void writeSortCookie(HttpServletResponse response, PostService.SortOption sortOption) {
+    private void writeSortCookie(HttpServletResponse response, PostQueryService.SortOption sortOption) {
         String cookieSort = switch (sortOption) {
             case LATEST -> "latest";
             case COMMENTS_1Y -> "comment";

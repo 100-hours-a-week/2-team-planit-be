@@ -6,6 +6,8 @@ import com.planit.domain.like.repository.PostLikeRepository;
 import com.planit.domain.notification.service.NotificationService;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.repository.PostRepository;
+import com.planit.domain.post.stats.repository.PostLikeCountRepository;
+import com.planit.domain.post.stats.service.PostStatsAggregationService;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import java.util.Optional;
@@ -24,30 +26,39 @@ public class PostLikeService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final PostLikeCountRepository postLikeCountRepository;
+    private final PostStatsAggregationService postStatsAggregationService;
 
     public PostLikeResponse getPostLikeInfo(Long postId, String loginId) {
+        postRepository.findByIdAndDeletedFalse(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
         boolean likedByMe = false;
         if (loginId != null) {
             Optional<User> user = userRepository.findByLoginIdAndDeletedFalse(loginId);
             likedByMe = user.isPresent() && postLikeRepository.existsByPostIdAndAuthorId(postId, user.get().getId());
         }
-        long likeCount = postLikeRepository.countByPostId(postId);
+        long likeCount = postLikeCountRepository.findById(postId)
+                .map(count -> count.getLikeCount())
+                .orElseGet(() -> postLikeRepository.countByPostId(postId));
         return PostLikeResponse.of(postId, likeCount, likedByMe);
     }
 
     @Transactional
     public void addLike(Long postId, String loginId) {
         User user = resolveUser(loginId);
-        Post post = postRepository.findById(postId).orElseThrow();
+        Post post = postRepository.findByIdAndDeletedFalse(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
 
         Optional<Like> existingLike = postLikeRepository.findByPostIdAndAuthorId(postId, user.getId());
         if (existingLike.isPresent()) {
             postLikeRepository.delete(existingLike.get());
+            postStatsAggregationService.decreaseLikeCount(postId);
             return;
         }
 
         try {
             postLikeRepository.save(Like.of(post, user));
+            postStatsAggregationService.increaseLikeCount(postId);
             publishLikeNotificationIfNeeded(post, user);
         } catch (DataIntegrityViolationException ex) {
             // Another request already inserted the like, so skip without failing
@@ -57,7 +68,11 @@ public class PostLikeService {
     @Transactional
     public void removeLike(Long postId, String loginId) {
         User user = resolveUser(loginId);
-        postLikeRepository.deleteByPostIdAndAuthorId(postId, user.getId());
+        Optional<Like> like = postLikeRepository.findByPostIdAndAuthorId(postId, user.getId());
+        if (like.isPresent()) {
+            postLikeRepository.delete(like.get());
+            postStatsAggregationService.decreaseLikeCount(postId);
+        }
     }
 
     private User resolveUser(String loginId) {

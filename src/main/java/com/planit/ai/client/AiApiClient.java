@@ -25,6 +25,7 @@ public class AiApiClient {
         }
 
         AiResponse response = aiWebClient.post()
+                .uri("/api/v1/chatbot")
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(AiResponse.class)
@@ -33,6 +34,7 @@ public class AiApiClient {
             log.warn("AI response empty for tripId={}", request.getTripId());
             throw new IllegalStateException("AI service returned empty response");
         }
-        return response.getReply();
+        System.out.println("AI챗봇 응답 객체: "+response);
+        return response.getContent();
     }
 }

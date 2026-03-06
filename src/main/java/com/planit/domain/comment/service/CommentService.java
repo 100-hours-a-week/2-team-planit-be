@@ -8,6 +8,7 @@ import com.planit.domain.comment.repository.CommentRepository;
 import com.planit.domain.notification.service.NotificationService;
 import com.planit.domain.post.entity.Post;
 import com.planit.domain.post.repository.PostRepository;
+import com.planit.domain.post.stats.service.PostStatsAggregationService;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
@@ -18,8 +19,10 @@ import java.util.stream.Collectors;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 댓글 관련 비즈니스 로직
@@ -33,9 +36,12 @@ public class CommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final S3ImageUrlResolver imageUrlResolver;
+    private final PostStatsAggregationService postStatsAggregationService;
 
     @Transactional(readOnly = true)
     public List<CommentDetail> listComments(Long postId) {
+        postRepository.findByIdAndDeletedFalse(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
         return commentRepository.findDetailsByPostId(postId).stream()
             .map(detail -> new CommentDetail(
                 detail.getCommentId(),
@@ -51,11 +57,13 @@ public class CommentService {
     @Transactional
     public CommentResponse addComment(Long postId, String loginId, CommentRequest request) {
         return retryOnDeadlock(() -> {
-            Post post = postRepository.findById(postId).orElseThrow();
+            Post post = postRepository.findByIdAndDeletedFalse(postId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
             User user = userRepository.findByLoginIdAndDeletedFalse(loginId).orElseThrow();
             LocalDateTime now = LocalDateTime.now();
-        Comment comment = Comment.create(post, user, request.getContent(), now);
-        Comment saved = commentRepository.save(comment);
+            Comment comment = Comment.create(post, user, request.getContent(), now);
+            Comment saved = commentRepository.save(comment);
+            postStatsAggregationService.increaseCommentCount(postId);
             publishCommentNotification(post, user, request.getContent());
             String profileImageUrl = imageUrlResolver.resolve(user.getProfileImageKey());
             return CommentResponse.from(saved, profileImageUrl);
@@ -76,6 +84,7 @@ public class CommentService {
             if (updatedRows == 0) {
                 throw new IllegalStateException("이미 삭제된 댓글입니다.");
             }
+            postStatsAggregationService.decreaseCommentCount(post.getId());
             return null;
         });
     }

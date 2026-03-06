@@ -17,6 +17,7 @@ import com.planit.domain.trip.service.TripAccessService;
 import com.planit.domain.trip.repository.TripRepository;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.ai.client.AiApiClient;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class ChatServiceTest {
@@ -46,6 +48,10 @@ class ChatServiceTest {
     private UserRepository userRepository;
     @Mock
     private S3ImageUrlResolver imageUrlResolver;
+    @Mock
+    private AiApiClient aiApiClient;
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     private ChatService chatService;
 
@@ -59,7 +65,9 @@ class ChatServiceTest {
                 tripRepository,
                 tripAccessService,
                 userRepository,
-                imageUrlResolver
+                imageUrlResolver,
+                aiApiClient,
+                messagingTemplate
         );
     }
 
@@ -103,7 +111,7 @@ class ChatServiceTest {
         });
         when(imageUrlResolver.resolve(null)).thenReturn("https://default-profile.png");
 
-        ChatMessageResponse response = chatService.sendUserMessage(1L, "hello", "user1");
+        ChatMessageResponse response = chatService.sendUserMessage(1L, "hello", "user1", "jwt-token");
 
         assertThat(response.seq()).isEqualTo(1L);
         assertThat(response.senderUserId()).isEqualTo(10L);
