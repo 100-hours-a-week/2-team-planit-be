@@ -1,4 +1,4 @@
-package com.planit.domain.trip.service;
+package com.planit.domain.trip.service.redisAccessor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
