@@ -9,6 +9,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -21,7 +22,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity // posts 테이블과 매핑되는 JPA 엔티티
-@Table(name = "posts") // DB 테이블 지정
+@Table(
+    name = "posts",
+    indexes = {
+        @Index(
+            name = "idx_posts_board_deleted_created",
+            columnList = "board_type, is_deleted, created_at"
+        )
+    }
+) // DB 테이블 지정
 @Getter
 @Setter
 @NoArgsConstructor

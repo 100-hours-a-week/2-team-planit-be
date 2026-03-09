@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -15,7 +16,12 @@ import jakarta.persistence.Table;
  * posted_plans 테이블을 표현한 JPA 엔티티
  */
 @Entity // JPA가 관리하도록 지정
-@Table(name = "posted_plans") // 테이블 명시
+@Table(
+    name = "posted_plans",
+    indexes = {
+        @Index(name = "idx_posted_plans_post_trip", columnList = "post_id, trip_id")
+    }
+) // 테이블 명시
 public class PostedPlan {
 
     @Id // PK 필드
