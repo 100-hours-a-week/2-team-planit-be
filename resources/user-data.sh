@@ -230,7 +230,7 @@ services:
       AWS_REGION: "${REGION}"
       CLOUDFRONT_DOMAIN: "${CLOUDFRONT_DOMAIN}"
       SPRING_DATA_MONGODB_URI: "${SPRING_DATA_MONGODB_URI}"
-      AI_BASE_URL: "${SPRING_DATA_MONGODB_URI}"
+      AI_BASE_URL: "${AI_BASE_URL}"
     volumes:
       - /var/log/planit/was:/var/log/planit/was
       - ${APP_DIR}/config:/app/config
