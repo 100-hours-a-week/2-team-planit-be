@@ -3,8 +3,10 @@ package com.planit.domain.post.controller; // 게시글 관련 컨트롤러 패�
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostDetailResponse;
-import com.planit.domain.post.dto.PostListResponse;
+import com.planit.domain.post.dto.PostSummaryResponse;
 import com.planit.domain.post.query.service.PostQueryService;
+import com.planit.global.common.response.PageResponse;
+import com.planit.global.config.PageablePolicy;
 import com.planit.infrastructure.storage.dto.PresignedUrlRequest;
 import com.planit.domain.post.dto.PostUpdateRequest;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
@@ -13,16 +15,14 @@ import com.planit.domain.post.service.PostService; // 게시판 서비스
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletResponse;
-import java.time.Duration;
 import java.util.Locale;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증자
 import org.springframework.security.core.userdetails.UserDetails; // UserDetails 인터페이스
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.validation.annotation.Validated; // 검증 활성화
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -56,27 +56,25 @@ public class PostController {
     @Operation(summary = "자유게시판 목록 조회",
             description = """
             posts/users/posted_images/comments/likes/post_ranking_snapshots 테이블을 조합하여 제목·대표 이미지·좋아요/댓글·랭킹 점수를 반환합니다.
-            검색어는 helper text 기준(2~24자, 한글 초성·특수 문자 제한)으로 검증하며 정렬은 최신/댓글·좋아요(최근 1년)로 지원하고, 응답은 items(카드 리스트)/hasNext/ page/ size/ isEmpty를 포함해 무한 스크롤을 위한 페이징 상태를 제공합니다.
+            검색어는 helper text 기준(2~24자, 한글 초성·특수 문자 제한)으로 검증하며 기본 정렬은 created_at DESC입니다.
             """)
     @GetMapping
-    public PostListResponse listPosts(
+    public PageResponse<PostSummaryResponse> listPosts(
             @RequestParam(defaultValue = "FREE") String boardType,
             @Parameter(description = "검색어(히스토리/단어 길이 2~24자, 특수문자/초성 불가)") @RequestParam(required = false) String search,
-            @Parameter(description = "정렬 옵션(latest/comment/like)") @RequestParam(required = false) String sort,
-            @Parameter(description = "페이지 번호(0부터)") @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "페이지 사이즈(최대 50)") @RequestParam(defaultValue = "20") int size,
-            @CookieValue(name = "postSort", required = false) String sortCookie,
-            HttpServletResponse response
+            @PageableDefault(
+                    size = PageablePolicy.DEFAULT_PAGE_SIZE,
+                    sort = "created_at",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
     ) {
-        String effectiveSort = sort;
-        if (effectiveSort == null || effectiveSort.isBlank()) {
-            effectiveSort = normalizeSortCookie(sortCookie);
-        }
         BoardType resolvedBoardType = parseBoardType(boardType);
         validateSearch(search); // helper text 기준으로 검색어 검증
-        PostQueryService.SortOption sortOption = resolveSortOption(effectiveSort);
-        writeSortCookie(response, sortOption);
-        return postQueryService.getPostSummaries(resolvedBoardType, normalizeSearch(search), sortOption, page, size);
+        return postQueryService.getPostSummaries(
+                resolvedBoardType,
+                normalizeSearch(search),
+                pageable
+        );
     }
 
     /**
@@ -197,46 +195,6 @@ public class PostController {
 
     private String normalizeSearch(String search) {
         return search == null ? "" : search.trim();
-    }
-
-    private PostQueryService.SortOption resolveSortOption(String sort) {
-        if (sort == null || sort.isBlank()) {
-            return PostQueryService.SortOption.LATEST;
-        }
-
-        return switch (sort.trim().toLowerCase(Locale.ROOT)) {
-            case "latest" -> PostQueryService.SortOption.LATEST;
-            case "comments_1y", "comment" -> PostQueryService.SortOption.COMMENTS_1Y;
-            case "likes_1y", "like" -> PostQueryService.SortOption.LIKES_1Y;
-            default -> throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "*지원하지 않는 정렬 방식입니다.");
-        };
-    }
-
-    private String normalizeSortCookie(String sortCookie) {
-        if (sortCookie == null || sortCookie.isBlank()) {
-            return null;
-        }
-        String normalized = sortCookie.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "latest", "comment", "comments_1y", "like", "likes_1y" -> normalized;
-            default -> null;
-        };
-    }
-
-    private void writeSortCookie(HttpServletResponse response, PostQueryService.SortOption sortOption) {
-        String cookieSort = switch (sortOption) {
-            case LATEST -> "latest";
-            case COMMENTS_1Y -> "comment";
-            case LIKES_1Y -> "like";
-        };
-        ResponseCookie cookie = ResponseCookie.from("postSort", cookieSort)
-                .maxAge(Duration.ofDays(30))
-                .path("/")
-                .sameSite("Lax")
-                .httpOnly(false)
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private BoardType parseBoardType(String boardType) {

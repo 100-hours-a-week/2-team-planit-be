@@ -1,6 +1,5 @@
 package com.planit.domain.comment.service;
 
-import com.planit.domain.comment.dto.CommentDetail;
 import com.planit.domain.comment.dto.CommentRequest;
 import com.planit.domain.comment.dto.CommentResponse;
 import com.planit.domain.comment.entity.Comment;
@@ -11,14 +10,17 @@ import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.post.stats.service.PostStatsAggregationService;
 import com.planit.domain.user.entity.User;
 import com.planit.domain.user.repository.UserRepository;
+import com.planit.global.common.response.PageResponse;
+import com.planit.global.config.PageablePolicy;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,19 +41,21 @@ public class CommentService {
     private final PostStatsAggregationService postStatsAggregationService;
 
     @Transactional(readOnly = true)
-    public List<CommentDetail> listComments(Long postId) {
+    public PageResponse<CommentResponse> listComments(Long postId, Pageable pageable) {
         postRepository.findByIdAndDeletedFalse(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-        return commentRepository.findDetailsByPostId(postId).stream()
-            .map(detail -> new CommentDetail(
-                detail.getCommentId(),
-                detail.getContent(),
-                detail.getCreatedAt(),
-                detail.getAuthorId(),
-                detail.getAuthorNickname(),
-                imageUrlResolver.resolve(detail.getAuthorProfileImageKey())
-            ))
-            .collect(Collectors.toList());
+        Pageable safePageable = PageablePolicy.clamp(pageable, Sort.by(Sort.Direction.ASC, "created_at"));
+        Page<CommentRepository.CommentProjection> page = commentRepository.findDetailsPageByPostId(postId, safePageable);
+        Page<CommentResponse> mapped = page.map(detail -> {
+            CommentResponse response = new CommentResponse();
+            response.setCommentId(detail.getCommentId());
+            response.setAuthorNickname(detail.getAuthorNickname());
+            response.setAuthorProfileImageUrl(imageUrlResolver.resolve(detail.getAuthorProfileImageKey()));
+            response.setContent(detail.getContent());
+            response.setCreatedAt(detail.getCreatedAt().toString());
+            return response;
+        });
+        return PageResponse.from(mapped);
     }
 
     @Transactional

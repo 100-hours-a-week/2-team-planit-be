@@ -64,11 +64,7 @@ public interface PostQueryRepository extends Repository<Post, Long> {
                             + "       where pp.post_id = p.post_id "
                             + "         and pl.name like concat('%', :search, '%')"
                             + "   )"
-                            + ") "
-                            + "order by case "
-                            + " when :sortOption in ('COMMENTS', 'COMMENTS_1Y') then coalesce(pcc.comment_count, 0)"
-                            + " when :sortOption in ('LIKES', 'LIKES_1Y') then coalesce(plc.like_count, 0)"
-                            + " else p.created_at end desc",
+                            + ")",
             countQuery =
                     "select count(*) "
                             + "from posts p "
@@ -91,7 +87,6 @@ public interface PostQueryRepository extends Repository<Post, Long> {
     Page<PostSummaryProjection> findPostSummaries(
             @Param("boardType") String boardType,
             @Param("search") String search,
-            @Param("sortOption") String sortOption,
             Pageable pageable
     );
 
