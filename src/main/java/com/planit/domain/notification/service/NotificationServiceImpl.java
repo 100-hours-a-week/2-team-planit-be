@@ -75,9 +75,30 @@ public class NotificationServiceImpl implements NotificationService {
             .postId(request.getPostId())
             .actorName(request.getActorName())
             .previewText(request.getPreviewText())
+            .isRead(false)
             .build();
         notificationRepository.save(notification);
         return 1;
+    }
+
+    @Override
+    @Transactional
+    public void createKeywordNotification(Long targetUserId, Long postId, String keyword) {
+        String previewText = "[" + keyword + "] 관련 게시글이 업로드되었습니다.";
+        boolean exists = notificationRepository.existsByUserIdAndPostIdAndType(
+                targetUserId, postId, NotificationType.KEYWORD_POST);
+        if (exists) {
+            return;
+        }
+        Notification notification = Notification.builder()
+            .userId(targetUserId)
+            .type(NotificationType.KEYWORD_POST)
+            .postId(postId)
+            .actorName(null)
+            .previewText(previewText)
+            .isRead(false)
+            .build();
+        notificationRepository.save(notification);
     }
 
     @Override
@@ -89,6 +110,7 @@ public class NotificationServiceImpl implements NotificationService {
             .postId(postId)
             .actorName(actorName)
             .previewText(previewText)
+            .isRead(false)
             .build();
         notificationRepository.save(notification);
     }
@@ -102,6 +124,7 @@ public class NotificationServiceImpl implements NotificationService {
             .postId(postId)
             .actorName(actorName)
             .previewText(LIKE_PREVIEW_TEXT)
+            .isRead(false)
             .build();
         notificationRepository.save(notification);
     }

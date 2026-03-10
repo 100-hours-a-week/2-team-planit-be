@@ -16,6 +16,8 @@ public interface NotificationService {
 
     long createKeywordNotification(String loginId, KeywordNotificationRequest request);
 
+    void createKeywordNotification(Long targetUserId, Long postId, String keyword);
+
     void createCommentNotification(Long targetUserId, Long postId, String actorName, String previewText);
 
     void createLikeNotification(Long targetUserId, Long postId, String actorName);
