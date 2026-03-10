@@ -26,14 +26,14 @@ public class UserQueryService {
     private final S3ImageUrlResolver imageUrlResolver;
 
     public UserAvailabilityResponse checkLoginId(String loginId) {
-        if (userQueryRepository.existsActiveByLoginId(loginId)) {
+        if (userQueryRepository.countActiveByLoginId(loginId) > 0) {
             return new UserAvailabilityResponse(false, "*중복된 아이디 입니다.");
         }
         return new UserAvailabilityResponse(true, "사용 가능한 아이디 입니다.");
     }
 
     public UserAvailabilityResponse checkNickname(String nickname) {
-        if (userQueryRepository.existsActiveByNickname(nickname)) {
+        if (userQueryRepository.countActiveByNickname(nickname) > 0) {
             return new UserAvailabilityResponse(false, "*중복된 닉네임 입니다.");
         }
         return new UserAvailabilityResponse(true, "사용 가능한 닉네임 입니다.");

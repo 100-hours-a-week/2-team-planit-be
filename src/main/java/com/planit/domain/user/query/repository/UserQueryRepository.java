@@ -60,18 +60,18 @@ public interface UserQueryRepository extends Repository<User, Long> {
     );
 
     @Query(value = """
-            select count(*) > 0
+            select count(*)
             from users u
             where u.login_id = :loginId
               and u.is_deleted = 0
             """, nativeQuery = true)
-    boolean existsActiveByLoginId(@Param("loginId") String loginId);
+    long countActiveByLoginId(@Param("loginId") String loginId);
 
     @Query(value = """
-            select count(*) > 0
+            select count(*)
             from users u
             where u.nickname = :nickname
               and u.is_deleted = 0
             """, nativeQuery = true)
-    boolean existsActiveByNickname(@Param("nickname") String nickname);
+    long countActiveByNickname(@Param("nickname") String nickname);
 }

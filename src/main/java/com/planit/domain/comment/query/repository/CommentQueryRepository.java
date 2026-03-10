@@ -37,12 +37,12 @@ public interface CommentQueryRepository extends Repository<Comment, Long> {
 
     @Query(
             value = """
-                    select count(*) > 0
+                    select count(*)
                     from posts p
                     where p.post_id = :postId
                       and p.is_deleted = 0
                     """,
             nativeQuery = true
     )
-    boolean existsActivePost(@Param("postId") Long postId);
+    long countActivePost(@Param("postId") Long postId);
 }
