@@ -1,12 +1,14 @@
 package com.planit.domain.comment.controller;
 
-import com.planit.domain.comment.dto.CommentDetail;
 import com.planit.domain.comment.dto.CommentRequest;
 import com.planit.domain.comment.dto.CommentResponse;
 import com.planit.domain.comment.service.CommentService;
-import java.util.List;
+import com.planit.global.common.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,8 +30,11 @@ public class CommentController {
     private final CommentService commentService;
 
     @GetMapping
-    public List<CommentDetail> listComments(@PathVariable Long postId) {
-        return commentService.listComments(postId);
+    public PageResponse<CommentResponse> listComments(
+            @PathVariable Long postId,
+            @PageableDefault(size = 20, sort = "created_at", direction = Sort.Direction.ASC) Pageable pageable
+    ) {
+        return commentService.listComments(postId, pageable);
     }
 
     @PostMapping

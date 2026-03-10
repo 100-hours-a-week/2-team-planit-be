@@ -4,13 +4,14 @@ import com.planit.domain.place.exception.PlaceSearchException;
 import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
 import com.planit.domain.placeRecommendation.service.PlaceRecommendationService;
 import com.planit.domain.post.dto.PostDetailResponse;
-import com.planit.domain.post.dto.PostListResponse;
 import com.planit.domain.post.dto.PostSummaryResponse;
 import com.planit.domain.post.entity.BoardType;
 import com.planit.domain.post.query.projection.PostDetailProjection;
 import com.planit.domain.post.query.projection.PostSummaryProjection;
 import com.planit.domain.post.query.repository.PostQueryRepository;
 import com.planit.domain.post.stats.service.PostStatsAggregationService;
+import com.planit.global.common.response.PageResponse;
+import com.planit.global.config.PageablePolicy;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,11 +19,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ public class PostQueryService {
     private static final Logger log = LoggerFactory.getLogger(PostQueryService.class);
     private static final String PLAN_SHARE_PLACEHOLDER_IMAGE = "/images/plan-share-default.png";
     private static final int COMMENT_PAGE_SIZE = 20;
+    private static final Set<String> ALLOWED_POST_SORT_PROPERTIES = Set.of("created_at");
 
     private final PostQueryRepository postQueryRepository;
     private final S3ImageUrlResolver imageUrlResolver;
@@ -53,50 +57,55 @@ public class PostQueryService {
         this.postStatsAggregationService = postStatsAggregationService;
     }
 
-    public PostListResponse getPostSummaries(BoardType boardType, String keyword, SortOption sortOption, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public PageResponse<PostSummaryResponse> getPostSummaries(
+            BoardType boardType,
+            String keyword,
+            Pageable pageable
+    ) {
+        Pageable safePageable = PageablePolicy.clamp(
+                pageable,
+                Sort.by(Sort.Direction.DESC, "created_at"),
+                ALLOWED_POST_SORT_PROPERTIES
+        );
+        Pageable nativePageable = PageRequest.of(safePageable.getPageNumber(), safePageable.getPageSize());
         String normalizedSearch = keyword == null ? "" : keyword;
         Page<PostSummaryProjection> result = postQueryRepository.findPostSummaries(
                 boardType.name(),
                 normalizedSearch,
-                sortOption.name(),
-                pageable
+                nativePageable
         );
-        List<PostSummaryResponse> items = result.getContent()
-                .stream()
-                .map(summary -> {
-                    String thumbnailUrl = null;
-                    if (summary.getRepresentativeImageKey() != null) {
-                        thumbnailUrl = imageUrlResolver.resolve(summary.getRepresentativeImageKey());
-                    }
-                    String placeImageUrl = resolvePlaceListImageUrl(summary);
-                    if (thumbnailUrl == null
-                            && summary.getBoardType() == BoardType.PLACE_RECOMMEND
-                            && StringUtils.hasText(placeImageUrl)) {
-                        thumbnailUrl = placeImageUrl;
-                    }
-                    return new PostSummaryResponse(
-                            summary.getPostId(),
-                            summary.getTitle(),
-                            summary.getAuthorId(),
-                            summary.getAuthorNickname(),
-                            imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
-                            summary.getCreatedAt(),
-                            summary.getLikeCount(),
-                            summary.getCommentCount(),
-                            summary.getRepresentativeImageId(),
-                            thumbnailUrl,
-                            summary.getRankingScore(),
-                            placeImageUrl,
-                            summary.getPlaceName(),
-                            summary.getTripTitle()
-                    );
-                })
-                .toList();
+        Page<PostSummaryResponse> mapped = result.map(summary -> {
+            String thumbnailUrl = null;
+            if (summary.getRepresentativeImageKey() != null) {
+                thumbnailUrl = imageUrlResolver.resolve(summary.getRepresentativeImageKey());
+            }
+            String placeImageUrl = resolvePlaceListImageUrl(summary);
+            if (thumbnailUrl == null
+                    && summary.getBoardType() == BoardType.PLACE_RECOMMEND
+                    && StringUtils.hasText(placeImageUrl)) {
+                thumbnailUrl = placeImageUrl;
+            }
+            return new PostSummaryResponse(
+                    summary.getPostId(),
+                    summary.getTitle(),
+                    summary.getAuthorId(),
+                    summary.getAuthorNickname(),
+                    imageUrlResolver.resolve(summary.getAuthorProfileImageKey()),
+                    summary.getCreatedAt(),
+                    summary.getLikeCount(),
+                    summary.getCommentCount(),
+                    summary.getRepresentativeImageId(),
+                    thumbnailUrl,
+                    summary.getRankingScore(),
+                    placeImageUrl,
+                    summary.getPlaceName(),
+                    summary.getTripTitle()
+            );
+        });
         if (boardType == BoardType.PLAN_SHARE) {
-            overridePlanShareImages(items);
+            overridePlanShareImages(mapped.getContent());
         }
-        return new PostListResponse(items, result.hasNext(), page, size);
+        return PageResponse.from(mapped);
     }
 
     @Transactional
@@ -262,11 +271,5 @@ public class PostQueryService {
             log.warn("place detail lookup failed for placeId={} reason={}", placeId, ex.getMessage());
             return detail;
         }
-    }
-
-    public enum SortOption {
-        LATEST,
-        COMMENTS_1Y,
-        LIKES_1Y
     }
 }
