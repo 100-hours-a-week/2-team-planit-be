@@ -2,6 +2,7 @@ package com.planit.domain.comment.controller;
 
 import com.planit.domain.comment.dto.CommentRequest;
 import com.planit.domain.comment.dto.CommentResponse;
+import com.planit.domain.comment.query.service.CommentQueryService;
 import com.planit.domain.comment.service.CommentService;
 import com.planit.global.common.response.PageResponse;
 import jakarta.validation.Valid;
@@ -28,13 +29,14 @@ import org.springframework.web.server.ResponseStatusException;
 public class CommentController {
 
     private final CommentService commentService;
+    private final CommentQueryService commentQueryService;
 
     @GetMapping
     public PageResponse<CommentResponse> listComments(
             @PathVariable Long postId,
             @PageableDefault(size = 20, sort = "created_at", direction = Sort.Direction.ASC) Pageable pageable
     ) {
-        return commentService.listComments(postId, pageable);
+        return commentQueryService.listComments(postId, pageable);
     }
 
     @PostMapping
