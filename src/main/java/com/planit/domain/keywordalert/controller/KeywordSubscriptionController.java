@@ -2,6 +2,7 @@ package com.planit.domain.keywordalert.controller;
 
 import com.planit.domain.keywordalert.dto.KeywordSubscriptionCreateRequest;
 import com.planit.domain.keywordalert.dto.KeywordSubscriptionResponse;
+import com.planit.domain.keywordalert.query.service.KeywordSubscriptionQueryService;
 import com.planit.domain.keywordalert.service.KeywordSubscriptionService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class KeywordSubscriptionController {
 
     private final KeywordSubscriptionService keywordSubscriptionService;
+    private final KeywordSubscriptionQueryService keywordSubscriptionQueryService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -35,7 +37,7 @@ public class KeywordSubscriptionController {
 
     @GetMapping
     public List<KeywordSubscriptionResponse> list(@AuthenticationPrincipal UserDetails principal) {
-        return keywordSubscriptionService.list(requireLogin(principal));
+        return keywordSubscriptionQueryService.list(requireLogin(principal));
     }
 
     @DeleteMapping("/{id}")
