@@ -8,6 +8,10 @@ import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.entity.TripStatus;
 import com.planit.domain.trip.repository.TripRepository;
 import java.util.Map;
+
+import com.planit.domain.trip.service.AiAccessor.AiItineraryProcessor;
+import com.planit.domain.trip.service.redisAccessor.ItineraryJobService;
+import com.planit.domain.trip.service.redisAccessor.ItineraryJobStatus;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

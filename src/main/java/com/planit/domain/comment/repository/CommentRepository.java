@@ -1,25 +1,14 @@
 package com.planit.domain.comment.repository;
 
 import com.planit.domain.comment.entity.Comment;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-
-    @Query("""
-        select c
-        from Comment c
-        join fetch c.author
-        where c.post.id = :postId
-          and c.deletedAt is null
-        order by c.createdAt asc
-    """)
-    List<Comment> findAllByPostIdAndDeletedAtIsNullOrderByCreatedAtAsc(
-        @Param("postId") Long postId
-    );
 
     @Query(value = """
         select
@@ -33,10 +22,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
         join users u on u.user_id = c.author_id and u.is_deleted = 0
         where c.post_id = :postId
           and c.deleted_at is null
-        order by c.created_at asc
-    """, nativeQuery = true)
-    List<CommentProjection> findDetailsByPostId(
-        @Param("postId") Long postId
+    """,
+            countQuery = """
+        select count(*)
+        from comments c
+        where c.post_id = :postId
+          and c.deleted_at is null
+    """,
+            nativeQuery = true)
+    Page<CommentProjection> findDetailsPageByPostId(
+            @Param("postId") Long postId,
+            Pageable pageable
     );
 
     interface CommentProjection {

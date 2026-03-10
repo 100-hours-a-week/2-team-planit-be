@@ -1,13 +1,11 @@
 package com.planit.domain.trip.controller;
 
 import com.planit.domain.trip.dto.ItineraryDayUpdateRequest;
-import com.planit.domain.trip.dto.ItineraryJobResponse;
-import com.planit.domain.trip.dto.ItineraryResponse;
 import com.planit.domain.trip.dto.TripCreateRequest;
 import com.planit.domain.trip.dto.TripCreateResponse;
 import com.planit.domain.trip.dto.TripCreateResult;
 import com.planit.domain.trip.dto.TripListResponse;
-import com.planit.domain.trip.service.ItineraryJobService;
+import com.planit.domain.trip.service.redisAccessor.ItineraryJobService;
 import com.planit.domain.trip.service.ItineraryQueryService;
 import com.planit.domain.trip.service.ItineraryUpdateService;
 import com.planit.domain.trip.service.TripService;

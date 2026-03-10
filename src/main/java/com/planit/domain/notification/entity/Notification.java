@@ -37,7 +37,7 @@ public class Notification {
     @Enumerated(EnumType.STRING)
     @Column(
         name = "type",
-        columnDefinition = "ENUM('KEYWORD','COMMENT','LIKE')",
+        columnDefinition = "ENUM('KEYWORD','KEYWORD_POST','COMMENT','LIKE')",
         length = 50,
         nullable = false
     )

@@ -8,6 +8,7 @@ import com.planit.domain.user.dto.UserAvailabilityResponse;
 import com.planit.domain.user.dto.UserProfileResponse;
 import com.planit.domain.user.dto.UserSignupResponse;
 import com.planit.domain.user.dto.UserUpdateRequest;
+import com.planit.domain.user.query.service.UserQueryService;
 import com.planit.infrastructure.storage.dto.PresignedUrlResponse;
 import com.planit.domain.user.service.UserService; // 사용자 도메인 로직을 담당하는 서비스
 import jakarta.validation.Valid; // DTO 검증을 위한 표준 애노테이션
@@ -37,6 +38,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserController {
 
     private final UserService userService; // 사용자 도메인 서비스를 주입
+    private final UserQueryService userQueryService;
 
     @PostMapping("/signup") // POST /api/users/signup
     @ResponseStatus(HttpStatus.CREATED) // 생성 성공 시 201 응답
@@ -106,7 +108,7 @@ public class UserController {
             String loginId
     ) {
         // ID 중복 여부를 응답
-        return userService.checkLoginId(loginId);
+        return userQueryService.checkLoginId(loginId);
     }
 
     @GetMapping("/check-nickname") // GET /api/users/check-nickname?nickname=...
@@ -117,17 +119,17 @@ public class UserController {
             @Pattern(regexp = "^[^\\s]+$", message = "*띄어쓰기를 없애주세요")
             String nickname
     ) {
-        return userService.checkNickname(nickname);
+        return userQueryService.checkNickname(nickname);
     }
 
     @GetMapping("/me") // GET /api/users/me
     public UserProfileResponse me(@AuthenticationPrincipal UserDetails principal) {
-        return userService.getProfile(requireLogin(principal));
+        return userQueryService.getProfile(requireLogin(principal));
     }
 
     @GetMapping("/me/mypage")
     public MyPageResponse myPage(@AuthenticationPrincipal UserDetails principal) {
-        return userService.getMyPage(requireLogin(principal));
+        return userQueryService.getMyPage(requireLogin(principal));
     }
 
     @DeleteMapping("/me")

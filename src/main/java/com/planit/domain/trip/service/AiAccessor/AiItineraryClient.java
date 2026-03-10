@@ -1,4 +1,4 @@
-package com.planit.domain.trip.service;
+package com.planit.domain.trip.service.AiAccessor;
 
 import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.AiItineraryResponse;

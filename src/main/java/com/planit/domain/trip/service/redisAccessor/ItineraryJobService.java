@@ -1,9 +1,10 @@
-package com.planit.domain.trip.service;
+package com.planit.domain.trip.service.redisAccessor;
 
 import com.planit.domain.trip.config.ItineraryJobProperties;
 import com.planit.domain.trip.dto.ItineraryJobResponse;
 import com.planit.domain.trip.entity.Trip;
 import com.planit.domain.trip.repository.TripRepository;
+import com.planit.domain.trip.service.TripAccessService;
 import com.planit.global.common.exception.BusinessException;
 import com.planit.global.common.exception.ErrorCode;
 import java.util.Map;

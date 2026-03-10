@@ -2,8 +2,10 @@ package com.planit.global.common.exception;
 
 import com.planit.domain.user.exception.DuplicateLoginIdException;
 import com.planit.domain.user.exception.DuplicateNicknameException;
+import com.planit.domain.keywordalert.exception.DuplicateKeywordException;
 import com.planit.global.common.response.ErrorResponse;
 import com.planit.global.common.exception.UnauthorizedAccessException;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
@@ -32,6 +34,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDuplicateLoginId(DuplicateLoginIdException ex) {
         logger.warn("DuplicateLoginId", ex);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.from(ex.getErrorCode()));
+    }
+
+    @ExceptionHandler(DuplicateKeywordException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateKeyword(DuplicateKeywordException ex) {
+        logger.warn("DuplicateKeyword", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", ex.getMessage()));
     }
 
     @ExceptionHandler(BusinessException.class)
