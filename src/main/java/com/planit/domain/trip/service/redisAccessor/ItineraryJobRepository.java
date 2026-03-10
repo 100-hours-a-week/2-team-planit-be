@@ -1,8 +1,9 @@
-package com.planit.domain.trip.service;
+package com.planit.domain.trip.service.redisAccessor;
 
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;

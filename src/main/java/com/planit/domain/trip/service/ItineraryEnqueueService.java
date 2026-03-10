@@ -5,6 +5,14 @@ import com.planit.domain.trip.dto.AiItineraryRequest;
 import com.planit.domain.trip.dto.AiItineraryResponse;
 import com.planit.domain.trip.entity.Trip;
 import java.util.List;
+
+import com.planit.domain.trip.service.AiAccessor.AiItineraryClient;
+import com.planit.domain.trip.service.AiAccessor.AiItineraryJob;
+import com.planit.domain.trip.service.AiAccessor.AiItineraryProcessor;
+import com.planit.domain.trip.service.AiAccessor.AiItineraryQueue;
+import com.planit.domain.trip.service.redisAccessor.ItineraryJobService;
+import com.planit.domain.trip.service.redisAccessor.ItineraryJobStatus;
+import com.planit.domain.trip.service.redisAccessor.ItineraryJobStreamService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
