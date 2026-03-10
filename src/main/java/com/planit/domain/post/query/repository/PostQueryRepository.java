@@ -64,7 +64,8 @@ public interface PostQueryRepository extends Repository<Post, Long> {
                             + "       where pp.post_id = p.post_id "
                             + "         and pl.name like concat('%', :search, '%')"
                             + "   )"
-                            + ")",
+                            + ") "
+                            + "order by p.created_at desc",
             countQuery =
                     "select count(*) "
                             + "from posts p "

@@ -14,6 +14,7 @@ import com.planit.global.common.response.PageResponse;
 import com.planit.global.config.PageablePolicy;
 import com.planit.infrastructure.storage.S3ImageUrlResolver;
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
@@ -32,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class CommentService {
+    private static final Set<String> ALLOWED_COMMENT_SORT_PROPERTIES = Set.of("created_at");
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
@@ -44,7 +46,11 @@ public class CommentService {
     public PageResponse<CommentResponse> listComments(Long postId, Pageable pageable) {
         postRepository.findByIdAndDeletedFalse(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
-        Pageable safePageable = PageablePolicy.clamp(pageable, Sort.by(Sort.Direction.ASC, "created_at"));
+        Pageable safePageable = PageablePolicy.clamp(
+                pageable,
+                Sort.by(Sort.Direction.ASC, "created_at"),
+                ALLOWED_COMMENT_SORT_PROPERTIES
+        );
         Page<CommentRepository.CommentProjection> page = commentRepository.findDetailsPageByPostId(postId, safePageable);
         Page<CommentResponse> mapped = page.map(detail -> {
             CommentResponse response = new CommentResponse();
