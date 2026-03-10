@@ -5,12 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.Getter;
 
 @Entity // 게시글에 첨부된 이미지 매핑 엔티티
-@Table(name = "posted_images")
+@Table(
+    name = "posted_images",
+    indexes = {
+        @Index(name = "idx_posted_images_post_main_created", columnList = "post_id, is_main_image, created_at"),
+        @Index(name = "idx_posted_images_post_id", columnList = "post_id, id")
+    }
+)
 @Getter
 public class PostedImage {
     @Id // PK

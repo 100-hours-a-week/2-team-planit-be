@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -14,7 +15,12 @@ import jakarta.persistence.Table;
  * 게시물과 장소를 연결하는 posted_places 테이블 표현
  */
 @Entity
-@Table(name = "posted_places")
+@Table(
+    name = "posted_places",
+    indexes = {
+        @Index(name = "idx_posted_places_post_place", columnList = "post_id, place_id")
+    }
+)
 public class PostedPlace {
 
     @Id
