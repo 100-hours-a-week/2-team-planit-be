@@ -6,6 +6,7 @@ import com.planit.domain.place.entity.Place;
 import com.planit.domain.place.repository.PlaceRepository;
 import com.planit.domain.placeRecommendation.dto.PlaceRecommendationDetailResponse;
 import com.planit.domain.placeRecommendation.service.PlaceRecommendationService;
+import com.planit.domain.keywordalert.service.KeywordAlertService;
 import com.planit.domain.post.dto.PostCreateRequest;
 import com.planit.domain.post.dto.PostCreateResponse;
 import com.planit.domain.post.dto.PostUpdateRequest;
@@ -61,6 +62,7 @@ public class PostService {
     private final PostedPlaceRepository postedPlaceRepository;
     private final PlaceRepository placeRepository;
     private final PlaceRecommendationService placeRecommendationService;
+    private final KeywordAlertService keywordAlertService;
 
     /** Presigned URL 발급 (게시물 이미지) */
     public PresignedUrlResponse getPostPresignedUrl(String loginId, String fileExtension, String contentType) {
@@ -108,6 +110,8 @@ public class PostService {
             case FREE -> {
                 Post saved = postRepository.save(post);
                 List<Long> imageIds = savePostImages(saved.getId(), request.getImageKeys(), now);
+                keywordAlertService.notifyMatchedKeywords(
+                        saved.getId(), saved.getAuthor().getId(), saved.getTitle(), saved.getContent());
                 return buildCreateResponse(saved, imageIds);
             }
             case PLAN_SHARE -> {
@@ -116,6 +120,8 @@ public class PostService {
                 post.setPlanInfo(planId);
                 Post saved = postRepository.save(post);
                 postedPlanRepository.save(new PostedPlan(saved, plan));
+                keywordAlertService.notifyMatchedKeywords(
+                        saved.getId(), saved.getAuthor().getId(), saved.getTitle(), saved.getContent());
                 return buildCreateResponse(saved, Collections.emptyList());
             }
             case PLACE_RECOMMEND -> {
@@ -123,6 +129,8 @@ public class PostService {
                 post.setPlaceRecommendation(payload.placeName(), payload.userRating(), payload.googlePlaceId());
                 Post saved = postRepository.save(post);
                 saveRecommendedPlace(saved, payload);
+                keywordAlertService.notifyMatchedKeywords(
+                        saved.getId(), saved.getAuthor().getId(), saved.getTitle(), saved.getContent());
                 return buildCreateResponse(saved, Collections.emptyList());
             }
             default -> throw new IllegalArgumentException("*지원하지 않는 게시판입니다.");
