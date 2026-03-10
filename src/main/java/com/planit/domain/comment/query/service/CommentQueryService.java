@@ -27,7 +27,7 @@ public class CommentQueryService {
     private final S3ImageUrlResolver imageUrlResolver;
 
     public PageResponse<CommentResponse> listComments(Long postId, Pageable pageable) {
-        if (!commentQueryRepository.existsActivePost(postId)) {
+        if (commentQueryRepository.countActivePost(postId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다.");
         }
 
