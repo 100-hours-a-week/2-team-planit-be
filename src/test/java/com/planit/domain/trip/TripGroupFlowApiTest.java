@@ -88,6 +88,7 @@ class TripGroupFlowApiTest {
 
     @Test
     void submitMemberBeforeLastSubmission_keepsWaitingAndSyncsSubmittedPreferences() throws Exception {
+        // Given
         MvcResult createResult = mockMvc.perform(post("/trips")
                         .with(user("leader"))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -106,6 +107,7 @@ class TripGroupFlowApiTest {
                 "wantedPlace", List.of("member-place", "leader-place")
         );
 
+        // When
         mockMvc.perform(post("/groups/join/{inviteCode}/submit", inviteCode)
                         .with(user("member1"))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -118,6 +120,7 @@ class TripGroupFlowApiTest {
                 .andExpect(jsonPath("$.data.submittedCount").value(2))
                 .andExpect(jsonPath("$.data.status").value("WAITING"));
 
+        // Then
         Trip trip = tripRepository.findById(tripId).orElseThrow();
         assertThat(trip.getStatus()).isEqualTo(TripStatus.WAITING);
         assertThat(trip.getHeadCount()).isEqualTo(3);
@@ -135,6 +138,7 @@ class TripGroupFlowApiTest {
 
     @Test
     void submitGroupInput_withExpiredInviteCode_returns400AndLeavesGroupStateUntouched() throws Exception {
+        // Given
         MvcResult createResult = mockMvc.perform(post("/trips")
                         .with(user("leader"))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -154,6 +158,7 @@ class TripGroupFlowApiTest {
                 "wantedPlace", List.of("member-place")
         );
 
+        // When
         mockMvc.perform(post("/groups/join/{inviteCode}/submit", inviteCode)
                         .with(user("member1"))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -163,6 +168,7 @@ class TripGroupFlowApiTest {
                 .andExpect(jsonPath("$.error.code").value("GROUP_002"))
                 .andExpect(jsonPath("$.error.message").value("초대코드가 만료되었습니다"));
 
+        // Then
         Long groupId = group.getId();
         Long memberId = userRepository.findByLoginIdAndDeletedFalse("member1").orElseThrow().getId();
 
