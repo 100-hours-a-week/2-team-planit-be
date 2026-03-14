@@ -9,7 +9,6 @@ import com.planit.domain.trip.entity.TripStatus;
 import com.planit.domain.trip.repository.TripRepository;
 import java.util.Map;
 
-import com.planit.domain.trip.service.AiAccessor.AiItineraryProcessor;
 import com.planit.domain.trip.service.redisAccessor.ItineraryJobService;
 import com.planit.domain.trip.service.redisAccessor.ItineraryJobStatus;
 import lombok.RequiredArgsConstructor;
@@ -54,14 +53,18 @@ public class ItineraryResultListener implements StreamListener<String, MapRecord
             String payload = fields.getOrDefault("payload", "");
             if (StringUtils.hasText(payload)) {
                 try {
+                    log.info("트라이 진입");
                     AiItineraryResponse response = objectMapper.readValue(payload, AiItineraryResponse.class);
+                    log.info("ai결과 가져옴: "+response);
                     processor.processResponse(response);
+                    log.info("프로세서 메서드 실행완료");
                     updateTripStatus(tripId, TripStatus.DONE);
                     jobService.markSuccess(tripId);
+                    log.info("여행상태 셋 & 잡 성공마킹 완료");
                 } catch (Exception ex) {
-                    log.error("일정 결과큐 리스닝 중 예외 발생", ex);
-                    //updateTripStatus(tripId, TripStatus.CANCELED);
-                    //jobService.markFail(tripId, "RESULT_PROCESSING_FAILED");
+                    log.error("일정 결과큐 프로세싱 중 예외 발생", ex);
+                    updateTripStatus(tripId, TripStatus.CANCELED);
+                    jobService.markFail(tripId, "RESULT_PROCESSING_FAILED");
                 }
             } else {
                 updateTripStatus(tripId, TripStatus.CANCELED);

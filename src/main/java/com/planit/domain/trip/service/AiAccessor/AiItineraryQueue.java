@@ -1,5 +1,6 @@
 package com.planit.domain.trip.service.AiAccessor;
 
+import com.planit.domain.trip.service.AiItineraryProcessor;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.BlockingQueue;
