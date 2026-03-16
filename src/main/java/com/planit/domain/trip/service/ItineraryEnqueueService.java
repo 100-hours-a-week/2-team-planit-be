@@ -8,7 +8,6 @@ import java.util.List;
 
 import com.planit.domain.trip.service.AiAccessor.AiItineraryClient;
 import com.planit.domain.trip.service.AiAccessor.AiItineraryJob;
-import com.planit.domain.trip.service.AiAccessor.AiItineraryProcessor;
 import com.planit.domain.trip.service.AiAccessor.AiItineraryQueue;
 import com.planit.domain.trip.service.redisAccessor.ItineraryJobService;
 import com.planit.domain.trip.service.redisAccessor.ItineraryJobStatus;

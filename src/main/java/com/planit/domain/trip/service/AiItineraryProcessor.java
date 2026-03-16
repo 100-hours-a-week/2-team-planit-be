@@ -1,4 +1,4 @@
-package com.planit.domain.trip.service.AiAccessor;
+package com.planit.domain.trip.service;
 
 import com.planit.domain.trip.dto.AiItineraryActivityResponse;
 import com.planit.domain.trip.dto.AiItineraryResponse;
@@ -12,6 +12,8 @@ import com.planit.domain.trip.repository.ItineraryItemPlaceRepository;
 import com.planit.domain.trip.repository.ItineraryItemTransportRepository;
 import com.planit.domain.trip.repository.TripRepository;
 
+import com.planit.domain.trip.service.AiAccessor.AiItineraryClient;
+import com.planit.domain.trip.service.AiAccessor.AiItineraryJob;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalTime;
