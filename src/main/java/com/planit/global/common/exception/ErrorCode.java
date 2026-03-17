@@ -1,12 +1,18 @@
 package com.planit.global.common.exception;
 
+import org.springframework.http.HttpStatus;
+
 public enum ErrorCode {
     COMMON_001("COMMON_001", "잘못된 요청입니다"),
-    COMMON_999("COMMON_999", "서버 오류가 발생했습니다"),
+    COMMON_999(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 오류가 발생했습니다"),
+    INVALID_INPUT(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "입력값이 올바르지 않습니다"),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "존재하지 않는 사용자입니다"),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다."),
+    DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "DUPLICATE_NICKNAME", "이미 사용 중인 닉네임입니다."),
     USER_DUPLICATE_NICKNAME("USER_DUPLICATE_NICKNAME", "이미 사용 중인 닉네임입니다."),
     USER_DUPLICATE_LOGIN_ID("USER_DUPLICATE_LOGIN_ID", "이미 사용 중인 로그인 아이디입니다."),
     USER_001("USER_001", "존재하지 않는 사용자입니다"),
-    USER_UNAUTHORIZED("USER_UNAUTHORIZED", "인증이 필요한 요청입니다"),
+    USER_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "USER_UNAUTHORIZED", "인증이 필요한 요청입니다"),
     TRIP_001("TRIP_001", "여행을 찾을 수 없습니다"),
     TRIP_002("TRIP_002", "이미 생성된 여행이 있습니다"),
     TRIP_003("TRIP_003", "일정을 찾을 수 없습니다"),
@@ -19,19 +25,31 @@ public enum ErrorCode {
     PLACE_003("PLACE_003", "장소 검색 호출에 실패했습니다"),
     PLACE_004("PLACE_004", "장소 검색 요청이 시간 초과되었습니다"),
     TRIP_NOT_FOUND("TRIP_NOT_FOUND", "여행 정보를 찾을 수 없습니다"),
-    FORBIDDEN_TRIP_ACCESS("FORBIDDEN_TRIP_ACCESS", "다른 사용자의 여행입니다"),
+    FORBIDDEN_TRIP_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_TRIP_ACCESS", "다른 사용자의 여행입니다"),
     GROUP_001("GROUP_001", "그룹을 찾을 수 없습니다"),
     GROUP_002("GROUP_002", "초대코드가 만료되었습니다"),
     GROUP_003("GROUP_003", "그룹 생성 인원수는 2명 이상이어야 합니다"),
     GROUP_004("GROUP_004", "팀장만 수행할 수 있는 요청입니다"),
     GROUP_005("GROUP_005", "현재 대기 상태에서만 가능한 요청입니다");
 
+    private final HttpStatus httpStatus;
     private final String code;
     private final String message;
 
-    ErrorCode(String code, String message) {
+    ErrorCode(HttpStatus httpStatus, String code, String message) {
+        this.httpStatus = httpStatus;
         this.code = code;
         this.message = message;
+    }
+
+    ErrorCode(String code, String message) {
+        this.httpStatus = HttpStatus.BAD_REQUEST;
+        this.code = code;
+        this.message = message;
+    }
+
+    public HttpStatus getHttpStatus() {
+        return httpStatus;
     }
 
     public String getCode() {
