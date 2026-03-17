@@ -39,6 +39,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             uri = uri.substring(contextPath.length());
         }
         return uri.equals("/auth/login")
+            || uri.equals("/auth/reissue")
+            || uri.equals("/auth/logout")
             || uri.startsWith("/users/signup")
             || uri.startsWith("/users/check-login-id")
             || uri.startsWith("/users/check-nickname")

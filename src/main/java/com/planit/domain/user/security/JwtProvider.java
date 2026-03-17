@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -20,6 +21,9 @@ import java.nio.charset.StandardCharsets;
 @Component
 @RequiredArgsConstructor
 public class JwtProvider {
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "ACCESS";
+    private static final String REFRESH_TOKEN_TYPE = "REFRESH";
 
     private final JwtProperties jwtProperties;
 
@@ -27,31 +31,61 @@ public class JwtProvider {
 
     @Getter
     private Duration accessTokenValidity;
+    @Getter
+    private Duration refreshTokenValidity;
 
     @PostConstruct
     public void init() {
         byte[] keyBytes = decodeSecret(jwtProperties.getSecret());
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenValidity = Duration.ofMillis(jwtProperties.getAccessTokenExpirationMs());
+        this.refreshTokenValidity = Duration.ofMillis(jwtProperties.getRefreshTokenExpirationMs());
     }
 
     public String generateToken(String loginId) {
+        return generateAccessToken(loginId);
+    }
+
+    public String generateAccessToken(String loginId) {
+        return generateToken(loginId, accessTokenValidity, ACCESS_TOKEN_TYPE);
+    }
+
+    public String generateRefreshToken(String loginId) {
+        return generateToken(loginId, refreshTokenValidity, REFRESH_TOKEN_TYPE);
+    }
+
+    public LocalDateTime getRefreshTokenExpiresAt() {
+        return LocalDateTime.now().plus(refreshTokenValidity);
+    }
+
+    private String generateToken(String loginId, Duration validity, String tokenType) {
         Instant now = Instant.now();
         return Jwts.builder()
             .setSubject(loginId)
+            .claim(TOKEN_TYPE_CLAIM, tokenType)
             .setIssuedAt(Date.from(now))
-            .setExpiration(Date.from(now.plus(accessTokenValidity)))
+            .setExpiration(Date.from(now.plus(validity)))
             .signWith(key, SignatureAlgorithm.HS256)
             .compact();
     }
 
     public boolean validateToken(String token) {
+        return validateTokenType(token, ACCESS_TOKEN_TYPE);
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validateTokenType(token, REFRESH_TOKEN_TYPE);
+    }
+
+    private boolean validateTokenType(String token, String expectedType) {
         try {
-            Jwts.parserBuilder()
+            String tokenType = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
-                .parseClaimsJws(token);
-            return true;
+                .parseClaimsJws(token)
+                .getBody()
+                .get(TOKEN_TYPE_CLAIM, String.class);
+            return expectedType.equals(tokenType);
         } catch (Exception e) {
             return false;
         }
