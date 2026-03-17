@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.user.security.JwtAuthenticationFilter;
 import com.planit.global.common.exception.ErrorCode;
 import com.planit.global.common.response.ErrorResponse;
+import com.planit.global.rate.RateLimitFilter;
 import com.planit.global.security.PlanMineAuthenticationFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -48,6 +49,7 @@ public class SecurityConfig {
     private static final List<String> ALLOWED_HEADERS = List.of("Authorization", "Content-Type");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final PlanMineAuthenticationFilter planMineAuthenticationFilter;
 
 
@@ -91,6 +93,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class)
                 .addFilterAfter(planMineAuthenticationFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
