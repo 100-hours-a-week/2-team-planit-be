@@ -9,6 +9,7 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "존재하지 않는 사용자입니다"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "DUPLICATE_NICKNAME", "이미 사용 중인 닉네임입니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "유효하지 않은 리프레시 토큰입니다."),
     USER_DUPLICATE_NICKNAME("USER_DUPLICATE_NICKNAME", "이미 사용 중인 닉네임입니다."),
     USER_DUPLICATE_LOGIN_ID("USER_DUPLICATE_LOGIN_ID", "이미 사용 중인 로그인 아이디입니다."),
     USER_001("USER_001", "존재하지 않는 사용자입니다"),

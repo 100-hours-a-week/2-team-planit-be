@@ -14,6 +14,10 @@ public class JwtProperties {
      * Access token validity duration in milliseconds.
      */
     private long accessTokenExpirationMs = 3600000L;
+    /**
+     * Refresh token validity duration in milliseconds.
+     */
+    private long refreshTokenExpirationMs = 1209600000L; // 14 days
 
     public String getSecret() {
         return secret;
@@ -29,5 +33,13 @@ public class JwtProperties {
 
     public void setAccessTokenExpirationMs(long accessTokenExpirationMs) {
         this.accessTokenExpirationMs = accessTokenExpirationMs;
+    }
+
+    public long getRefreshTokenExpirationMs() {
+        return refreshTokenExpirationMs;
+    }
+
+    public void setRefreshTokenExpirationMs(long refreshTokenExpirationMs) {
+        this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 }

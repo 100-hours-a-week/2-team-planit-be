@@ -5,11 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public class LoginResponse {
-    private final Long userId;
-    private final String loginId;
-    private final String nickname;
+public class TokenReissueResponse {
     private final String accessToken;
     private final String refreshToken;
-    private final String profileImageUrl;
 }
