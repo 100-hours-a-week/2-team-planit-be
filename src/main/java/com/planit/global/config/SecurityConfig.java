@@ -42,7 +42,8 @@ public class SecurityConfig {
             "http://127.0.0.1:5173",
             "https://planit-ai.store",
             "https://3.39.61.9",
-            "https://d1e7kkp6huat07.cloudfront.net"
+            "https://d1e7kkp6huat07.cloudfront.net",
+            "https://dijh9mhj7vomy.cloudfront.net"
     );
     private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     private static final List<String> ALLOWED_HEADERS = List.of("Authorization", "Content-Type");
