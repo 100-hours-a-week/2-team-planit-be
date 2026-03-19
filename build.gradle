@@ -67,6 +67,8 @@ dependencies {
 
     // AWS SDK S3
     implementation 'software.amazon.awssdk:s3:2.20.81'
+    // IRSA(WebIdentity) 자격증명을 위한 STS AssumeRole.
+    implementation 'software.amazon.awssdk:sts:2.20.81'
 
     //Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
