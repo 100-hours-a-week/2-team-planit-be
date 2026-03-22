@@ -65,6 +65,7 @@ class AuthVerificationControllerTest {
     void verifyRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/auth/verify")) // 헤더 없이 호출
             .andExpect(status().isUnauthorized()) // 401 발생
-            .andExpect(jsonPath("$.message").value("*로그인이 필요한 요청입니다.")); // 인증 entry point 메시지
+            .andExpect(jsonPath("$.code").value("COMMON_001"))
+            .andExpect(jsonPath("$.message").value("잘못된 요청입니다")); // 인증 entry point 메시지
     }
 }

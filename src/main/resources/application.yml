@@ -3,6 +3,12 @@ spring: # Spring Boot 핵심 설정 루트
     active: local # 기본은 로컬 개발용 프로파일
   application:
     name: travel-service
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6380}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      timeout: 10s
   jackson: # JSON 직렬화/역직렬화 타임존을 KST로 고정
     time-zone: Asia/Seoul
   jpa: # Hibernate JDBC 타임존을 KST로 고정
