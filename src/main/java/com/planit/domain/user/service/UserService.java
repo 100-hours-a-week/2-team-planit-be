@@ -4,6 +4,7 @@ import com.planit.domain.post.repository.PostRepository;
 import com.planit.domain.user.dto.MyPageResponse;
 import com.planit.domain.user.dto.PlanPreview;
 import com.planit.domain.user.dto.SignUpRequest;
+import com.planit.domain.user.dto.UserCreateRequest;
 import com.planit.domain.user.dto.UserAvailabilityResponse;
 import com.planit.domain.user.dto.UserProfileResponse;
 import com.planit.domain.user.dto.UserSignupResponse;
@@ -84,6 +85,27 @@ public class UserService {
             throw resolveDuplicateException(request, ex);
         }
         return new UserSignupResponse(saved.getId());
+    }
+
+    @Transactional
+    public UserProfileResponse createUser(UserCreateRequest request) {
+        if (userRepository.existsByLoginIdAndDeletedFalse(request.getEmail())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (userRepository.existsByNicknameAndDeletedFalse(request.getNickname())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        User user = new User();
+        LocalDateTime now = LocalDateTime.now();
+        user.setLoginId(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setNickname(request.getNickname());
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        user.setDeleted(false);
+        User saved = userRepository.save(user);
+        return buildUserProfileResponse(saved);
     }
 
     private RuntimeException resolveDuplicateException(SignUpRequest request, DataIntegrityViolationException ex) {
@@ -241,6 +263,39 @@ public class UserService {
         return buildUserProfileResponse(user);
     }
 
+    public UserProfileResponse getUser(Long userId) {
+        return buildUserProfileResponse(findActiveUserById(userId));
+    }
+
+    @Transactional
+    public UserProfileResponse updateUser(Long userId, UserUpdateRequest request) {
+        User user = findActiveUserById(userId);
+
+        if (!user.getLoginId().equals(request.getEmail())
+                && userRepository.existsByLoginIdAndDeletedFalse(request.getEmail())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (!user.getNickname().equals(request.getNickname())
+                && userRepository.existsByNicknameAndDeletedFalse(request.getNickname())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        user.setLoginId(request.getEmail());
+        user.setNickname(request.getNickname());
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+        user.setUpdatedAt(LocalDateTime.now());
+        return buildUserProfileResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        User user = findActiveUserById(userId);
+        user.markDeleted(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
     public UserAvailabilityResponse checkLoginId(String loginId) {
         if (userRepository.existsByLoginIdAndDeletedFalse(loginId)) {
             return new UserAvailabilityResponse(false, "*중복된 아이디 입니다.");
@@ -364,5 +419,11 @@ public class UserService {
 
     private String resolveProfileImageUrl(String imageKey) {
         return imageUrlResolver.resolve(imageKey);
+    }
+
+    private User findActiveUserById(Long userId) {
+        return userRepository.findById(userId)
+                .filter(user -> !user.isDeleted())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }
