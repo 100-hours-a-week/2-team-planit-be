@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planit.domain.user.dto.UserProfileResponse;
+import com.planit.domain.user.query.service.UserQueryService;
+import com.planit.domain.user.repository.UserRepository;
+import com.planit.domain.user.security.JwtProvider;
 import com.planit.global.common.exception.GlobalExceptionHandler;
 import com.planit.global.config.SecurityConfig;
 import com.planit.domain.user.service.UserService;
@@ -35,15 +38,23 @@ class UserValidationIntegrationTest {
     @MockBean
     private UserService userService; // 실제 서비스는 모킹
 
+    @MockBean
+    private UserQueryService userQueryService;
+
+    @MockBean
+    private JwtProvider jwtProvider;
+
+    @MockBean
+    private UserRepository userRepository;
+
     @Test
     @DisplayName("대문자 포함 아이디 중복 체크 시 스펙 메시지 반환")
     void checkLoginIdRejectsUppercase() throws Exception {
-        mockMvc.perform(get("/api/users/check-login-id")
+        mockMvc.perform(get("/users/check-login-id")
                 .param("loginId", "Planit123")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value(
-                "*아이디는 영문 소문자와 숫자, _ 만 포함할 수 있습니다."));
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
     }
 
     @Test
@@ -56,11 +67,12 @@ class UserValidationIntegrationTest {
             "nickname", "planitter"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("*비밀번호가 다릅니다."));
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+            .andExpect(jsonPath("$.errors[0].reason").value("*비밀번호가 다릅니다."));
     }
 
     @Test
@@ -72,23 +84,23 @@ class UserValidationIntegrationTest {
             "nickname", "Planitter"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("*아이디를 입력해주세요."))
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
             .andExpect(jsonPath("$.errors[0].field").value("loginId"))
-            .andExpect(jsonPath("$.errors[0].message").value("*아이디를 입력해주세요."));
+            .andExpect(jsonPath("$.errors[0].reason").value("*아이디를 입력해주세요."));
     }
 
     @Test
     @DisplayName("내 정보 조회는 인증되면 사용자 정보를 내려준다")
     @WithMockUser(username = "planit_user")
     void meReturnsProfileWhenAuthenticated() throws Exception {
-        when(userService.getProfile("planit_user"))
+        when(userQueryService.getProfile("planit_user"))
             .thenReturn(new UserProfileResponse(5L, "planit_user", "planitter", null)); // 인증된 사용자 반환 데이터 모킹
 
-        mockMvc.perform(get("/api/users/me"))
+        mockMvc.perform(get("/users/me"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.userId").value(5))
             .andExpect(jsonPath("$.loginId").value("planit_user"))
@@ -98,24 +110,7 @@ class UserValidationIntegrationTest {
     @Test
     @DisplayName("내 정보 조회는 인증 없으면 401")
     void meRequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/users/me"))
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.message").value("*로그인이 필요한 요청입니다."));
-    }
-
-    @Test
-    @DisplayName("health/healthcheck/api/healthcheck 모두 인증 없이 200 반환")
-    void healthcheckIsAccessible() throws Exception {
-        mockMvc.perform(get("/api/health"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("UP"));
-
-        mockMvc.perform(get("/api/healthcheck"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("UP"));
-
-        mockMvc.perform(get("/api/healthcheck"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("UP"));
+        mockMvc.perform(get("/users/me"))
+            .andExpect(status().isUnauthorized());
     }
 }

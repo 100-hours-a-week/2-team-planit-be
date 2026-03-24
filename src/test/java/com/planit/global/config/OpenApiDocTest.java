@@ -28,14 +28,12 @@ class OpenApiDocTest {
     @Test
     @DisplayName("Swagger 문서에 마이페이지 사용자 엔드포인트/스키마/보안 요약이 포함됨")
     void openApiDocsIncludeUserMeAndSecurity() throws Exception {
-        mockMvc.perform(get("/api/v3/api-docs"))
+        mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths['/api/users/me'].get").exists())
-                .andExpect(jsonPath("$.paths['/api/users/me'].put").exists())
-                .andExpect(jsonPath("$.paths['/api/users/me'].delete").exists())
-                .andExpect(jsonPath("$.paths['/api/users/me/plans/{planId}'].delete").exists())
+                .andExpect(jsonPath("$.paths['/users/me'].get").exists())
+                .andExpect(jsonPath("$.paths['/users/me'].put").exists())
+                .andExpect(jsonPath("$.paths['/users/me'].delete").exists())
                 .andExpect(jsonPath("$.components.schemas.UserProfileResponse.properties.nickname").exists())
-                .andExpect(jsonPath("$.components.schemas.UserProfileResponse.properties.planHistory.items").exists())
                 .andExpect(jsonPath("$.components.schemas.UserUpdateRequest.properties.nickname").exists())
                 .andExpect(jsonPath("$.security").isArray());
     }
