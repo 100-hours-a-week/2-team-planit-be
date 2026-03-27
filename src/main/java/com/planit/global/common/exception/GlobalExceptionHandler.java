@@ -5,17 +5,21 @@ import com.planit.domain.user.exception.DuplicateNicknameException;
 import com.planit.domain.keywordalert.exception.DuplicateKeywordException;
 import com.planit.global.common.response.ErrorResponse;
 import com.planit.global.common.exception.UnauthorizedAccessException;
+import jakarta.validation.ConstraintViolationException;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.server.ResponseStatusException;
 import java.sql.SQLException;
 
 
@@ -27,13 +31,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateNicknameException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateNickname(DuplicateNicknameException ex) {
         logger.warn("DuplicateNickname", ex);
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.from(ex.getErrorCode()));
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus()).body(ErrorResponse.from(ex.getErrorCode()));
     }
 
     @ExceptionHandler(DuplicateLoginIdException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateLoginId(DuplicateLoginIdException ex) {
         logger.warn("DuplicateLoginId", ex);
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.from(ex.getErrorCode()));
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus()).body(ErrorResponse.from(ex.getErrorCode()));
     }
 
     @ExceptionHandler(DuplicateKeywordException.class)
@@ -46,38 +50,55 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
         logger.warn("BusinessException", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.from(ex.getErrorCode()));
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus()).body(ErrorResponse.from(ex.getErrorCode()));
     }
 
     @ExceptionHandler(UnauthorizedAccessException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedAccessException ex) {
         logger.warn("UnauthorizedAccess", ex);
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorResponse.from(ex.getErrorCode()));
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus()).body(ErrorResponse.from(ex.getErrorCode()));
     }
 
-    @ExceptionHandler({
-            MethodArgumentNotValidException.class,
-            MethodArgumentTypeMismatchException.class,
-            HttpMessageNotReadableException.class
-    })
-    public ResponseEntity<ErrorResponse> handleValidationException(Exception ex) {
-        logger.warn("ValidationException", ex);
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
+        logger.warn("MethodArgumentNotValidException", ex);
+        var errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(fieldError -> new ErrorResponse.FieldError(fieldError.getField(), fieldError.getDefaultMessage()))
+                .collect(Collectors.toList());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.from(ErrorCode.COMMON_001));
+                .body(ErrorResponse.from(ErrorCode.INVALID_INPUT, errors));
+    }
+
+    @ExceptionHandler({BindException.class, ConstraintViolationException.class,
+            MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidInputException(Exception ex) {
+        logger.warn("InvalidInputException", ex);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.from(ErrorCode.INVALID_INPUT));
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
         logger.warn("UnsupportedMediaType", ex);
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
-                .body(ErrorResponse.from(ErrorCode.COMMON_001));
+                .body(ErrorResponse.from(ErrorCode.INVALID_INPUT));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         logger.warn("IllegalArgument", ex);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.from(ErrorCode.COMMON_001));
+                .body(ErrorResponse.from(ErrorCode.INVALID_INPUT));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        logger.warn("ResponseStatusException", ex);
+        String message = ex.getReason() != null ? ex.getReason() : ErrorCode.INVALID_INPUT.getMessage();
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of("message", message));
     }
 
     @ExceptionHandler(IllegalStateException.class)

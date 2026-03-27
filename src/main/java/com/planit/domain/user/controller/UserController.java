@@ -4,6 +4,7 @@ import com.planit.domain.user.dto.MyPageResponse;
 import com.planit.domain.user.dto.ProfileImageKeyRequest;
 import com.planit.infrastructure.storage.dto.PresignedUrlRequest;
 import com.planit.domain.user.dto.SignUpRequest;
+import com.planit.domain.user.dto.UserCreateRequest;
 import com.planit.domain.user.dto.UserAvailabilityResponse;
 import com.planit.domain.user.dto.UserProfileResponse;
 import com.planit.domain.user.dto.UserSignupResponse;
@@ -22,6 +23,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,6 +47,31 @@ public class UserController {
     public UserSignupResponse signup(@Valid @RequestBody SignUpRequest request) {
         // DTO 검증 후 서비스로 위임하여 저장
         return userService.signup(request);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public UserProfileResponse createUser(@Valid @RequestBody UserCreateRequest request) {
+        return userService.createUser(request);
+    }
+
+    @GetMapping("/{userId}")
+    public UserProfileResponse getUser(@PathVariable Long userId) {
+        return userService.getUser(userId);
+    }
+
+    @PutMapping("/{userId}")
+    public UserProfileResponse updateUser(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserUpdateRequest request
+    ) {
+        return userService.updateUser(userId, request);
+    }
+
+    @DeleteMapping("/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(@PathVariable Long userId) {
+        userService.deleteUser(userId);
     }
 
     /** 회원가입 시 프로필 이미지 Presigned URL 발급 (비인증). 업로드 후 signup 시 profileImageKey로 전달 */

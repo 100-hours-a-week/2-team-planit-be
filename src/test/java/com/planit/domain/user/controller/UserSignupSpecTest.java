@@ -59,7 +59,7 @@ class UserSignupSpecTest {
             "nickname", "planitter"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isCreated())
@@ -87,7 +87,7 @@ class UserSignupSpecTest {
             "nickname", "another"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
@@ -113,7 +113,7 @@ class UserSignupSpecTest {
             "nickname", "planitter"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
@@ -130,11 +130,11 @@ class UserSignupSpecTest {
             "nickname", "planitter"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value(
+            .andExpect(jsonPath("$.errors[0].reason").value(
                 "*아이디는 영문 소문자와 숫자, _ 만 포함할 수 있습니다."));
     }
 
@@ -148,11 +148,11 @@ class UserSignupSpecTest {
             "nickname", "planitter2"
         );
 
-        mockMvc.perform(post("/api/users/signup")
+        mockMvc.perform(post("/users/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value(
+            .andExpect(jsonPath("$.errors[0].reason").value(
                 "*비밀번호는 8자 이상, 20자 이하이며, 대문자, 소문자, 숫자, 특수문자를 각각 최소 1개 포함해야 합니다."));
     }
 }
